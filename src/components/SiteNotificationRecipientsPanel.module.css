@@ -1,0 +1,70 @@
+.wrap {
+  max-width: 560px;
+}
+
+.lead {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+}
+
+.check {
+  grid-row: span 2;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+.name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.email {
+  grid-column: 2;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.empty {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.emptyText {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.link {
+  font-weight: 600;
+}

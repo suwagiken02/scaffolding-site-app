@@ -1,0 +1,360 @@
+.page {
+  max-width: 960px;
+}
+
+.pinPage {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.pinCard {
+  width: 100%;
+  max-width: 520px;
+  padding: 1.6rem 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.pinTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.6rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.pinLead {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pinDots {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+}
+
+.pinDotOn,
+.pinDotOff {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+}
+
+.pinDotOn {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pinDotOff {
+  background: transparent;
+}
+
+.pinError {
+  margin: 0 0 0.9rem;
+  text-align: center;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+.keyBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.4rem;
+  font-weight: 900;
+  padding: 1.05rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.keyBtn:hover {
+  background: var(--surface-hover);
+}
+
+.enterBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  padding: 1.05rem 0.5rem;
+  border-radius: var(--radius);
+  border: none;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.enterBtn:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.enterBtn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: 1.7rem;
+  font-weight: 900;
+}
+
+.lead {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.85rem;
+}
+
+.personBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  padding: 1.15rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.personBtn:hover {
+  background: var(--surface-hover);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  padding: 1.35rem 1.5rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+  margin: 0 0 0.85rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.modalText {
+  margin: 0 0 1.2rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.modalBack {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 0.65rem 1.05rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modalBack:hover {
+  background: var(--surface-hover);
+}
+
+.modalYes {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  padding: 0.65rem 1.05rem;
+  border-radius: var(--radius);
+  border: none;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.modalYes:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.modalYes:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.meetingError {
+  margin: 0 0 0.9rem;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.meetingOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+
+.meetingBtn,
+.meetingBtnActive {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 900;
+  padding: 0.65rem 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.meetingBtn:hover {
+  background: var(--surface-hover);
+}
+
+.meetingBtnActive {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.meetingOther {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.meetingOtherLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.meetingOtherInput {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.meetingOtherInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.done {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doneCard {
+  width: 100%;
+  max-width: 520px;
+  padding: 1.7rem 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: center;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.doneTitle {
+  font-size: 1.6rem;
+  font-weight: 900;
+  margin-bottom: 0.6rem;
+}
+
+.doneText {
+  font-size: 1.3rem;
+  font-weight: 900;
+  margin-bottom: 0.7rem;
+}
+
+.doneHint {
+  color: var(--text-muted);
+}
+
+.resetWrap {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.resetBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.resetBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+

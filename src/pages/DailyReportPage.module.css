@@ -1,0 +1,259 @@
+.page {
+  min-height: 100vh;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2rem;
+  font-family: "Noto Sans JP", system-ui, sans-serif;
+  background: #f5f6f8;
+  color: #1a1a1a;
+}
+
+.docHeader {
+  margin-bottom: 1.5rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.backLink {
+  color: #1565c0;
+  font-size: 0.9rem;
+}
+
+.dateField {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dateLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.dateInput {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.printBtn {
+  background: #1565c0;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.45rem 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.printBtn:hover {
+  background: #0d47a1;
+}
+
+.hint {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.titleBlock {
+  text-align: center;
+  padding: 1rem 0 0.5rem;
+  border-bottom: 2px solid #1a1a1a;
+}
+
+.docTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.docDate {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.workKindBadge {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.siteName {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.section {
+  margin-top: 1.75rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #ccc;
+}
+
+.infoTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.infoTable th,
+.infoTable td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.infoTable tr:last-child th,
+.infoTable tr:last-child td {
+  border-bottom: none;
+}
+
+.infoTable th {
+  width: 7.5rem;
+  background: #f0f2f5;
+  font-weight: 600;
+  color: #333;
+  vertical-align: top;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  background: #fff;
+  border: 1px dashed #bbb;
+  border-radius: 8px;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.photoList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.photoBlock {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.photoHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background: #f0f2f5;
+  border-bottom: 1px solid #ddd;
+}
+
+.photoNo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #555;
+}
+
+.photoTime {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.photoFrame {
+  padding: 0.75rem;
+  text-align: center;
+  background: #fafafa;
+}
+
+.photoImg {
+  max-width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.docFooter {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ccc;
+  text-align: center;
+}
+
+.printBtnSecondary {
+  background: #fff;
+  color: #1565c0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid #1565c0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.printBtnSecondary:hover {
+  background: #e3f2fd;
+}
+
+.muted {
+  color: #666;
+}
+
+@media print {
+  .page {
+    background: #fff;
+    padding: 0.5cm;
+    max-width: none;
+  }
+
+  .noPrint {
+    display: none !important;
+  }
+
+  .photoImg {
+    max-height: none;
+  }
+
+  .photoBlock {
+    border: 1px solid #999;
+  }
+}

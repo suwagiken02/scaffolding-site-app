@@ -1,0 +1,246 @@
+.root {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.sectionTitle {
+  margin: 0 0 0.85rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.accList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.accItem {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.accHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin: 0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: none;
+  cursor: pointer;
+}
+
+.accHeader:hover {
+  background: var(--surface-hover);
+}
+
+.accHeaderMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.accHeaderLine1 {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.accHeaderLine2 {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.accSep {
+  user-select: none;
+}
+
+.accMan {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.accChevron {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.accPanel {
+  padding: 1rem 1rem 1.15rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.block {
+  margin-bottom: 1.25rem;
+}
+
+.block:last-child {
+  margin-bottom: 0;
+}
+
+.blockTitle {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.muted {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.laborDl {
+  margin: 0 0 0.75rem;
+  display: grid;
+  gap: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.laborRow {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.laborRow dt {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.laborRow dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.laborDeleteBtn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.laborDeleteBtn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.35rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+}
+
+.modalTitle {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.modalText {
+  margin: 0 0 0.65rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.modalSub {
+  margin: 0 0 1.15rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.modalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+.modalCancel {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modalCancel:hover {
+  background: var(--surface-hover);
+}
+
+.modalDanger {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border: none;
+  background: #b91c1c;
+  color: #fff;
+  cursor: pointer;
+}
+
+.modalDanger:hover {
+  background: #991b1b;
+}

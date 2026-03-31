@@ -1,0 +1,89 @@
+.section {
+  margin-top: 1.5rem;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.filter,
+.filterActive {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.filter:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.filterActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: stretch;
+}
+
+.rowHeader :global(.accHeader) {
+  flex: 1;
+}
+
+.rowDeleteBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 900;
+  padding: 0 0.85rem;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.rowDeleteBtn:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+

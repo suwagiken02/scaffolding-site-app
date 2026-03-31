@@ -1,0 +1,209 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.panel {
+  width: 100%;
+  max-width: 28rem;
+  max-height: min(90vh, 36rem);
+  overflow: auto;
+  padding: 1.35rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.title {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.lead {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.warn {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.breakdown {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.breakdown dt {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.breakdown dd {
+  margin: 0 0 0.4rem;
+}
+
+.breakdown dd:last-child {
+  margin-bottom: 0;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.select {
+  width: 100%;
+  max-width: 12rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.checkList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 11rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.checkRow {
+  border-bottom: 1px solid var(--border);
+}
+
+.checkRow:last-child {
+  border-bottom: none;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.checkLabel:hover {
+  background: var(--surface-hover);
+}
+
+.check {
+  flex-shrink: 0;
+}
+
+.error {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: #dc2626;
+}
+
+.numberInput {
+  width: 100%;
+  max-width: 10rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.1rem;
+}
+
+.btnPrimary {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background: var(--accent-hover);
+}
+
+.btnSecondary {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background: var(--surface-hover);
+}
+
+.btnYes {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.btnYes:hover {
+  background: var(--accent-hover);
+}
+
+.emptyMasters {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}

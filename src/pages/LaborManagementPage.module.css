@@ -1,0 +1,262 @@
+.page {
+  max-width: 960px;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.lead {
+  margin: 0 0 1.5rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 1.5rem;
+  align-items: flex-end;
+  margin-bottom: 1.75rem;
+  padding: 1.1rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab,
+.tabActive {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.5rem 0.9rem;
+  margin-bottom: -1px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.tabActive {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+  cursor: default;
+}
+
+.attTotal {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.fieldGrow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: min(100%, 14rem);
+}
+
+.label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.monthRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.select,
+.selectWide {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.select:focus,
+.selectWide:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.selectWide {
+  width: 100%;
+  max-width: 24rem;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.placeholder {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.sectionTitle {
+  margin: 0 0 0.85rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.summary {
+  margin-bottom: 2rem;
+}
+
+.summaryGrid {
+  margin: 0 0 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem 1.25rem;
+}
+
+.summaryItem {
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.summaryItem dt {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.summaryItem dd {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.summaryNote {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.tableSection {
+  margin-bottom: 1rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table th,
+.table td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.holidayRow td {
+  color: var(--text-muted);
+}
+
+.holidayText {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.lateTime {
+  color: #dc2626;
+  font-weight: 900;
+}
+
+.listTotal {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.85rem 0.25rem 0;
+}
+
+.listTotalLabel {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.listTotalValue {
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table td {
+  word-break: break-word;
+}

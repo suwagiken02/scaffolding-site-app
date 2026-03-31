@@ -1,0 +1,109 @@
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.select {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.fieldsetLegend {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 0.35rem;
+}
+
+.checkGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.checkLabel input {
+  accent-color: var(--accent);
+}
+
+.textarea {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  min-height: 4rem;
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.radioRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.workerSuffix {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workerSuffix span {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.dualField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formWide {
+  max-width: 640px;
+}
