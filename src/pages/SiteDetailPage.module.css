@@ -426,6 +426,187 @@
   scroll-margin-top: 0.75rem;
 }
 
+.basicInfoTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1.75rem 0 0.85rem;
+}
+
+.basicInfoTitleRow .pageSectionTitle {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.basicInfoTitleRow .editLink {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.memoBlock {
+  margin-top: 1.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.memoHeading {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.memoAddOpenBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.memoAddOpenBtn:hover {
+  background: var(--surface-hover);
+}
+
+.memoAddForm {
+  margin-bottom: 1rem;
+}
+
+.memoTextarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 0.5rem;
+  padding: 0.55rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.memoFormActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.memoSaveBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.memoSaveBtn:hover {
+  background: var(--accent-hover);
+}
+
+.memoCancelBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.memoCancelBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.memoList {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.memoItem {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.memoBody {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.memoItemActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.memoEditBtn,
+.memoDeleteBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.memoEditBtn:hover,
+.memoDeleteBtn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.memoDeleteBtn {
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+.memoDeleteBtn:hover {
+  color: #991b1b;
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.memoEditForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .scaffoldRemovalBtn {
   appearance: none;
   font-family: inherit;

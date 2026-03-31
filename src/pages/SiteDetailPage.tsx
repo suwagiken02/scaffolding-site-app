@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { Site } from "../types/site";
+import type { Site, SiteMemo } from "../types/site";
 import {
   getSiteById,
+  newSiteMemoId,
   normalizeEntranceDateKeys,
+  normalizeSiteMemos,
   startDateFromEntranceDateKeys,
   updateSite,
 } from "../lib/siteStorage";
@@ -54,12 +56,6 @@ function normalizeStringArray(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === "string");
 }
 
-function normalizeNonNegativeInt(v: unknown, fallback = 0): number {
-  const n = typeof v === "number" ? v : Number(v);
-  if (!Number.isFinite(n) || n < 0) return fallback;
-  return Math.round(n);
-}
-
 function formatYen(n: number): string {
   return `${Math.round(n).toLocaleString()}円`;
 }
@@ -86,6 +82,10 @@ export function SiteDetailPage() {
   const [deleteSitePinError, setDeleteSitePinError] = useState<string | null>(
     null
   );
+  const [memoAddOpen, setMemoAddOpen] = useState(false);
+  const [memoDraft, setMemoDraft] = useState("");
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [editingMemoText, setEditingMemoText] = useState("");
   const photoAddTriggerRef = useRef<(() => void) | null>(null);
   const basicInfoSectionRef = useRef<HTMLElement | null>(null);
 
@@ -193,10 +193,10 @@ export function SiteDetailPage() {
       salesName: "",
       foremanName: "",
       kogataNames: [],
-      workerCount: 0,
       vehicleLabels: [],
       siteTypeName: "",
       companyKind: "自社",
+      siteMemos: [],
       createdAt: "",
       scaffoldingRemovalCompletedAt: undefined,
       ignoreSiteListWarning: undefined,
@@ -226,8 +226,8 @@ export function SiteDetailPage() {
       salesName: normalizeString(s?.salesName),
       foremanName: normalizeString(s?.foremanName),
       kogataNames: normalizeStringArray(s?.kogataNames),
-      workerCount: normalizeNonNegativeInt(s?.workerCount, 0),
       vehicleLabels: normalizeStringArray(s?.vehicleLabels),
+      siteMemos: normalizeSiteMemos(s?.siteMemos),
       siteTypeName: normalizeString(s?.siteTypeName),
       companyKind,
       createdAt: normalizeString(s?.createdAt),
@@ -348,9 +348,6 @@ export function SiteDetailPage() {
         <p className={styles.headerClient}>
           {safeSite.clientName?.trim() || "—"}
         </p>
-        <Link to={`/sites/${safeSite.id}/edit`} className={styles.editLink}>
-          編集する
-        </Link>
       </header>
 
       <div className={styles.basicInfoJumpBar}>
@@ -567,7 +564,12 @@ export function SiteDetailPage() {
         className={styles.basicInfoSection}
         aria-label="現場基本情報"
       >
-        <h2 className={styles.pageSectionTitle}>現場基本情報</h2>
+        <div className={styles.basicInfoTitleRow}>
+          <h2 className={styles.pageSectionTitle}>現場基本情報</h2>
+          <Link to={`/sites/${safeSite.id}/edit`} className={styles.editLink}>
+            編集する
+          </Link>
+        </div>
         <dl className={styles.detailsGrid}>
           <div className={styles.row}>
             <dt className={styles.dt}>現場名</dt>
@@ -650,10 +652,6 @@ export function SiteDetailPage() {
             <dd className={styles.dd}>{safeSite.salesName || "—"}</dd>
           </div>
           <div className={styles.row}>
-            <dt className={styles.dt}>人員数</dt>
-            <dd className={styles.dd}>{safeSite.workerCount} 名</dd>
-          </div>
-          <div className={styles.row}>
             <dt className={styles.dt}>現場種別</dt>
             <dd className={styles.dd}>{safeSite.siteTypeName || "—"}</dd>
           </div>
@@ -662,6 +660,153 @@ export function SiteDetailPage() {
             <dd className={styles.dd}>{safeSite.companyKind}</dd>
           </div>
         </dl>
+
+        <div className={styles.memoBlock} aria-label="現場メモ">
+          <h3 className={styles.memoHeading}>メモ</h3>
+          {!memoAddOpen ? (
+            <button
+              type="button"
+              className={styles.memoAddOpenBtn}
+              onClick={() => {
+                setMemoAddOpen(true);
+                setMemoDraft("");
+              }}
+            >
+              メモを追加
+            </button>
+          ) : (
+            <div className={styles.memoAddForm}>
+              <textarea
+                className={styles.memoTextarea}
+                value={memoDraft}
+                onChange={(e) => setMemoDraft(e.target.value)}
+                rows={4}
+                placeholder="メモを入力"
+                aria-label="新しいメモ"
+              />
+              <div className={styles.memoFormActions}>
+                <button
+                  type="button"
+                  className={styles.memoSaveBtn}
+                  onClick={() => {
+                    const t = memoDraft.trim();
+                    if (!t) return;
+                    const next: Site = {
+                      ...safeSite,
+                      siteMemos: [
+                        ...safeSite.siteMemos,
+                        { id: newSiteMemoId(), text: t },
+                      ],
+                    };
+                    updateSite(next);
+                    setSite(next);
+                    setMemoAddOpen(false);
+                    setMemoDraft("");
+                  }}
+                >
+                  保存
+                </button>
+                <button
+                  type="button"
+                  className={styles.memoCancelBtn}
+                  onClick={() => {
+                    setMemoAddOpen(false);
+                    setMemoDraft("");
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          )}
+
+          {safeSite.siteMemos.length > 0 && (
+            <ul className={styles.memoList}>
+              {safeSite.siteMemos.map((m: SiteMemo) => (
+                <li key={m.id} className={styles.memoItem}>
+                  {editingMemoId === m.id ? (
+                    <div className={styles.memoEditForm}>
+                      <textarea
+                        className={styles.memoTextarea}
+                        value={editingMemoText}
+                        onChange={(e) => setEditingMemoText(e.target.value)}
+                        rows={4}
+                        aria-label="メモを編集"
+                      />
+                      <div className={styles.memoFormActions}>
+                        <button
+                          type="button"
+                          className={styles.memoSaveBtn}
+                          onClick={() => {
+                            const t = editingMemoText.trim();
+                            const next: Site = {
+                              ...safeSite,
+                              siteMemos: safeSite.siteMemos.map((x) =>
+                                x.id === m.id ? { ...x, text: t } : x
+                              ),
+                            };
+                            updateSite(next);
+                            setSite(next);
+                            setEditingMemoId(null);
+                            setEditingMemoText("");
+                          }}
+                        >
+                          保存
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.memoCancelBtn}
+                          onClick={() => {
+                            setEditingMemoId(null);
+                            setEditingMemoText("");
+                          }}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={styles.memoBody}>{m.text || "—"}</p>
+                      <div className={styles.memoItemActions}>
+                        <button
+                          type="button"
+                          className={styles.memoEditBtn}
+                          onClick={() => {
+                            setEditingMemoId(m.id);
+                            setEditingMemoText(m.text);
+                          }}
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.memoDeleteBtn}
+                          onClick={() => {
+                            const next: Site = {
+                              ...safeSite,
+                              siteMemos: safeSite.siteMemos.filter(
+                                (x) => x.id !== m.id
+                              ),
+                            };
+                            updateSite(next);
+                            setSite(next);
+                            if (editingMemoId === m.id) {
+                              setEditingMemoId(null);
+                              setEditingMemoText("");
+                            }
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className={styles.notifyWrap}>
           <SiteNotificationRecipientsPanel siteId={safeSite.id} />

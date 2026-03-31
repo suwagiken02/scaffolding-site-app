@@ -1,5 +1,11 @@
 export type CompanyKind = "自社" | "KOUSEI";
 
+/** 現場メモ（複数可） */
+export type SiteMemo = {
+  id: string;
+  text: string;
+};
+
 export type Site = {
   id: string;
   /** 1. 現場名 */
@@ -22,14 +28,14 @@ export type Site = {
   foremanName: string;
   /** 7. 子方名（複数） */
   kogataNames: string[];
-  /** 8. 人員数 */
-  workerCount: number;
-  /** 9. 車両（表示用文字列の配列） */
+  /** 車両（表示用文字列の配列） */
   vehicleLabels: string[];
-  /** 10. 現場種別 */
+  /** 現場種別 */
   siteTypeName: string;
-  /** 11. 自社 or KOUSEI */
+  /** 自社 or KOUSEI */
   companyKind: CompanyKind;
+  /** 現場メモ */
+  siteMemos: SiteMemo[];
   createdAt: string;
   /** 足場撤去完了を記録した日時（ISO 8601）。未完了のときは未設定 */
   scaffoldingRemovalCompletedAt?: string;
@@ -45,6 +51,5 @@ export type LegacySiteV1 = {
   startDate: string;
   teamName: string;
   foremanName: string;
-  workerCount: number;
   createdAt: string;
 };

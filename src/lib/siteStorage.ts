@@ -1,4 +1,4 @@
-import type { Site } from "../types/site";
+import type { Site, SiteMemo } from "../types/site";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const STORAGE_KEY = "scaffolding-sites-v1";
@@ -25,6 +25,28 @@ export function normalizeEntranceDateKeys(value: unknown): string[] {
 export function startDateFromEntranceDateKeys(keys: unknown): string {
   const normalized = normalizeEntranceDateKeys(keys);
   return normalized.length > 0 ? normalized[0] : "";
+}
+
+/** 現場メモ配列を正規化 */
+export function normalizeSiteMemos(value: unknown): SiteMemo[] {
+  if (!Array.isArray(value)) return [];
+  const out: SiteMemo[] = [];
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) continue;
+    const o = item as Record<string, unknown>;
+    const id = typeof o.id === "string" && o.id.trim() ? o.id.trim() : "";
+    const text = typeof o.text === "string" ? o.text : "";
+    if (!id) continue;
+    out.push({ id, text });
+  }
+  return out;
+}
+
+export function newSiteMemoId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `memo-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function isOptionalString(v: unknown): boolean {
@@ -61,7 +83,6 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
     typeof o.name !== "string" ||
     typeof o.address !== "string" ||
     typeof o.foremanName !== "string" ||
-    typeof o.workerCount !== "number" ||
     typeof o.createdAt !== "string"
   ) {
     return null;
@@ -87,7 +108,6 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
     salesName: typeof o.salesName === "string" ? o.salesName : "",
     foremanName: o.foremanName,
     kogataNames: team,
-    workerCount: o.workerCount,
     vehicleLabels: Array.isArray(o.vehicleLabels)
       ? o.vehicleLabels.filter((n): n is string => typeof n === "string")
       : [],
@@ -96,6 +116,7 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
       o.companyKind === "自社" || o.companyKind === "KOUSEI"
         ? o.companyKind
         : "自社",
+    siteMemos: normalizeSiteMemos(o.siteMemos),
     createdAt: o.createdAt,
     scaffoldingRemovalCompletedAt:
       typeof o.scaffoldingRemovalCompletedAt === "string" &&
@@ -116,10 +137,6 @@ function normalizeSite(x: unknown): Site | null {
     const vehicles = Array.isArray(o.vehicleLabels)
       ? o.vehicleLabels.filter((n): n is string => typeof n === "string")
       : [];
-    const workerCount =
-      typeof o.workerCount === "number" && Number.isFinite(o.workerCount)
-        ? Math.round(o.workerCount)
-        : 0;
     const completedRaw = o.scaffoldingRemovalCompletedAt;
     const scaffoldingRemovalCompletedAt =
       typeof completedRaw === "string" && completedRaw.trim()
@@ -143,10 +160,10 @@ function normalizeSite(x: unknown): Site | null {
       salesName: typeof o.salesName === "string" ? o.salesName : "",
       foremanName: typeof o.foremanName === "string" ? o.foremanName : "",
       kogataNames: kogata,
-      workerCount,
       vehicleLabels: vehicles,
       siteTypeName: typeof o.siteTypeName === "string" ? o.siteTypeName : "",
       companyKind: o.companyKind as Site["companyKind"],
+      siteMemos: normalizeSiteMemos(o.siteMemos),
       createdAt: o.createdAt as string,
       scaffoldingRemovalCompletedAt,
       ...(ignoreSiteListWarning ? { ignoreSiteListWarning: true } : {}),

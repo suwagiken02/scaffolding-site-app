@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Site, CompanyKind } from "../types/site";
+import type { Site, CompanyKind, SiteMemo } from "../types/site";
 import type { MasterItem } from "../types/masterItem";
 import {
   loadClientMasters,
@@ -13,7 +13,9 @@ import { loadStaffMasters } from "../lib/staffMasterStorage";
 import type { StaffMaster } from "../types/staffMaster";
 import { resolveGoogleMapsUrlForPin } from "../lib/googleMapsUrlCoords";
 import {
+  newSiteMemoId,
   normalizeEntranceDateKeys,
+  normalizeSiteMemos,
   startDateFromEntranceDateKeys,
 } from "../lib/siteStorage";
 import formStyles from "../pages/SiteFormPage.module.css";
@@ -87,9 +89,13 @@ export function SiteEditorForm({
   const [companyKind, setCompanyKind] = useState<CompanyKind>("自社");
   const [ignoreSiteListWarning, setIgnoreSiteListWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [siteMemos, setSiteMemos] = useState<SiteMemo[]>([]);
 
   useEffect(() => {
-    if (!initialSite) return;
+    if (!initialSite) {
+      setSiteMemos([]);
+      return;
+    }
 
     const c = loadClientMasters();
     const s = loadSalesMasters();
@@ -112,6 +118,7 @@ export function SiteEditorForm({
     setSiteTypeSelectId(tid);
     setCompanyKind(initialSite.companyKind);
     setIgnoreSiteListWarning(initialSite.ignoreSiteListWarning === true);
+    setSiteMemos(normalizeSiteMemos(initialSite.siteMemos));
   }, [initialSite]);
 
   useEffect(() => {
@@ -240,8 +247,10 @@ export function SiteEditorForm({
       salesName,
       foremanName: initialSite?.foremanName ?? "",
       kogataNames: initialSite?.kogataNames ?? [],
-      workerCount: initialSite?.workerCount ?? 0,
       vehicleLabels: initialSite?.vehicleLabels ?? [],
+      siteMemos: siteMemos
+        .map((m) => ({ id: m.id, text: m.text.trim() }))
+        .filter((m) => m.text.length > 0),
       siteTypeName,
       companyKind,
       createdAt: initialSite?.createdAt ?? new Date().toISOString(),
@@ -478,6 +487,56 @@ export function SiteEditorForm({
               KOUSEI
             </label>
           </div>
+        </div>
+
+        <div className={formStyles.field}>
+          <span className={formStyles.label}>メモ</span>
+          {siteMemos.length === 0 ? (
+            <p className={styles.hint}>未登録です。必要に応じて追加してください。</p>
+          ) : (
+            <ul className={styles.memoEditorList}>
+              {siteMemos.map((m) => (
+                <li key={m.id} className={styles.memoEditorItem}>
+                  <textarea
+                    className={styles.memoEditorTextarea}
+                    value={m.text}
+                    onChange={(e) =>
+                      setSiteMemos((prev) =>
+                        prev.map((x) =>
+                          x.id === m.id ? { ...x, text: e.target.value } : x
+                        )
+                      )
+                    }
+                    rows={3}
+                    aria-label="メモ"
+                  />
+                  <button
+                    type="button"
+                    className={styles.entranceRemoveBtn}
+                    onClick={() =>
+                      setSiteMemos((prev) =>
+                        prev.filter((x) => x.id !== m.id)
+                      )
+                    }
+                  >
+                    削除
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            className={styles.memoAddMemoBtn}
+            onClick={() =>
+              setSiteMemos((prev) => [
+                ...prev,
+                { id: newSiteMemoId(), text: "" },
+              ])
+            }
+          >
+            メモを追加
+          </button>
         </div>
 
         {showSiteListWarningIgnore && (

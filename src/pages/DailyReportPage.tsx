@@ -159,10 +159,6 @@ export function DailyReportPage() {
               <td>{joinList(site.kogataNames)}</td>
             </tr>
             <tr>
-              <th scope="row">人員数</th>
-              <td>{site.workerCount} 名</td>
-            </tr>
-            <tr>
               <th scope="row">車両</th>
               <td>{joinList(site.vehicleLabels)}</td>
             </tr>

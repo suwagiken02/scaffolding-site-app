@@ -35,7 +35,6 @@ export function buildNotificationBody(site: Site, uploadedAtIso: string): string
     `担当営業名: ${site.salesName || "—"}`,
     `職長名: ${site.foremanName || "—"}`,
     `子方名: ${joinLines(site.kogataNames)}`,
-    `人員数: ${site.workerCount}名`,
     `車両: ${joinLines(site.vehicleLabels)}`,
     `現場種別: ${site.siteTypeName || "—"}`,
     `区分: ${site.companyKind}`,

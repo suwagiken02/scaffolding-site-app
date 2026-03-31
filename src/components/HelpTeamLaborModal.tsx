@@ -83,8 +83,8 @@ export function HelpTeamLaborModal({
   const [timeError, setTimeError] = useState<string | null>(null);
 
   const companyRaw = useMemo(
-    () => companyManDays(entryIso, endIso, site.workerCount),
-    [entryIso, endIso, site.workerCount]
+    () => companyManDays(entryIso, endIso, 0),
+    [entryIso, endIso]
   );
   const companyDisplay = useMemo(
     () => roundManDayOneDecimal(companyRaw),
@@ -500,8 +500,8 @@ export function HelpTeamLaborModal({
             <dl className={styles.breakdown}>
               <dt>自社人工</dt>
               <dd>
-                {formatManDayOneDecimal(companyDisplay)} 人工（入場〜終了の時間差 ×{" "}
-                {site.workerCount} 名 ÷ 8）
+                {formatManDayOneDecimal(companyDisplay)} 人工（入場〜終了の時間差 ÷ 8。
+                人員数は現場情報に含まれないため 0 名として計算）
               </dd>
               <dt>手伝い人工</dt>
               <dd>
