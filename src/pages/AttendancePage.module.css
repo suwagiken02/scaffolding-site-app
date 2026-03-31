@@ -273,6 +273,29 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
+.meetingBtnDown,
+.meetingBtnDownActive {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 900;
+  padding: 0.65rem 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  background: var(--surface);
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.meetingBtnDown:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.meetingBtnDownActive {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
 .meetingOther {
   display: flex;
   flex-direction: column;

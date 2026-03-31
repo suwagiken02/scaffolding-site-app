@@ -21,8 +21,10 @@ type ConfirmState = {
 type MeetingState = {
   personName: string;
   kind: "in" | "out" | "already_done";
-  opt1: string;
-  opt2: string;
+  /** 繰り上げ4つ（10分単位切り上げ＋+10/+20/+30分） */
+  optionsUp: string[];
+  /** 繰り下げ2つ（10分単位切り捨て＋さらに10分前） */
+  optionsDown: string[];
   selected: string | null;
   otherRaw: string;
   error: string | null;
@@ -46,8 +48,32 @@ function ceilTo10Min(date: Date): Date {
   return d;
 }
 
+function floorTo10Min(date: Date): Date {
+  const d = new Date(date);
+  d.setSeconds(0, 0);
+  const m = d.getMinutes();
+  d.setMinutes(Math.floor(m / 10) * 10);
+  return d;
+}
+
 function toHHmm(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function buildMeetingTimeOptions(now: Date): {
+  optionsUp: string[];
+  optionsDown: string[];
+} {
+  const ceil0 = ceilTo10Min(now);
+  const optionsUp = [0, 10, 20, 30].map((addMin) =>
+    toHHmm(new Date(ceil0.getTime() + addMin * 60000))
+  );
+  const floor0 = floorTo10Min(now);
+  const optionsDown = [
+    toHHmm(floor0),
+    toHHmm(new Date(floor0.getTime() - 10 * 60000)),
+  ];
+  return { optionsUp, optionsDown };
 }
 
 function normalizeHHmmOrNull(raw: string): string | null {
@@ -317,9 +343,8 @@ export function AttendancePage() {
                 className={styles.modalYes}
                 disabled={confirm.kind === "already_done"}
                 onClick={() => {
-                  const base = ceilTo10Min(new Date());
-                  const opt1 = toHHmm(base);
-                  const opt2 = toHHmm(new Date(base.getTime() + 10 * 60000));
+                  const now = new Date();
+                  const { optionsUp, optionsDown } = buildMeetingTimeOptions(now);
                   setConfirm(null);
                   // 集合時間の質問は「出勤」のときだけ。
                   // 「退勤」は集合時間入力をスキップしてそのまま打刻する。
@@ -340,9 +365,9 @@ export function AttendancePage() {
                   setMeeting({
                     personName: confirm.personName,
                     kind: confirm.kind,
-                    opt1,
-                    opt2,
-                    selected: opt1,
+                    optionsUp,
+                    optionsDown,
+                    selected: optionsUp[0] ?? null,
                     otherRaw: "",
                     error: null,
                   });
@@ -384,14 +409,36 @@ export function AttendancePage() {
             )}
 
             <div className={styles.meetingOptions} role="group" aria-label="集合時間の候補">
-              {[meeting.opt1, meeting.opt2].map((t) => (
+              {meeting.optionsUp.map((t, i) => (
                 <button
-                  key={t}
+                  key={`up-${i}-${t}`}
                   type="button"
                   className={
                     meeting.selected === t ? styles.meetingBtnActive : styles.meetingBtn
                   }
-                  onClick={() => setMeeting((m) => (m ? { ...m, selected: t, otherRaw: "", error: null } : m))}
+                  onClick={() =>
+                    setMeeting((m) =>
+                      m ? { ...m, selected: t, otherRaw: "", error: null } : m
+                    )
+                  }
+                >
+                  {t}
+                </button>
+              ))}
+              {meeting.optionsDown.map((t, i) => (
+                <button
+                  key={`down-${i}-${t}`}
+                  type="button"
+                  className={
+                    meeting.selected === t
+                      ? styles.meetingBtnDownActive
+                      : styles.meetingBtnDown
+                  }
+                  onClick={() =>
+                    setMeeting((m) =>
+                      m ? { ...m, selected: t, otherRaw: "", error: null } : m
+                    )
+                  }
                 >
                   {t}
                 </button>
