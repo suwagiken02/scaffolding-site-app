@@ -20,10 +20,31 @@
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 700;
   font-size: 1.125rem;
   color: var(--text);
   text-decoration: none;
+}
+
+.brandLogo {
+  display: inline-flex;
+  align-items: center;
+  height: 50px;
+}
+
+.brandLogoSvg {
+  height: 50px;
+  width: auto;
+  display: block;
+}
+
+.brandLogoText {
+  font-family: "Noto Sans JP", "Hiragino Maru Gothic ProN", "Yu Gothic", system-ui,
+    sans-serif;
+  font-weight: 700;
 }
 
 .brand:hover {

@@ -50,6 +50,9 @@ import {
 } from "../lib/companyProfileStorage";
 import styles from "./MasterSettingsPage.module.css";
 
+const PIN_DEFAULT = "1234";
+const AUTH_KEY = "mastersPinAuthed";
+
 type TabId =
   | "notify"
   | "client"
@@ -924,6 +927,100 @@ export function MasterSettingsPage() {
   const [tab, setTab] = useState<TabId>("notify");
   const [, bump] = useState(0);
   const refresh = useCallback(() => bump((n) => n + 1), []);
+
+  const [authed, setAuthed] = useState(() => {
+    try {
+      return sessionStorage.getItem(AUTH_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  if (!authed) {
+    return (
+      <div className={styles.pinPage}>
+        <div className={styles.pinCard} role="region" aria-label="PINコード認証">
+          <h1 className={styles.pinTitle}>PINコード</h1>
+          <p className={styles.pinLead}>4桁のPINコードを入力してください。</p>
+
+          <div className={styles.pinDots} aria-label="入力状況">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <span
+                key={i}
+                className={pin.length > i ? styles.pinDotOn : styles.pinDotOff}
+              />
+            ))}
+          </div>
+
+          {pinError && (
+            <p className={styles.pinError} role="alert">
+              {pinError}
+            </p>
+          )}
+
+          <div className={styles.keypad} role="group" aria-label="テンキー">
+            {[
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "BS",
+              "0",
+              "ENTER",
+            ].map((k) => {
+              const isBack = k === "BS";
+              const isEnter = k === "ENTER";
+              const label = isBack ? "⌫" : isEnter ? "入室" : k;
+              const className = isEnter ? styles.enterBtn : styles.keyBtn;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  className={className}
+                  disabled={isEnter && pin.length !== 4}
+                  onClick={() => {
+                    setPinError(null);
+                    if (isBack) {
+                      setPin((p) => p.slice(0, -1));
+                      return;
+                    }
+                    if (isEnter) {
+                      if (pin.length !== 4) return;
+                      if (pin === PIN_DEFAULT) {
+                        try {
+                          sessionStorage.setItem(AUTH_KEY, "1");
+                        } catch {
+                          // ignore
+                        }
+                        setAuthed(true);
+                        setPin("");
+                        setPinError(null);
+                        return;
+                      }
+                      setPinError("PINが違います");
+                      setPin("");
+                      return;
+                    }
+                    if (pin.length >= 4) return;
+                    setPin((p) => p + k);
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
