@@ -21,6 +21,12 @@ export function normalizeEntranceDateKeys(value: unknown): string[] {
   return out;
 }
 
+/** 入場日が1件以上あれば最古の YYYY-MM-DD、なければ空文字 */
+export function startDateFromEntranceDateKeys(keys: unknown): string {
+  const normalized = normalizeEntranceDateKeys(keys);
+  return normalized.length > 0 ? normalized[0] : "";
+}
+
 function readRaw(): unknown {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -98,6 +104,7 @@ function normalizeSite(x: unknown): Site | null {
       typeof o.siteCode === "string" && o.siteCode.trim() ? o.siteCode.trim() : "";
     const ignoreSiteListWarning = o.ignoreSiteListWarning === true;
     const entranceDateKeys = normalizeEntranceDateKeys(o.entranceDateKeys);
+    const startDate = startDateFromEntranceDateKeys(entranceDateKeys);
     return {
       id: o.id as string,
       name: o.name as string,
@@ -106,7 +113,7 @@ function normalizeSite(x: unknown): Site | null {
       address: o.address as string,
       googleMapUrl:
         typeof o.googleMapUrl === "string" ? o.googleMapUrl.trim() : "",
-      startDate: o.startDate as string,
+      startDate,
       entranceDateKeys,
       salesName: (o.salesName as string) ?? "",
       foremanName: (o.foremanName as string) ?? "",

@@ -12,7 +12,10 @@ import {
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import type { StaffMaster } from "../types/staffMaster";
 import { resolveGoogleMapsUrlForPin } from "../lib/googleMapsUrlCoords";
-import { normalizeEntranceDateKeys } from "../lib/siteStorage";
+import {
+  normalizeEntranceDateKeys,
+  startDateFromEntranceDateKeys,
+} from "../lib/siteStorage";
 import formStyles from "../pages/SiteFormPage.module.css";
 import styles from "./SiteEditorForm.module.css";
 
@@ -77,7 +80,6 @@ export function SiteEditorForm({
     null
   );
   const lastResolvedUrlRef = useRef<string>("");
-  const [startDate, setStartDate] = useState("");
   const [entranceDateKeys, setEntranceDateKeys] = useState<string[]>([]);
   const [entranceDateDraft, setEntranceDateDraft] = useState("");
   const [salesSelectId, setSalesSelectId] = useState("");
@@ -100,7 +102,6 @@ export function SiteEditorForm({
     setClientFree(cid ? "" : initialSite.clientName);
     setAddress(initialSite.address);
     setGoogleMapUrl(initialSite.googleMapUrl ?? "");
-    setStartDate(initialSite.startDate);
     setEntranceDateKeys(normalizeEntranceDateKeys(initialSite.entranceDateKeys));
     setEntranceDateDraft("");
 
@@ -227,11 +228,8 @@ export function SiteEditorForm({
       setError("現場名を入力してください。");
       return;
     }
-    if (!startDate) {
-      setError("開始日を選択してください。");
-      return;
-    }
 
+    const normalizedEntrances = normalizeEntranceDateKeys(entranceDateKeys);
     const clientName = clientFree.trim() || masterName(c, clientSelectId);
     const salesName = masterName(s, salesSelectId);
     const siteTypeName = masterName(st, siteTypeSelectId);
@@ -243,8 +241,8 @@ export function SiteEditorForm({
       clientName,
       address: address.trim(),
       googleMapUrl: googleMapUrl.trim(),
-      startDate,
-      entranceDateKeys: normalizeEntranceDateKeys(entranceDateKeys),
+      startDate: startDateFromEntranceDateKeys(normalizedEntrances),
+      entranceDateKeys: normalizedEntrances,
       salesName,
       foremanName: initialSite?.foremanName ?? "",
       kogataNames: initialSite?.kogataNames ?? [],
@@ -378,18 +376,8 @@ export function SiteEditorForm({
           </p>
         </label>
 
-        <label className={formStyles.field}>
-          <span className={formStyles.label}>5. 開始日</span>
-          <input
-            className={formStyles.input}
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </label>
-
         <div className={formStyles.field}>
-          <span className={formStyles.label}>入場日</span>
+          <span className={formStyles.label}>5. 入場日</span>
           <div className={styles.entranceAddRow}>
             <input
               className={`${formStyles.input} ${styles.entranceDateInput}`}

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { Site } from "../types/site";
-import { getSiteById, normalizeEntranceDateKeys, updateSite } from "../lib/siteStorage";
+import {
+  getSiteById,
+  normalizeEntranceDateKeys,
+  startDateFromEntranceDateKeys,
+  updateSite,
+} from "../lib/siteStorage";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { WORK_KINDS, type WorkKind } from "../types/workKind";
 import { LaborSummaryBar } from "../components/LaborSummaryBar";
@@ -165,6 +170,11 @@ export function SiteDetailPage() {
       s?.companyKind === "自社" || s?.companyKind === "KOUSEI"
         ? (s.companyKind as Site["companyKind"])
         : "自社";
+    const entranceDateKeys = normalizeEntranceDateKeys(s?.entranceDateKeys);
+    const startDate =
+      entranceDateKeys.length > 0
+        ? entranceDateKeys[0]
+        : normalizeString(s?.startDate);
     return {
       ...empty,
       id: normalizeString(s?.id) || empty.id,
@@ -172,8 +182,8 @@ export function SiteDetailPage() {
       clientName: normalizeString(s?.clientName),
       address: normalizeString(s?.address),
       googleMapUrl: normalizeString(s?.googleMapUrl),
-      startDate: normalizeString(s?.startDate),
-      entranceDateKeys: normalizeEntranceDateKeys(s?.entranceDateKeys),
+      startDate,
+      entranceDateKeys,
       salesName: normalizeString(s?.salesName),
       foremanName: normalizeString(s?.foremanName),
       kogataNames: normalizeStringArray(s?.kogataNames),
@@ -296,6 +306,9 @@ export function SiteDetailPage() {
 
       <header className={styles.header}>
         <h1 className={styles.title}>{safeSite.name || "（現場名未設定）"}</h1>
+        <p className={styles.headerClient}>
+          {safeSite.clientName?.trim() || "—"}
+        </p>
         <Link to={`/sites/${safeSite.id}/edit`} className={styles.editLink}>
           編集する
         </Link>
@@ -312,7 +325,7 @@ export function SiteDetailPage() {
             })
           }
         >
-          基本情報へ ↓
+          基本情報
         </button>
       </div>
 
@@ -552,7 +565,9 @@ export function SiteDetailPage() {
           </div>
           <div className={styles.row}>
             <dt className={styles.dt}>開始日</dt>
-            <dd className={styles.dd}>{safeSite.startDate || "—"}</dd>
+            <dd className={styles.dd}>
+              {startDateFromEntranceDateKeys(safeSite.entranceDateKeys) || "—"}
+            </dd>
           </div>
           <div className={styles.row}>
             <dt className={styles.dt}>入場日</dt>

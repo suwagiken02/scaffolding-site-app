@@ -12,7 +12,7 @@ export type Site = {
   address: string;
   /** Google マップの共有URL（地図ピン用。未入力ならピンなし） */
   googleMapUrl: string;
-  /** 4. 開始日 YYYY-MM-DD */
+  /** 開始日 YYYY-MM-DD（入場日があるときは最古の入場日と同期。保存時に自動設定） */
   startDate: string;
   /** 入場日（YYYY-MM-DD、複数可） */
   entranceDateKeys: string[];
