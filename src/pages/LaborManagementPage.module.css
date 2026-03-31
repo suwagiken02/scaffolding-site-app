@@ -229,7 +229,8 @@
   color: var(--text-muted);
 }
 
-.lateTime {
+/* .holidayRow td より詳細度を上げて遅刻の赤字を確実に効かせる */
+.table td.lateTime {
   color: #dc2626;
   font-weight: 900;
 }

@@ -9,9 +9,8 @@ import {
 import {
   formatDurationHm,
   formatTimeJa,
+  isCheckInLate,
   listAttendanceInMonth,
-  isoToLocalMinutes,
-  parseHHmmToMinutes,
   workMinutes,
 } from "../lib/attendanceStorage";
 import type { AttendanceRecord } from "../types/attendance";
@@ -238,9 +237,7 @@ export function LaborManagementPage() {
                     const inAt = att ? formatTimeJa(att.inAt) : "—";
                     const outAt = att ? formatTimeJa(att.outAt) : "—";
                     const dur = att ? formatDurationHm(workMinutes(att)) : "—";
-                    const meetingMin = att ? parseHHmmToMinutes(att.meetingTime) : null;
-                    const inMin = att ? isoToLocalMinutes(att.inAt) : null;
-                    const late = meetingMin !== null && inMin !== null && inMin > meetingMin;
+                    const late = att ? isCheckInLate(att) : false;
                     if (row.kind === "holiday") {
                       return (
                         <tr key={`${row.dateKey}-holiday-${i}`} className={styles.holidayRow}>

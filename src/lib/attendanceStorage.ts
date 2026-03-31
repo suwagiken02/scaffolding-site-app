@@ -32,13 +32,17 @@ function normalizeRecord(dateKey: string, x: unknown): AttendanceRecord {
     return { dateKey, meetingTime: null, inAt: null, outAt: null };
   }
   const o = x as Record<string, unknown>;
-  const inAt = isIsoOrNull(o.inAt) ? o.inAt : null;
+  const inAtPrimary = isIsoOrNull(o.inAt) ? o.inAt : null;
+  const inAtAlias = isIsoOrNull(o.checkInTime) ? o.checkInTime : null;
+  const inAt = inAtPrimary ?? inAtAlias;
   const outAt = isIsoOrNull(o.outAt) ? o.outAt : null;
   const meetingTimeRaw = isStringOrNull(o.meetingTime) ? o.meetingTime : null;
-  const meetingTime =
-    typeof meetingTimeRaw === "string" && meetingTimeRaw.trim()
-      ? meetingTimeRaw.trim()
-      : null;
+  const scheduledRaw = isStringOrNull(o.scheduledTime) ? o.scheduledTime : null;
+  const meetingMerged =
+    (typeof meetingTimeRaw === "string" && meetingTimeRaw.trim()) ||
+    (typeof scheduledRaw === "string" && scheduledRaw.trim()) ||
+    "";
+  const meetingTime = meetingMerged ? meetingMerged.trim() : null;
   return { dateKey, meetingTime, inAt, outAt };
 }
 
@@ -127,6 +131,13 @@ export function isoToLocalMinutes(iso: string | null): number | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return d.getHours() * 60 + d.getMinutes();
+}
+
+/** 集合時間が未設定でなければ、出勤打刻が集合時間より後なら遅刻 */
+export function isCheckInLate(record: AttendanceRecord): boolean {
+  const meetingMin = parseHHmmToMinutes(record.meetingTime);
+  const inMin = isoToLocalMinutes(record.inAt);
+  return meetingMin !== null && inMin !== null && inMin > meetingMin;
 }
 
 export function listAttendanceInMonth(
