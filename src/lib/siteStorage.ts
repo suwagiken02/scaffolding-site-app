@@ -27,6 +27,10 @@ export function startDateFromEntranceDateKeys(keys: unknown): string {
   return normalized.length > 0 ? normalized[0] : "";
 }
 
+function isOptionalString(v: unknown): boolean {
+  return v === undefined || v === null || typeof v === "string";
+}
+
 function readRaw(): unknown {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -37,13 +41,16 @@ function readRaw(): unknown {
   }
 }
 
+/** 新形式の判定（キー欠落や null を許容。厳格すぎると migrate 側で entranceDateKeys が消える） */
 function isNewSite(o: Record<string, unknown>): boolean {
   return (
-    typeof o.clientName === "string" &&
-    Array.isArray(o.kogataNames) &&
-    Array.isArray(o.vehicleLabels) &&
-    typeof o.salesName === "string" &&
-    typeof o.siteTypeName === "string" &&
+    typeof o.id === "string" &&
+    typeof o.name === "string" &&
+    isOptionalString(o.clientName) &&
+    (o.kogataNames === undefined || Array.isArray(o.kogataNames)) &&
+    (o.vehicleLabels === undefined || Array.isArray(o.vehicleLabels)) &&
+    isOptionalString(o.salesName) &&
+    isOptionalString(o.siteTypeName) &&
     (o.companyKind === "自社" || o.companyKind === "KOUSEI")
   );
 }
@@ -53,7 +60,6 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
     typeof o.id !== "string" ||
     typeof o.name !== "string" ||
     typeof o.address !== "string" ||
-    typeof o.startDate !== "string" ||
     typeof o.foremanName !== "string" ||
     typeof o.workerCount !== "number" ||
     typeof o.createdAt !== "string"
@@ -64,25 +70,40 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
     typeof o.teamName === "string" && o.teamName.trim()
       ? [o.teamName.trim()]
       : [];
-    return {
-      id: o.id,
-      name: o.name,
-      siteCode: "",
-      clientName: "",
-      address: o.address,
-      googleMapUrl: "",
-      startDate: o.startDate,
-      salesName: "",
-      foremanName: o.foremanName,
-      kogataNames: team,
-      workerCount: o.workerCount,
-      vehicleLabels: [],
-      siteTypeName: "",
-      companyKind: "自社",
-      createdAt: o.createdAt,
-      scaffoldingRemovalCompletedAt: undefined,
-      entranceDateKeys: [],
-    };
+  const entranceDateKeys = normalizeEntranceDateKeys(o.entranceDateKeys);
+  const startDateRaw = typeof o.startDate === "string" ? o.startDate : "";
+  const startDate =
+    entranceDateKeys.length > 0
+      ? entranceDateKeys[0]
+      : startDateRaw;
+  return {
+    id: o.id,
+    name: o.name,
+    siteCode: typeof o.siteCode === "string" && o.siteCode.trim() ? o.siteCode.trim() : "",
+    clientName: typeof o.clientName === "string" ? o.clientName : "",
+    address: o.address,
+    googleMapUrl: typeof o.googleMapUrl === "string" ? o.googleMapUrl.trim() : "",
+    startDate,
+    salesName: typeof o.salesName === "string" ? o.salesName : "",
+    foremanName: o.foremanName,
+    kogataNames: team,
+    workerCount: o.workerCount,
+    vehicleLabels: Array.isArray(o.vehicleLabels)
+      ? o.vehicleLabels.filter((n): n is string => typeof n === "string")
+      : [],
+    siteTypeName: typeof o.siteTypeName === "string" ? o.siteTypeName : "",
+    companyKind:
+      o.companyKind === "自社" || o.companyKind === "KOUSEI"
+        ? o.companyKind
+        : "自社",
+    createdAt: o.createdAt,
+    scaffoldingRemovalCompletedAt:
+      typeof o.scaffoldingRemovalCompletedAt === "string" &&
+      o.scaffoldingRemovalCompletedAt.trim()
+        ? o.scaffoldingRemovalCompletedAt.trim()
+        : undefined,
+    entranceDateKeys,
+  };
 }
 
 function normalizeSite(x: unknown): Site | null {
@@ -95,6 +116,10 @@ function normalizeSite(x: unknown): Site | null {
     const vehicles = Array.isArray(o.vehicleLabels)
       ? o.vehicleLabels.filter((n): n is string => typeof n === "string")
       : [];
+    const workerCount =
+      typeof o.workerCount === "number" && Number.isFinite(o.workerCount)
+        ? Math.round(o.workerCount)
+        : 0;
     const completedRaw = o.scaffoldingRemovalCompletedAt;
     const scaffoldingRemovalCompletedAt =
       typeof completedRaw === "string" && completedRaw.trim()
@@ -109,18 +134,18 @@ function normalizeSite(x: unknown): Site | null {
       id: o.id as string,
       name: o.name as string,
       siteCode,
-      clientName: (o.clientName as string) ?? "",
-      address: o.address as string,
+      clientName: typeof o.clientName === "string" ? o.clientName : "",
+      address: typeof o.address === "string" ? o.address : "",
       googleMapUrl:
         typeof o.googleMapUrl === "string" ? o.googleMapUrl.trim() : "",
       startDate,
       entranceDateKeys,
-      salesName: (o.salesName as string) ?? "",
-      foremanName: (o.foremanName as string) ?? "",
+      salesName: typeof o.salesName === "string" ? o.salesName : "",
+      foremanName: typeof o.foremanName === "string" ? o.foremanName : "",
       kogataNames: kogata,
-      workerCount: o.workerCount as number,
+      workerCount,
       vehicleLabels: vehicles,
-      siteTypeName: (o.siteTypeName as string) ?? "",
+      siteTypeName: typeof o.siteTypeName === "string" ? o.siteTypeName : "",
       companyKind: o.companyKind as Site["companyKind"],
       createdAt: o.createdAt as string,
       scaffoldingRemovalCompletedAt,
