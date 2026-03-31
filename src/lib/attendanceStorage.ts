@@ -19,6 +19,10 @@ function writeRaw(store: AttendanceStore): void {
   window.dispatchEvent(new CustomEvent("attendanceSaved"));
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
 function isIsoOrNull(x: unknown): x is string | null {
   return x === null || typeof x === "string";
 }
@@ -87,6 +91,107 @@ export function saveAttendanceForPersonDate(
   const prev = store[personName] ?? {};
   store[personName] = { ...prev, [record.dateKey]: record };
   writeRaw(store);
+}
+
+export function deleteAttendanceForPersonDate(personName: string, dateKey: string): void {
+  const store = loadAttendanceStore();
+  const prev = store[personName];
+  if (!prev || !prev[dateKey]) return;
+  const nextPerson: Record<string, AttendanceRecord> = { ...prev };
+  delete nextPerson[dateKey];
+  if (Object.keys(nextPerson).length === 0) {
+    const nextStore: AttendanceStore = { ...store };
+    delete nextStore[personName];
+    writeRaw(nextStore);
+  } else {
+    store[personName] = nextPerson;
+    writeRaw(store);
+  }
+}
+
+/** ローカル日付（dateKey）＋ HH:MM から ISO 文字列を生成 */
+export function localIsoFromDateKeyHHmm(dateKey: string, hhmm: string): string | null {
+  const totalMin = parseHHmmToMinutes(hhmm.trim());
+  if (totalMin === null) return null;
+  const parts = dateKey.split("-").map(Number);
+  if (parts.length !== 3) return null;
+  const [y, mo, d] = parts;
+  if (!y || !mo || !d) return null;
+  const dt = new Date(y, mo - 1, d, Math.floor(totalMin / 60), totalMin % 60, 0, 0);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
+export function hhmmFromLocalIso(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+export function normalizeHHmmOrNull(raw: string): string | null {
+  const t = raw.trim();
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  if (hh < 0 || hh > 23) return null;
+  if (mm < 0 || mm > 59) return null;
+  return `${pad2(hh)}:${pad2(mm)}`;
+}
+
+export type UpdateAttendanceHHmmResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/** 稼働管理などから打刻を HH:MM で上書きする */
+export function updateAttendanceFromHHmmFields(
+  personName: string,
+  dateKey: string,
+  fields: { inHHmm: string; outHHmm: string; meetingHHmm: string }
+): UpdateAttendanceHHmmResult {
+  const inTrim = fields.inHHmm.trim();
+  const outTrim = fields.outHHmm.trim();
+  const meetTrim = fields.meetingHHmm.trim();
+
+  let inAt: string | null = null;
+  if (inTrim) {
+    const iso = localIsoFromDateKeyHHmm(dateKey, inTrim);
+    if (!iso) return { ok: false, error: "出勤時間の形式が正しくありません（HH:MM）。" };
+    inAt = iso;
+  }
+
+  let outAt: string | null = null;
+  if (outTrim) {
+    const iso = localIsoFromDateKeyHHmm(dateKey, outTrim);
+    if (!iso) return { ok: false, error: "退勤時間の形式が正しくありません（HH:MM）。" };
+    outAt = iso;
+  }
+
+  let meetingTime: string | null = null;
+  if (meetTrim) {
+    const n = normalizeHHmmOrNull(meetTrim);
+    if (!n) return { ok: false, error: "集合時間の形式が正しくありません（HH:MM）。" };
+    meetingTime = n;
+  }
+
+  if (inAt && outAt) {
+    const inMs = Date.parse(inAt);
+    const outMs = Date.parse(outAt);
+    if (Number.isFinite(inMs) && Number.isFinite(outMs) && outMs < inMs) {
+      return { ok: false, error: "退勤は出勤より後の時刻にしてください。" };
+    }
+  }
+
+  if (!inAt && !outAt && !meetingTime) {
+    deleteAttendanceForPersonDate(personName, dateKey);
+    return { ok: true };
+  }
+
+  const record: AttendanceRecord = { dateKey, meetingTime, inAt, outAt };
+  saveAttendanceForPersonDate(personName, record);
+  return { ok: true };
 }
 
 export function punchAttendance(

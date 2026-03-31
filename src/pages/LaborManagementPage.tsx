@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { loadSites } from "../lib/siteStorage";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import {
@@ -7,16 +7,21 @@ import {
   summarizeMonth,
 } from "../lib/workerActivity";
 import {
+  deleteAttendanceForPersonDate,
   formatDurationHm,
   formatTimeJa,
+  hhmmFromLocalIso,
   isCheckInLate,
   listAttendanceInMonth,
+  loadAttendanceForPersonDate,
+  updateAttendanceFromHHmmFields,
   workMinutes,
 } from "../lib/attendanceStorage";
 import type { AttendanceRecord } from "../types/attendance";
 import styles from "./LaborManagementPage.module.css";
 
 const jaCollator = new Intl.Collator("ja");
+const PIN_DEFAULT = "1234";
 
 function masterPersonOptions(): string[] {
   const all = loadStaffMasters().map((s) => s.name.trim()).filter(Boolean);
@@ -58,8 +63,52 @@ export function LaborManagementPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [personName, setPersonName] = useState("");
   const [tab, setTab] = useState<"list" | "labor" | "attendance">("list");
+  const [attRevision, setAttRevision] = useState(0);
+  const [pinGate, setPinGate] = useState<null | { mode: "edit" | "delete"; dateKey: string }>(
+    null
+  );
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [editModal, setEditModal] = useState<null | { dateKey: string }>(null);
+  const [editIn, setEditIn] = useState("");
+  const [editOut, setEditOut] = useState("");
+  const [editMeeting, setEditMeeting] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
 
   const personOptions = masterPersonOptions();
+
+  useEffect(() => {
+    const bump = () => setAttRevision((x) => x + 1);
+    window.addEventListener("attendanceSaved", bump);
+    return () => window.removeEventListener("attendanceSaved", bump);
+  }, []);
+
+  useEffect(() => {
+    if (!pinGate) return;
+    setPin("");
+    setPinError(null);
+  }, [pinGate]);
+
+  useEffect(() => {
+    if (!editModal || !personName) return;
+    const rec = loadAttendanceForPersonDate(personName, editModal.dateKey);
+    setEditIn(hhmmFromLocalIso(rec.inAt));
+    setEditOut(hhmmFromLocalIso(rec.outAt));
+    setEditMeeting(rec.meetingTime ?? "");
+    setEditError(null);
+  }, [editModal, personName]);
+
+  useEffect(() => {
+    if (!pinGate && !editModal) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setPinGate(null);
+        setEditModal(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pinGate, editModal]);
 
   const { rowsInMonth, summary } = useMemo(() => {
     const sites = loadSites();
@@ -74,7 +123,7 @@ export function LaborManagementPage() {
   const attendanceRows = useMemo(() => {
     if (!personName) return [];
     return listAttendanceInMonth(personName, year, month);
-  }, [personName, year, month]);
+  }, [personName, year, month, attRevision]);
 
   const attendanceTotalMinutes = useMemo(() => {
     let total = 0;
@@ -229,6 +278,7 @@ export function LaborManagementPage() {
                     <th scope="col">出勤</th>
                     <th scope="col">退勤</th>
                     <th scope="col">勤務時間</th>
+                    <th scope="col">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,6 +288,27 @@ export function LaborManagementPage() {
                     const outAt = att ? formatTimeJa(att.outAt) : "—";
                     const dur = att ? formatDurationHm(workMinutes(att)) : "—";
                     const late = att ? isCheckInLate(att) : false;
+                    const hasAttRecord = att != null;
+                    const actionsCell = hasAttRecord ? (
+                      <div className={styles.rowActions}>
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => setPinGate({ mode: "edit", dateKey: row.dateKey })}
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+                          onClick={() => setPinGate({ mode: "delete", dateKey: row.dateKey })}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    ) : (
+                      "—"
+                    );
                     if (row.kind === "holiday") {
                       return (
                         <tr key={`${row.dateKey}-holiday-${i}`} className={styles.holidayRow}>
@@ -247,6 +318,7 @@ export function LaborManagementPage() {
                           <td className={late ? styles.lateTime : undefined}>{inAt}</td>
                           <td>{outAt}</td>
                           <td>{dur}</td>
+                          <td>{actionsCell}</td>
                         </tr>
                       );
                     }
@@ -258,6 +330,7 @@ export function LaborManagementPage() {
                         <td className={late ? styles.lateTime : undefined}>{inAt}</td>
                         <td>{outAt}</td>
                         <td>{dur}</td>
+                        <td>{actionsCell}</td>
                       </tr>
                     );
                   })}
@@ -274,6 +347,207 @@ export function LaborManagementPage() {
               </span>
             </div>
           </section>
+
+          {pinGate && (
+            <div
+              className={styles.pinBackdrop}
+              role="presentation"
+              onClick={() => setPinGate(null)}
+            >
+              <div
+                className={styles.pinCard}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="labor-pin-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 id="labor-pin-title" className={styles.pinTitle}>
+                  PINコード
+                </h2>
+                <p className={styles.pinLead}>4桁のPINコードを入力してください。</p>
+                <div className={styles.pinDots} aria-label="入力状況">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <span
+                      key={j}
+                      className={pin.length > j ? styles.pinDotOn : styles.pinDotOff}
+                    />
+                  ))}
+                </div>
+                {pinError && (
+                  <p className={styles.pinError} role="alert">
+                    {pinError}
+                  </p>
+                )}
+                <div className={styles.keypad} role="group" aria-label="テンキー">
+                  {[
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "enter",
+                    "0",
+                    "back",
+                  ].map((k) => {
+                    const isEnter = k === "enter";
+                    const isBack = k === "back";
+                    const label = isEnter ? "確定" : isBack ? "⌫" : k;
+                    const disabled = isEnter ? pin.length !== 4 : false;
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        className={isEnter ? styles.enterBtn : styles.keyBtn}
+                        disabled={disabled}
+                        onClick={() => {
+                          setPinError(null);
+                          if (isEnter) {
+                            if (pin.length !== 4) return;
+                            if (pin !== PIN_DEFAULT) {
+                              setPinError("PINが違います");
+                              setPin("");
+                              return;
+                            }
+                            const dk = pinGate.dateKey;
+                            const mode = pinGate.mode;
+                            setPinGate(null);
+                            setPin("");
+                            if (mode === "delete") {
+                              if (window.confirm("この打刻記録を削除しますか？")) {
+                                deleteAttendanceForPersonDate(personName, dk);
+                              }
+                            } else {
+                              setEditModal({ dateKey: dk });
+                            }
+                            return;
+                          }
+                          if (isBack) {
+                            setPin((p) => p.slice(0, -1));
+                            return;
+                          }
+                          setPin((p) => (p.length >= 4 ? p : `${p}${k}`));
+                        }}
+                        aria-label={
+                          isEnter ? "確定" : isBack ? "1文字削除" : `数字${k}`
+                        }
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className={styles.pinFooter}>
+                  <button
+                    type="button"
+                    className={styles.modalBack}
+                    onClick={() => setPinGate(null)}
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {editModal && (
+            <div
+              className={styles.modalBackdrop}
+              role="presentation"
+              onClick={() => setEditModal(null)}
+            >
+              <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="labor-edit-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 id="labor-edit-title" className={styles.modalTitle}>
+                  打刻の編集（{formatDateKeyJa(editModal.dateKey)}）
+                </h2>
+                <div className={styles.editFields}>
+                  <label className={styles.editLabel} htmlFor="labor-edit-in">
+                    出勤時間（HH:MM）
+                  </label>
+                  <input
+                    id="labor-edit-in"
+                    className={styles.editInput}
+                    value={editIn}
+                    onChange={(e) => {
+                      setEditIn(e.target.value);
+                      setEditError(null);
+                    }}
+                    placeholder="例: 08:30"
+                    autoComplete="off"
+                  />
+                  <label className={styles.editLabel} htmlFor="labor-edit-out">
+                    退勤時間（HH:MM）
+                  </label>
+                  <input
+                    id="labor-edit-out"
+                    className={styles.editInput}
+                    value={editOut}
+                    onChange={(e) => {
+                      setEditOut(e.target.value);
+                      setEditError(null);
+                    }}
+                    placeholder="例: 17:00"
+                    autoComplete="off"
+                  />
+                  <label className={styles.editLabel} htmlFor="labor-edit-meeting">
+                    集合時間（HH:MM）
+                  </label>
+                  <input
+                    id="labor-edit-meeting"
+                    className={styles.editInput}
+                    value={editMeeting}
+                    onChange={(e) => {
+                      setEditMeeting(e.target.value);
+                      setEditError(null);
+                    }}
+                    placeholder="例: 08:00"
+                    autoComplete="off"
+                  />
+                </div>
+                {editError && (
+                  <p className={styles.editError} role="alert">
+                    {editError}
+                  </p>
+                )}
+                <div className={styles.modalActions}>
+                  <button
+                    type="button"
+                    className={styles.modalBack}
+                    onClick={() => setEditModal(null)}
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.modalYes}
+                    onClick={() => {
+                      const res = updateAttendanceFromHHmmFields(personName, editModal.dateKey, {
+                        inHHmm: editIn,
+                        outHHmm: editOut,
+                        meetingHHmm: editMeeting,
+                      });
+                      if (!res.ok) {
+                        setEditError(res.error);
+                        return;
+                      }
+                      setEditModal(null);
+                    }}
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       ) : tab === "labor" ? (
         <>
