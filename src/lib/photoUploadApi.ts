@@ -1,6 +1,11 @@
-const API_BASE = (
-  import.meta.env.VITE_EMAIL_API_URL ?? "http://localhost:3001"
-).replace(/\/$/, "");
+function photoUploadApiBase(): string {
+  const fromEnv = import.meta.env.VITE_EMAIL_API_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (import.meta.env.PROD && typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:3001";
+}
 
 export async function uploadSitePhotoToR2(
   file: File,
@@ -12,7 +17,7 @@ export async function uploadSitePhotoToR2(
   fd.append("workKind", meta.workKind);
   fd.append("dateKey", meta.dateKey);
 
-  const url = `${API_BASE}/api/photos/upload`;
+  const url = `${photoUploadApiBase()}/api/photos/upload`;
   let res: Response;
   try {
     res = await fetch(url, { method: "POST", body: fd });
