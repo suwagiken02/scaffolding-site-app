@@ -191,6 +191,14 @@ export function loadDailyLaborMap(
   return { ...(all[siteId]?.[workKind] ?? {}) };
 }
 
+/** いずれかの作業種別で指定日に作業記録があるか */
+export function siteHasLaborRecordOnDate(
+  siteId: string,
+  dateKey: string
+): boolean {
+  return WORK_KINDS.some((k) => Boolean(loadDailyLaborMap(siteId, k)[dateKey]));
+}
+
 export function listDailyLaborRecords(
   siteId: string,
   workKind: WorkKind

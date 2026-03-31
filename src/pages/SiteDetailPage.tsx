@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { Site } from "../types/site";
-import { getSiteById, updateSite } from "../lib/siteStorage";
+import { getSiteById, normalizeEntranceDateKeys, updateSite } from "../lib/siteStorage";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { WORK_KINDS, type WorkKind } from "../types/workKind";
 import { LaborSummaryBar } from "../components/LaborSummaryBar";
@@ -75,6 +75,7 @@ export function SiteDetailPage() {
   const [photoAddMessage, setPhotoAddMessage] = useState<string | null>(null);
   const [photoTargetOpen, setPhotoTargetOpen] = useState(false);
   const [photoTargetKind, setPhotoTargetKind] = useState<WorkKind>("組み");
+  const [entranceExpanded, setEntranceExpanded] = useState(false);
   const photoAddTriggerRef = useRef<(() => void) | null>(null);
   const basicInfoSectionRef = useRef<HTMLElement | null>(null);
 
@@ -114,6 +115,10 @@ export function SiteDetailPage() {
   }, [site, bumpFile]);
 
   useEffect(() => {
+    setEntranceExpanded(false);
+  }, [siteId]);
+
+  useEffect(() => {
     if (!siteId) return;
     function onSiteDataSaved(e: Event) {
       const d = (e as CustomEvent<{ siteId?: string }>).detail;
@@ -145,6 +150,7 @@ export function SiteDetailPage() {
       address: "",
       googleMapUrl: "",
       startDate: "",
+      entranceDateKeys: [],
       salesName: "",
       foremanName: "",
       kogataNames: [],
@@ -172,6 +178,7 @@ export function SiteDetailPage() {
       address: normalizeString(s?.address),
       googleMapUrl: normalizeString(s?.googleMapUrl),
       startDate: normalizeString(s?.startDate),
+      entranceDateKeys: normalizeEntranceDateKeys(s?.entranceDateKeys),
       salesName: normalizeString(s?.salesName),
       foremanName: normalizeString(s?.foremanName),
       kogataNames: normalizeStringArray(s?.kogataNames),
@@ -189,6 +196,11 @@ export function SiteDetailPage() {
         s?.ignoreSiteListWarning === true ? true : undefined,
     };
   }, [site, siteId]);
+
+  const entranceDatesDesc = useMemo(
+    () => [...safeSite.entranceDateKeys].sort((a, b) => b.localeCompare(a)),
+    [safeSite.entranceDateKeys]
+  );
 
   const hasTodayWorkRecordAny = useMemo(() => {
     if (!safeSite.id) return false;
@@ -572,6 +584,43 @@ export function SiteDetailPage() {
           <div className={styles.row}>
             <dt className={styles.dt}>開始日</dt>
             <dd className={styles.dd}>{safeSite.startDate || "—"}</dd>
+          </div>
+          <div className={styles.row}>
+            <dt className={styles.dt}>入場日</dt>
+            <dd className={`${styles.dd} ${styles.entranceDd}`}>
+              {entranceDatesDesc.length === 0 ? (
+                "—"
+              ) : (
+                <>
+                  <ul className={styles.entranceDateList}>
+                    {(entranceExpanded
+                      ? entranceDatesDesc
+                      : entranceDatesDesc.slice(0, 3)
+                    ).map((dk) => (
+                      <li
+                        key={dk}
+                        className={
+                          dk < todayKey
+                            ? styles.entranceDatePast
+                            : styles.entranceDateCurrent
+                        }
+                      >
+                        {dk}
+                      </li>
+                    ))}
+                  </ul>
+                  {entranceDatesDesc.length > 3 && (
+                    <button
+                      type="button"
+                      className={styles.entranceMoreBtn}
+                      onClick={() => setEntranceExpanded((v) => !v)}
+                    >
+                      {entranceExpanded ? "閉じる" : "もっと見る"}
+                    </button>
+                  )}
+                </>
+              )}
+            </dd>
           </div>
           <div className={styles.row}>
             <dt className={styles.dt}>担当営業名</dt>

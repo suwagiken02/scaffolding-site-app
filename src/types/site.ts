@@ -14,6 +14,8 @@ export type Site = {
   googleMapUrl: string;
   /** 4. 開始日 YYYY-MM-DD */
   startDate: string;
+  /** 入場日（YYYY-MM-DD、複数可） */
+  entranceDateKeys: string[];
   /** 5. 担当営業名 */
   salesName: string;
   /** 6. 職長名 */

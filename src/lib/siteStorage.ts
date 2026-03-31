@@ -3,6 +3,24 @@ import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const STORAGE_KEY = "scaffolding-sites-v1";
 
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 入場日リストを正規化（重複除去・昇順ソート） */
+export function normalizeEntranceDateKeys(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of value) {
+    if (typeof x !== "string") continue;
+    const t = x.trim();
+    if (!DATE_KEY_RE.test(t) || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  out.sort((a, b) => a.localeCompare(b));
+  return out;
+}
+
 function readRaw(): unknown {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -57,6 +75,7 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
       companyKind: "自社",
       createdAt: o.createdAt,
       scaffoldingRemovalCompletedAt: undefined,
+      entranceDateKeys: [],
     };
 }
 
@@ -78,6 +97,7 @@ function normalizeSite(x: unknown): Site | null {
     const siteCode =
       typeof o.siteCode === "string" && o.siteCode.trim() ? o.siteCode.trim() : "";
     const ignoreSiteListWarning = o.ignoreSiteListWarning === true;
+    const entranceDateKeys = normalizeEntranceDateKeys(o.entranceDateKeys);
     return {
       id: o.id as string,
       name: o.name as string,
@@ -87,6 +107,7 @@ function normalizeSite(x: unknown): Site | null {
       googleMapUrl:
         typeof o.googleMapUrl === "string" ? o.googleMapUrl.trim() : "",
       startDate: o.startDate as string,
+      entranceDateKeys,
       salesName: (o.salesName as string) ?? "",
       foremanName: (o.foremanName as string) ?? "",
       kogataNames: kogata,

@@ -12,6 +12,7 @@ import {
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import type { StaffMaster } from "../types/staffMaster";
 import { resolveGoogleMapsUrlForPin } from "../lib/googleMapsUrlCoords";
+import { normalizeEntranceDateKeys } from "../lib/siteStorage";
 import formStyles from "../pages/SiteFormPage.module.css";
 import styles from "./SiteEditorForm.module.css";
 
@@ -77,6 +78,8 @@ export function SiteEditorForm({
   );
   const lastResolvedUrlRef = useRef<string>("");
   const [startDate, setStartDate] = useState("");
+  const [entranceDateKeys, setEntranceDateKeys] = useState<string[]>([]);
+  const [entranceDateDraft, setEntranceDateDraft] = useState("");
   const [salesSelectId, setSalesSelectId] = useState("");
   const [siteTypeSelectId, setSiteTypeSelectId] = useState("");
   const [companyKind, setCompanyKind] = useState<CompanyKind>("自社");
@@ -98,6 +101,8 @@ export function SiteEditorForm({
     setAddress(initialSite.address);
     setGoogleMapUrl(initialSite.googleMapUrl ?? "");
     setStartDate(initialSite.startDate);
+    setEntranceDateKeys(normalizeEntranceDateKeys(initialSite.entranceDateKeys));
+    setEntranceDateDraft("");
 
     const sid = s.find((x) => x.name === initialSite.salesName)?.id ?? "";
     setSalesSelectId(sid);
@@ -106,6 +111,12 @@ export function SiteEditorForm({
     setSiteTypeSelectId(tid);
     setCompanyKind(initialSite.companyKind);
     setIgnoreSiteListWarning(initialSite.ignoreSiteListWarning === true);
+  }, [initialSite]);
+
+  useEffect(() => {
+    if (initialSite) return;
+    setEntranceDateKeys([]);
+    setEntranceDateDraft("");
   }, [initialSite]);
 
   useEffect(() => {
@@ -233,6 +244,7 @@ export function SiteEditorForm({
       address: address.trim(),
       googleMapUrl: googleMapUrl.trim(),
       startDate,
+      entranceDateKeys: normalizeEntranceDateKeys(entranceDateKeys),
       salesName,
       foremanName: initialSite?.foremanName ?? "",
       kogataNames: initialSite?.kogataNames ?? [],
@@ -375,6 +387,57 @@ export function SiteEditorForm({
             onChange={(e) => setStartDate(e.target.value)}
           />
         </label>
+
+        <div className={formStyles.field}>
+          <span className={formStyles.label}>入場日</span>
+          <div className={styles.entranceAddRow}>
+            <input
+              className={`${formStyles.input} ${styles.entranceDateInput}`}
+              type="date"
+              value={entranceDateDraft}
+              onChange={(e) => setEntranceDateDraft(e.target.value)}
+              aria-label="追加する入場日"
+            />
+            <button
+              type="button"
+              className={styles.entranceAddBtn}
+              onClick={() => {
+                const t = entranceDateDraft.trim();
+                if (!t) return;
+                setEntranceDateKeys((prev) =>
+                  normalizeEntranceDateKeys([...prev, t])
+                );
+                setEntranceDateDraft("");
+              }}
+            >
+              追加
+            </button>
+          </div>
+          {entranceDateKeys.length === 0 ? (
+            <p className={styles.hint}>未登録です。複数の入場日を登録できます。</p>
+          ) : (
+            <ul className={styles.entranceList}>
+              {[...entranceDateKeys]
+                .sort((a, b) => b.localeCompare(a))
+                .map((dk) => (
+                  <li key={dk} className={styles.entranceListItem}>
+                    <span>{dk}</span>
+                    <button
+                      type="button"
+                      className={styles.entranceRemoveBtn}
+                      onClick={() =>
+                        setEntranceDateKeys((prev) =>
+                          prev.filter((x) => x !== dk)
+                        )
+                      }
+                    >
+                      削除
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
 
         <div className={formStyles.field}>
           <span className={formStyles.label}>6. 担当営業名</span>

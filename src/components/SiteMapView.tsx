@@ -15,6 +15,7 @@ import {
   getTodayMapPinKind,
   siteMatchesScaffoldingInstallMap,
 } from "../lib/sitePhotoStorage";
+import { siteHasLaborRecordOnDate } from "../lib/siteDailyLaborStorage";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import styles from "./SiteMapView.module.css";
 
@@ -78,6 +79,11 @@ type Props = {
   sites: Site[];
 };
 
+function siteShowsOnTodayWorkMap(site: Site, todayKey: string): boolean {
+  if (site.entranceDateKeys.includes(todayKey)) return true;
+  return siteHasLaborRecordOnDate(site.id, todayKey);
+}
+
 export function SiteMapView({ sites }: Props) {
   const [mapSubTab, setMapSubTab] = useState<MapSubTab>("today");
   const [markers, setMarkers] = useState<MarkerOk[]>([]);
@@ -105,9 +111,11 @@ export function SiteMapView({ sites }: Props) {
     }
     window.addEventListener("siteWorkPhotosChanged", bump);
     window.addEventListener("siteDataSaved", bump);
+    window.addEventListener("siteDailyLaborSaved", bump);
     return () => {
       window.removeEventListener("siteWorkPhotosChanged", bump);
       window.removeEventListener("siteDataSaved", bump);
+      window.removeEventListener("siteDailyLaborSaved", bump);
     };
   }, []);
 
@@ -126,7 +134,9 @@ export function SiteMapView({ sites }: Props) {
 
       let candidates: Site[];
       if (mapSubTab === "today") {
-        candidates = withUrlAll;
+        candidates = withUrlAll.filter((s) =>
+          siteShowsOnTodayWorkMap(s, todayKey)
+        );
       } else {
         candidates = withUrlAll.filter((s) =>
           siteMatchesScaffoldingInstallMap(s)
@@ -247,7 +257,7 @@ export function SiteMapView({ sites }: Props) {
             : lastCandidateTotal > 0 &&
                 failed.length >= lastCandidateTotal
               ? "いずれの現場もURLから位置を取得できませんでした。下記をご確認ください。"
-              : "本日作業中の現場はありません。"}
+              : "本日の入場日または本日の作業記録がある現場はありません。"}
         </p>
       )}
 
