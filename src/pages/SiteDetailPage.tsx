@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Site } from "../types/site";
 import {
   getSiteById,
@@ -20,7 +20,10 @@ import {
   loadTrafficCostSettings,
   resolveTrafficCostByAddress,
 } from "../lib/trafficCostStorage";
+import { purgeSiteData } from "../lib/purgeSiteData";
 import styles from "./SiteDetailPage.module.css";
+
+const PIN_DELETE_SITE = "1234";
 
 function openDailyReport(siteId: string, workKind: WorkKind) {
   const d = todayLocalDateKey();
@@ -63,6 +66,7 @@ function formatYen(n: number): string {
 
 export function SiteDetailPage() {
   const { siteId } = useParams<{ siteId: string }>();
+  const navigate = useNavigate();
   const [site, setSite] = useState<Site | null | undefined>(undefined);
   const [workKind, setWorkKind] = useState<WorkKind>("組み");
   const [fileRevision, setFileRevision] = useState(0);
@@ -76,6 +80,12 @@ export function SiteDetailPage() {
   const [photoTargetOpen, setPhotoTargetOpen] = useState(false);
   const [photoTargetKind, setPhotoTargetKind] = useState<WorkKind>("組み");
   const [entranceExpanded, setEntranceExpanded] = useState(false);
+  const [deleteSitePinOpen, setDeleteSitePinOpen] = useState(false);
+  const [deleteSiteConfirmOpen, setDeleteSiteConfirmOpen] = useState(false);
+  const [deleteSitePin, setDeleteSitePin] = useState("");
+  const [deleteSitePinError, setDeleteSitePinError] = useState<string | null>(
+    null
+  );
   const photoAddTriggerRef = useRef<(() => void) | null>(null);
   const basicInfoSectionRef = useRef<HTMLElement | null>(null);
 
@@ -117,6 +127,35 @@ export function SiteDetailPage() {
   useEffect(() => {
     setEntranceExpanded(false);
   }, [siteId]);
+
+  useEffect(() => {
+    setDeleteSitePinOpen(false);
+    setDeleteSiteConfirmOpen(false);
+    setDeleteSitePin("");
+    setDeleteSitePinError(null);
+  }, [siteId]);
+
+  useEffect(() => {
+    if (!deleteSitePinOpen) return;
+    setDeleteSitePin("");
+    setDeleteSitePinError(null);
+  }, [deleteSitePinOpen]);
+
+  useEffect(() => {
+    if (!deleteSitePinOpen && !deleteSiteConfirmOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (deleteSitePinOpen) {
+        setDeleteSitePinOpen(false);
+        setDeleteSitePin("");
+        setDeleteSitePinError(null);
+      } else {
+        setDeleteSiteConfirmOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteSitePinOpen, deleteSiteConfirmOpen]);
 
   useEffect(() => {
     if (!siteId) return;
@@ -669,6 +708,180 @@ export function SiteDetailPage() {
           日報を生成する
         </button>
       </div>
+
+      <div className={styles.deleteSiteBar}>
+        <button
+          type="button"
+          className={styles.deleteSiteBtn}
+          onClick={() => setDeleteSitePinOpen(true)}
+        >
+          この現場を削除する
+        </button>
+      </div>
+
+      {deleteSitePinOpen && (
+        <div
+          className={styles.deletePinBackdrop}
+          role="presentation"
+          onClick={() => {
+            setDeleteSitePinOpen(false);
+            setDeleteSitePin("");
+            setDeleteSitePinError(null);
+          }}
+        >
+          <div
+            className={styles.deletePinCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-detail-delete-pin-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="site-detail-delete-pin-title"
+              className={styles.deletePinTitle}
+            >
+              PINコード
+            </h2>
+            <p className={styles.deletePinLead}>
+              4桁のPINコードを入力してください。
+            </p>
+            <div className={styles.deletePinDots} aria-label="入力状況">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <span
+                  key={j}
+                  className={
+                    deleteSitePin.length > j
+                      ? styles.deletePinDotOn
+                      : styles.deletePinDotOff
+                  }
+                />
+              ))}
+            </div>
+            {deleteSitePinError && (
+              <p className={styles.deletePinError} role="alert">
+                {deleteSitePinError}
+              </p>
+            )}
+            <div className={styles.deleteKeypad} role="group" aria-label="テンキー">
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "enter",
+                "0",
+                "back",
+              ].map((k) => {
+                const isEnter = k === "enter";
+                const isBack = k === "back";
+                const label = isEnter ? "確定" : isBack ? "⌫" : k;
+                const disabled = isEnter ? deleteSitePin.length !== 4 : false;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    className={
+                      isEnter ? styles.deleteEnterBtn : styles.deleteKeyBtn
+                    }
+                    disabled={disabled}
+                    onClick={() => {
+                      setDeleteSitePinError(null);
+                      if (isEnter) {
+                        if (deleteSitePin.length !== 4) return;
+                        if (deleteSitePin !== PIN_DELETE_SITE) {
+                          setDeleteSitePinError("PINが違います");
+                          setDeleteSitePin("");
+                          return;
+                        }
+                        setDeleteSitePinOpen(false);
+                        setDeleteSitePin("");
+                        setDeleteSiteConfirmOpen(true);
+                        return;
+                      }
+                      if (isBack) {
+                        setDeleteSitePin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      setDeleteSitePin((p) =>
+                        p.length >= 4 ? p : `${p}${k}`
+                      );
+                    }}
+                    aria-label={
+                      isEnter ? "確定" : isBack ? "1文字削除" : `数字${k}`
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={styles.deletePinFooter}>
+              <button
+                type="button"
+                className={styles.deletePinCancelBtn}
+                onClick={() => {
+                  setDeleteSitePinOpen(false);
+                  setDeleteSitePin("");
+                  setDeleteSitePinError(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteSiteConfirmOpen && (
+        <div
+          className={styles.deleteConfirmBackdrop}
+          role="presentation"
+          onClick={() => setDeleteSiteConfirmOpen(false)}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-detail-delete-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="site-detail-delete-dialog-title"
+              className={styles.modalTitle}
+            >
+              現場の削除
+            </h2>
+            <p className={styles.deleteModalText}>
+              この現場を削除しますか？元に戻せません。
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalCancel}
+                onClick={() => setDeleteSiteConfirmOpen(false)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={styles.modalDanger}
+                onClick={() => {
+                  purgeSiteData(safeSite.id);
+                  setDeleteSiteConfirmOpen(false);
+                  navigate("/");
+                }}
+              >
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {removalConfirmOpen && (
         <div
