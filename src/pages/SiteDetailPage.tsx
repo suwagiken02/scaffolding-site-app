@@ -292,28 +292,6 @@ export function SiteDetailPage() {
         </Link>
       </header>
 
-      <div className={styles.scaffoldRemovalBar}>
-        {safeSite.scaffoldingRemovalCompletedAt?.trim() ? (
-          <button
-            type="button"
-            className={styles.scaffoldRemovalDone}
-            disabled
-            aria-label={`足場撤去は完了済みです（${formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）`}
-          >
-            撤去完了済み（
-            {formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={styles.scaffoldRemovalBtn}
-            onClick={() => setRemovalConfirmOpen(true)}
-          >
-            足場撤去完了
-          </button>
-        )}
-      </div>
-
       <div className={styles.basicInfoJumpBar}>
         <button
           type="button"
@@ -328,72 +306,6 @@ export function SiteDetailPage() {
           基本情報へ ↓
         </button>
       </div>
-
-      {removalConfirmOpen && (
-        <div
-          className={styles.modalBackdrop}
-          role="presentation"
-          onClick={() => setRemovalConfirmOpen(false)}
-        >
-          <div
-            className={styles.modal}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="scaffold-removal-dialog-title"
-            aria-describedby="scaffold-removal-dialog-desc"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="scaffold-removal-dialog-title" className={styles.modalTitle}>
-              足場撤去の完了
-            </h2>
-            <p
-              id="scaffold-removal-dialog-desc"
-              className={styles.modalBody}
-            >
-              足場の撤去が完了しましたか？この操作は取り消せません。
-            </p>
-            <label className={styles.modalAckLabel}>
-              <input
-                id="scaffold-removal-confirm-check"
-                className={styles.modalCheckbox}
-                type="checkbox"
-                checked={removalConfirmAcknowledged}
-                onChange={(e) =>
-                  setRemovalConfirmAcknowledged(e.target.checked)
-                }
-              />
-              <span>足場の撤去が完了したことを確認しました</span>
-            </label>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.modalCancel}
-                onClick={() => setRemovalConfirmOpen(false)}
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                className={styles.modalConfirm}
-                disabled={!removalConfirmAcknowledged}
-                onClick={() => {
-                  if (!removalConfirmAcknowledged) return;
-                  const at = new Date().toISOString();
-                  const next: Site = {
-                    ...safeSite,
-                    scaffoldingRemovalCompletedAt: at,
-                  };
-                  updateSite(next);
-                  setSite(next);
-                  setRemovalConfirmOpen(false);
-                }}
-              >
-                完了にする
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <section aria-label="作業記録一覧">
         <div className={styles.startWorkWrap}>
@@ -538,12 +450,12 @@ export function SiteDetailPage() {
         </div>
       </section>
 
-      <section aria-label="人工・交通費サマリー">
-        <h2 className={styles.pageSectionTitle}>人工・交通費サマリー</h2>
+      <section aria-label="人工・交通費">
+        <h2 className={styles.pageSectionTitle}>人工・交通費</h2>
         <LaborSummaryBar siteId={safeSite.id} revision={fileRevision} />
 
-        <section className={styles.trafficSummary} aria-label="交通費サマリー">
-          <h3 className={styles.sectionTitle}>交通費サマリー</h3>
+        <section className={styles.trafficSummary} aria-label="交通費">
+          <h3 className={styles.sectionTitle}>交通費</h3>
           {!resolvedTraffic ? (
             <p className={styles.trafficHint}>交通費マスターに未登録です</p>
           ) : (
@@ -692,6 +604,94 @@ export function SiteDetailPage() {
           <SiteNotificationRecipientsPanel siteId={safeSite.id} />
         </div>
       </section>
+
+      <div className={styles.scaffoldRemovalBar}>
+        {safeSite.scaffoldingRemovalCompletedAt?.trim() ? (
+          <button
+            type="button"
+            className={styles.scaffoldRemovalDone}
+            disabled
+            aria-label={`足場撤去は完了済みです（${formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）`}
+          >
+            撤去完了済み（
+            {formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.scaffoldRemovalBtn}
+            onClick={() => setRemovalConfirmOpen(true)}
+          >
+            足場撤去完了
+          </button>
+        )}
+      </div>
+
+      {removalConfirmOpen && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setRemovalConfirmOpen(false)}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scaffold-removal-dialog-title"
+            aria-describedby="scaffold-removal-dialog-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="scaffold-removal-dialog-title" className={styles.modalTitle}>
+              足場撤去の完了
+            </h2>
+            <p
+              id="scaffold-removal-dialog-desc"
+              className={styles.modalBody}
+            >
+              足場の撤去が完了しましたか？この操作は取り消せません。
+            </p>
+            <label className={styles.modalAckLabel}>
+              <input
+                id="scaffold-removal-confirm-check"
+                className={styles.modalCheckbox}
+                type="checkbox"
+                checked={removalConfirmAcknowledged}
+                onChange={(e) =>
+                  setRemovalConfirmAcknowledged(e.target.checked)
+                }
+              />
+              <span>足場の撤去が完了したことを確認しました</span>
+            </label>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalCancel}
+                onClick={() => setRemovalConfirmOpen(false)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={styles.modalConfirm}
+                disabled={!removalConfirmAcknowledged}
+                onClick={() => {
+                  if (!removalConfirmAcknowledged) return;
+                  const at = new Date().toISOString();
+                  const next: Site = {
+                    ...safeSite,
+                    scaffoldingRemovalCompletedAt: at,
+                  };
+                  updateSite(next);
+                  setSite(next);
+                  setRemovalConfirmOpen(false);
+                }}
+              >
+                完了にする
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

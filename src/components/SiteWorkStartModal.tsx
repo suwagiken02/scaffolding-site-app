@@ -238,7 +238,7 @@ export function SiteWorkStartModal({
             {employmentKind === "社員" ? (
               <>
                 <div className={styles.checkboxGroup}>
-                  <div className={styles.checkboxGroupTitle}>職長マスター</div>
+                  <div className={styles.checkboxGroupTitle}>職長</div>
                   {foremanMasters.length === 0 ? (
                     <p className={styles.hint}>職長マスターが登録されていません。</p>
                   ) : (
@@ -260,7 +260,7 @@ export function SiteWorkStartModal({
                 </div>
 
                 <div className={styles.checkboxGroup}>
-                  <div className={styles.checkboxGroupTitle}>子方マスター</div>
+                  <div className={styles.checkboxGroupTitle}>子方</div>
                   {kogataMasters.length === 0 ? (
                     <p className={styles.hint}>子方マスターが登録されていません。</p>
                   ) : (
