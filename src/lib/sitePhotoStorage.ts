@@ -4,6 +4,7 @@ import { PHOTO_CATEGORIES } from "../types/sitePhoto";
 import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
 import { isoToLocalDateKey } from "./dateUtils";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY_V1 = "scaffolding-site-photos-v1";
 const KEY_V2 = "scaffolding-site-photos-v2";
@@ -163,6 +164,7 @@ function readStore(): SitePhotoStoreV2 {
 
 function writeStore(store: SitePhotoStoreV2): void {
   localStorage.setItem(KEY_V2, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY_V2);
 }
 
 function ensureSite(

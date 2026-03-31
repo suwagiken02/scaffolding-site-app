@@ -17,6 +17,7 @@ export type KouseiMonthList = {
 };
 
 const KEY = "kousei-list-v1";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 type Store = Record<string, KouseiMonthList>;
 
@@ -38,6 +39,7 @@ function readStore(): Store {
 
 function writeStore(store: Store): void {
   localStorage.setItem(KEY, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY);
 }
 
 export function loadKouseiMonthList(month: string): KouseiMonthList {

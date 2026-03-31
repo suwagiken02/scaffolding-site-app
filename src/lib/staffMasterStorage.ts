@@ -1,4 +1,5 @@
 import type { StaffMaster, StaffRole } from "../types/staffMaster";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY = "master-staff-v1";
 
@@ -43,6 +44,7 @@ function readRaw(): unknown {
 
 function save(list: StaffMaster[]): void {
   localStorage.setItem(KEY, JSON.stringify(list));
+  persistLocalStorageKeyToServer(KEY);
   window.dispatchEvent(new CustomEvent("staffMasterSaved"));
 }
 

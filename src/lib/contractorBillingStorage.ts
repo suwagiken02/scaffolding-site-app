@@ -1,3 +1,5 @@
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
+
 export type ContractorBillingKey = {
   contractorName: string;
   siteId: string;
@@ -32,6 +34,7 @@ function readStore(): Store {
 
 function writeStore(store: Store): void {
   localStorage.setItem(KEY, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY);
 }
 
 export function loadContractorBillingAmount(

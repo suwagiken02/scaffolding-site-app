@@ -14,6 +14,8 @@ export type ContractorWorkflow = {
   updatedAt: string;
 };
 
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
+
 const KEY = "contractor-workflow-v1";
 
 type Store = Record<string, ContractorWorkflow>;
@@ -36,6 +38,7 @@ function readStore(): Store {
 
 function writeStore(store: Store): void {
   localStorage.setItem(KEY, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY);
 }
 
 export function loadContractorWorkflow(

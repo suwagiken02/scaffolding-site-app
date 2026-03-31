@@ -1,4 +1,5 @@
 import type { ContractorMaster } from "../types/contractorMaster";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY = "master-contractor-v1";
 
@@ -38,6 +39,7 @@ function readList(): ContractorMaster[] {
 
 function writeList(list: ContractorMaster[]): void {
   localStorage.setItem(KEY, JSON.stringify(list));
+  persistLocalStorageKeyToServer(KEY);
 }
 
 export function loadContractorMasters(): ContractorMaster[] {

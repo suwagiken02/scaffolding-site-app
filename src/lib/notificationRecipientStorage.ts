@@ -1,4 +1,5 @@
 import type { NotificationRecipient } from "../types/notificationRecipient";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const STORAGE_KEY = "notification-recipients-master-v1";
 
@@ -30,6 +31,7 @@ export function loadRecipients(): NotificationRecipient[] {
 
 export function saveRecipients(list: NotificationRecipient[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  persistLocalStorageKeyToServer(STORAGE_KEY);
 }
 
 export function addRecipient(

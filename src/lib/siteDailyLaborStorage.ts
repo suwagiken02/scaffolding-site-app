@@ -1,6 +1,7 @@
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY_V1 = "scaffolding-site-daily-labor-v1";
 const KEY_V2 = "scaffolding-site-daily-labor-v2";
@@ -173,6 +174,7 @@ function readStore(): StoreV2 {
 
 function writeStore(store: StoreV2): void {
   localStorage.setItem(KEY_V2, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY_V2);
 }
 
 function dispatchSaved(siteId: string) {

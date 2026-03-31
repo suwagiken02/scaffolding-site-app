@@ -1,4 +1,5 @@
 import type { Site } from "../types/site";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const STORAGE_KEY = "scaffolding-sites-v1";
 
@@ -107,6 +108,7 @@ export function loadSites(): Site[] {
 
 export function saveSites(sites: Site[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sites));
+  persistLocalStorageKeyToServer(STORAGE_KEY);
 }
 
 export function getSiteById(id: string): Site | undefined {

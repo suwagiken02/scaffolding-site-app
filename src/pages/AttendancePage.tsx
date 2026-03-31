@@ -321,6 +321,22 @@ export function AttendancePage() {
                   const opt1 = toHHmm(base);
                   const opt2 = toHHmm(new Date(base.getTime() + 10 * 60000));
                   setConfirm(null);
+                  // 集合時間の質問は「出勤」のときだけ。
+                  // 「退勤」は集合時間入力をスキップしてそのまま打刻する。
+                  if (confirm.kind === "out") {
+                    const nowIso = new Date().toISOString();
+                    const res = punchAttendance(
+                      confirm.personName,
+                      todayKey,
+                      nowIso,
+                      null
+                    );
+                    const t = formatTimeJa(nowIso);
+                    if (res.kind === "out") setDoneMessage(`退勤：${t}`);
+                    else if (res.kind === "in") setDoneMessage(`出勤：${t}`);
+                    else setDoneMessage(`本日は打刻済みです`);
+                    return;
+                  }
                   setMeeting({
                     personName: confirm.personName,
                     kind: confirm.kind,

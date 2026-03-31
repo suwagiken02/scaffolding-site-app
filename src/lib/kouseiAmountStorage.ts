@@ -1,3 +1,5 @@
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
+
 export type KouseiAmountKey = {
   month: string; // YYYY-MM
   rowKey: string;
@@ -25,6 +27,7 @@ function readStore(): Store {
 
 function writeStore(store: Store): void {
   localStorage.setItem(KEY, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY);
 }
 
 export function loadKouseiAmount(k: KouseiAmountKey): number | null {

@@ -1,4 +1,5 @@
 import type { AttendanceRecord, AttendanceStore } from "../types/attendance";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY = "scaffolding-attendance-v1";
 
@@ -14,6 +15,7 @@ function readRaw(): unknown {
 
 function writeRaw(store: AttendanceStore): void {
   localStorage.setItem(KEY, JSON.stringify(store));
+  persistLocalStorageKeyToServer(KEY);
   window.dispatchEvent(new CustomEvent("attendanceSaved"));
 }
 

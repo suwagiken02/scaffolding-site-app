@@ -1,4 +1,5 @@
 import type { TrafficCostSetting } from "../types/trafficCostSetting";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY = "scaffolding-traffic-cost-settings-v1";
 
@@ -46,6 +47,7 @@ export function loadTrafficCostSettings(): TrafficCostSetting[] {
 
 function save(list: TrafficCostSetting[]): void {
   localStorage.setItem(KEY, JSON.stringify(list));
+  persistLocalStorageKeyToServer(KEY);
   window.dispatchEvent(new CustomEvent("trafficCostSettingsSaved"));
 }
 

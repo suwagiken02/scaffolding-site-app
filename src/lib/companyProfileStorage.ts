@@ -44,5 +44,18 @@ export function saveCompanyProfile(next: CompanyProfile): void {
       kouseiPin: next.kouseiPin ?? "",
     })
   );
+  // persist to server disk in production
+  // (keep UI sync; ignore network errors)
+  try {
+    // static import avoided to keep this module tiny in dev,
+    // but Vite will likely include it anyway since other storages import it.
+    // We keep this simple and safe.
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    import("./persistStorageApi").then(({ persistLocalStorageKeyToServer }) =>
+      persistLocalStorageKeyToServer(KEY)
+    );
+  } catch {
+    // ignore
+  }
 }
 

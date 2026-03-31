@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import express from "express";
 import nodemailer from "nodemailer";
 import { existsSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -45,6 +48,70 @@ app.use(
   })
 );
 app.use(express.json({ limit: "256kb" }));
+
+// ---- Persistent JSON storage (Render disk /var/data) ----
+const DATA_DIR =
+  process.env.NODE_ENV === "production" ? "/var/data" : join(__dirname, "data");
+try {
+  mkdirSync(DATA_DIR, { recursive: true });
+} catch {
+  // ignore
+}
+console.log("[server] data dir:", DATA_DIR);
+
+function safeKeyToPath(key) {
+  const raw = String(key ?? "");
+  const safe = raw.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return join(DATA_DIR, `${safe}.json`);
+}
+
+app.get("/api/storage/bulk", async (req, res) => {
+  // Return all persisted keys (one file per key).
+  const out = {};
+  try {
+    const files = await readdir(DATA_DIR);
+    for (const f of files) {
+      if (!f.endsWith(".json")) continue;
+      const key = f.slice(0, -5);
+      try {
+        const value = await readFile(join(DATA_DIR, f), "utf8");
+        out[key] = String(value);
+      } catch {
+        // ignore
+      }
+    }
+    res.json(out);
+  } catch {
+    res.json({});
+  }
+});
+
+app.get("/api/storage/:key", async (req, res) => {
+  const key = req.params.key;
+  try {
+    const p = safeKeyToPath(key);
+    if (!existsSync(p)) {
+      res.status(404).json({ ok: false, error: "not found" });
+      return;
+    }
+    const value = await readFile(p, "utf8");
+    res.json({ ok: true, value: String(value) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.put("/api/storage/:key", async (req, res) => {
+  const key = req.params.key;
+  const value = typeof req.body?.value === "string" ? req.body.value : "";
+  try {
+    const p = safeKeyToPath(key);
+    await writeFile(p, value, "utf8");
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "write failed" });
+  }
+});
 
 // ---- Static hosting (Vite dist) ----
 // dist is at project root: ../dist (relative to server/)

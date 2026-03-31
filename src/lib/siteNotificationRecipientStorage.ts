@@ -1,3 +1,5 @@
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
+
 const STORAGE_KEY = "site-notification-targets-v1";
 
 type Store = Record<string, string[]>;
@@ -16,6 +18,7 @@ function readStore(): Store {
 
 function writeStore(map: Store): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  persistLocalStorageKeyToServer(STORAGE_KEY);
 }
 
 export function getSelectedRecipientIds(siteId: string): string[] {

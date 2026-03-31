@@ -1,4 +1,5 @@
 import type { MasterItem } from "../types/masterItem";
+import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -27,6 +28,7 @@ function readList(key: string): MasterItem[] {
 
 function writeList(key: string, list: MasterItem[]): void {
   localStorage.setItem(key, JSON.stringify(list));
+  persistLocalStorageKeyToServer(key);
 }
 
 const KEY_CLIENT = "master-motouke-v1";
