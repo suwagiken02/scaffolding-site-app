@@ -115,12 +115,6 @@ export function SiteEditorForm({
   }, [initialSite]);
 
   useEffect(() => {
-    if (initialSite) return;
-    setEntranceDateKeys([]);
-    setEntranceDateDraft("");
-  }, [initialSite]);
-
-  useEffect(() => {
     let cancelled = false;
     const url = googleMapUrl.trim();
     if (!url) {

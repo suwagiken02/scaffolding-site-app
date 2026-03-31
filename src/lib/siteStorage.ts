@@ -174,6 +174,9 @@ export function addSite(site: Site): void {
   const sites = loadSites();
   sites.unshift(site);
   saveSites(sites);
+  window.dispatchEvent(
+    new CustomEvent("siteDataSaved", { detail: { siteId: site.id } })
+  );
 }
 
 export function updateSite(site: Site): void {
