@@ -68,8 +68,8 @@ export function SiteWorkStartModal({
   const [contractorSelectId, setContractorSelectId] = useState<string>("");
   const [contractorFree, setContractorFree] = useState<string>("");
   const [contractorPeopleRaw, setContractorPeopleRaw] = useState<string>("1");
-  const [vehicleCountRaw, setVehicleCountRaw] = useState<string>(
-    String(site.vehicleLabels.length ?? 0)
+  const [vehicleCount, setVehicleCount] = useState<number>(() =>
+    Math.max(1, site.vehicleLabels.length)
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +79,6 @@ export function SiteWorkStartModal({
   }, [site.id, todayDateKey, workKind]);
 
   const startDisabled = useMemo(() => {
-    const v = toNumberOrNaN(vehicleCountRaw);
     const hasMembers =
       selectedForeman.size > 0 || selectedKogata.size > 0;
     const companyName =
@@ -89,14 +88,15 @@ export function SiteWorkStartModal({
     const hasCompany = companyName.trim().length > 0;
     const p = toNumberOrNaN(contractorPeopleRaw);
     const hasPeople = Number.isFinite(p) && p > 0;
-    const hasValidVehicle = Number.isFinite(v) && v >= 0;
+    const hasValidVehicle =
+      Number.isFinite(vehicleCount) && vehicleCount >= 1 && Number.isInteger(vehicleCount);
     return (
       !(employmentKind === "社員" ? hasMembers : hasCompany && hasPeople) ||
       !hasValidVehicle ||
       hasTodayRecordForSelectedKind
     );
   }, [
-    vehicleCountRaw,
+    vehicleCount,
     employmentKind,
     selectedForeman,
     selectedKogata,
@@ -116,7 +116,7 @@ export function SiteWorkStartModal({
 
   function onStart() {
     setError(null);
-    const v = toNumberOrNaN(vehicleCountRaw);
+    const v = vehicleCount;
     const hasMembers = selectedForeman.size > 0 || selectedKogata.size > 0;
     const contractorCompanyName =
       contractorFree.trim() ||
@@ -142,8 +142,8 @@ export function SiteWorkStartModal({
         return;
       }
     }
-    if (!Number.isFinite(v) || v < 0) {
-      setError("車両台数は 0 以上の数値で入力してください。");
+    if (!Number.isFinite(v) || v < 1 || !Number.isInteger(v)) {
+      setError("車両台数は 1 以上の整数で指定してください。");
       return;
     }
     if (hasTodayRecordForSelectedKind) {
@@ -325,17 +325,49 @@ export function SiteWorkStartModal({
             )}
           </fieldset>
 
-          <label className={styles.field}>
-            <span className={styles.label}>車両台数</span>
-            <input
-              type="number"
-              className={styles.numberInput}
-              min={0}
-              step={1}
-              value={vehicleCountRaw}
-              onChange={(e) => setVehicleCountRaw(e.target.value)}
-            />
-          </label>
+          <div className={styles.field}>
+            <span className={styles.label} id="vehicle-count-label">
+              車両台数
+            </span>
+            <div
+              className={styles.vehicleStepper}
+              role="group"
+              aria-labelledby="vehicle-count-label"
+            >
+              <button
+                type="button"
+                className={styles.vehicleStepBtn}
+                aria-label="1台増やす"
+                onClick={() => setVehicleCount((c) => c + 1)}
+              >
+                ▲
+              </button>
+              <span className={styles.vehicleValue} aria-live="polite">
+                {vehicleCount}
+              </span>
+              <button
+                type="button"
+                className={styles.vehicleStepBtn}
+                aria-label="1台減らす"
+                disabled={vehicleCount <= 1}
+                onClick={() => setVehicleCount((c) => Math.max(1, c - 1))}
+              >
+                ▼
+              </button>
+            </div>
+            <div className={styles.vehicleShortcuts} role="group" aria-label="台数のショートカット">
+              {([1, 2, 3] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={styles.vehicleShortcutBtn}
+                  onClick={() => setVehicleCount(n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {error && (
             <p className={styles.error} role="alert">
