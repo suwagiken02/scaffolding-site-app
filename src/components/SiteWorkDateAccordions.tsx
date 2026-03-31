@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
-import type { SitePhoto } from "../types/sitePhoto";
+import { type SitePhoto, sitePhotoDisplaySrc } from "../types/sitePhoto";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   loadPhotosForSiteWorkDate,
@@ -237,7 +237,7 @@ export function SiteWorkDateAccordions({
                                 <PhotoCategoryBadge category={p.category} />
                               </div>
                               <img
-                                src={p.dataUrl}
+                                src={sitePhotoDisplaySrc(p)}
                                 alt={p.fileName}
                                 className={photoStyles.thumb}
                                 loading="lazy"

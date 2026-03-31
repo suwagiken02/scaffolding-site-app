@@ -10,6 +10,7 @@ import {
   loadPhotosForSiteWorkDate,
   savePhotosForSiteWorkDate,
 } from "../lib/sitePhotoStorage";
+import { uploadSitePhotoToR2 } from "../lib/photoUploadApi";
 import { sendWorkNotificationIfNeeded } from "../lib/sendEmailApi";
 import { isoToLocalDateKey } from "../lib/dateUtils";
 import { HelpTeamLaborModal } from "./HelpTeamLaborModal";
@@ -73,15 +74,6 @@ function newPhotoId(): string {
   return `ph-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function readFileAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
 export function SitePhotosSection({
   siteId,
   site,
@@ -118,9 +110,7 @@ export function SitePhotosSection({
         setStorageError(null);
         bump();
       } catch {
-        setStorageError(
-          "写真を保存できませんでした。ブラウザの保存容量が足りない可能性があります。"
-        );
+        setStorageError("写真のメタデータを保存できませんでした。もう一度お試しください。");
         throw new Error("save failed");
       }
     },
@@ -139,10 +129,14 @@ export function SitePhotosSection({
       try {
         const newItems: SitePhoto[] = [];
         for (const file of imageFiles) {
-          const dataUrl = await readFileAsDataURL(file);
+          const url = await uploadSitePhotoToR2(file, {
+            siteId,
+            workKind,
+            dateKey: todayDateKey,
+          });
           newItems.push({
             id: newPhotoId(),
-            dataUrl,
+            url,
             uploadedAt: new Date().toISOString(),
             fileName: file.name || "image",
             category,
@@ -184,8 +178,10 @@ export function SitePhotosSection({
           const ctx = laborContextAfterEndUpload(newItems, merged);
           if (ctx) setPendingLaborFlow(ctx);
         }
-      } catch {
-        setStorageError("写真の読み込みに失敗しました。");
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "写真のアップロードに失敗しました。";
+        setStorageError(msg);
       } finally {
         setIsAdding(false);
       }

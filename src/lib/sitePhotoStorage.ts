@@ -56,7 +56,8 @@ function migrateToPhotoCategory(raw: string | undefined): PhotoCategory {
 
 type StoredSitePhoto = {
   id: string;
-  dataUrl: string;
+  dataUrl?: string;
+  url?: string;
   uploadedAt: string;
   fileName: string;
   category?: string;
@@ -65,12 +66,15 @@ type StoredSitePhoto = {
 function isSitePhoto(x: unknown): x is StoredSitePhoto {
   if (typeof x !== "object" || x === null) return false;
   const o = x as Record<string, unknown>;
+  const hasData =
+    typeof o.dataUrl === "string" && o.dataUrl.startsWith("data:");
+  const hasUrl =
+    typeof o.url === "string" && /^https?:\/\//i.test(o.url.trim());
   const base =
     typeof o.id === "string" &&
-    typeof o.dataUrl === "string" &&
-    o.dataUrl.startsWith("data:") &&
     typeof o.uploadedAt === "string" &&
-    typeof o.fileName === "string";
+    typeof o.fileName === "string" &&
+    (hasData || hasUrl);
   if (!base) return false;
   if (o.category === undefined) return true;
   return typeof o.category === "string";
@@ -78,9 +82,18 @@ function isSitePhoto(x: unknown): x is StoredSitePhoto {
 
 function normalizePhoto(raw: StoredSitePhoto): SitePhoto {
   const category = migrateToPhotoCategory(raw.category);
+  const url =
+    typeof raw.url === "string" && /^https?:\/\//i.test(raw.url.trim())
+      ? raw.url.trim()
+      : undefined;
+  const dataUrl =
+    typeof raw.dataUrl === "string" && raw.dataUrl.startsWith("data:")
+      ? raw.dataUrl
+      : undefined;
   return {
     id: raw.id,
-    dataUrl: raw.dataUrl,
+    ...(url ? { url } : {}),
+    ...(dataUrl ? { dataUrl } : {}),
     uploadedAt: raw.uploadedAt,
     fileName: raw.fileName,
     category,

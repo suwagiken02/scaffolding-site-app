@@ -1,7 +1,10 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import multer from "multer";
 import nodemailer from "nodemailer";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
@@ -49,6 +52,117 @@ app.use(
 );
 app.use(express.json({ limit: "256kb" }));
 
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("画像ファイルのみアップロードできます。"));
+  },
+});
+
+const WORK_KINDS_JA = ["組み", "払い", "その他"];
+
+function extFromMime(mime) {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  if (mime === "image/jpeg" || mime === "image/jpg") return "jpg";
+  return "jpg";
+}
+
+/** @type {S3Client | null} */
+let r2ClientCache = null;
+
+function getR2Client() {
+  if (r2ClientCache) return r2ClientCache;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
+  const endpoint = process.env.R2_ENDPOINT?.trim();
+  if (!accessKeyId || !secretAccessKey || !endpoint) return null;
+  r2ClientCache = new S3Client({
+    region: "auto",
+    endpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+  return r2ClientCache;
+}
+
+app.post(
+  "/api/photos/upload",
+  (req, res, next) => {
+    photoUpload.single("file")(req, res, (err) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "アップロードエラー";
+        res.status(400).json({ ok: false, error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const bucket = process.env.R2_BUCKET_NAME?.trim();
+    const publicBaseRaw = process.env.R2_PUBLIC_BASE_URL?.trim() ?? "";
+    const publicBase = publicBaseRaw.replace(/\/$/, "");
+
+    if (!getR2Client() || !bucket) {
+      res.status(503).json({
+        ok: false,
+        error:
+          "R2 の環境変数（R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET_NAME）が不足しています。",
+      });
+      return;
+    }
+    if (!publicBase) {
+      res.status(503).json({
+        ok: false,
+        error:
+          "R2_PUBLIC_BASE_URL が未設定です。R2 の公開アクセス用URL（末尾スラッシュなし）を設定してください。",
+      });
+      return;
+    }
+    if (!req.file?.buffer) {
+      res.status(400).json({ ok: false, error: "ファイルがありません。" });
+      return;
+    }
+
+    const siteId = String(req.body?.siteId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+    const safeSiteId = siteId || "unknown";
+    const wk = req.body?.workKind;
+    const workKind = WORK_KINDS_JA.includes(wk) ? wk : "組み";
+    const dk = req.body?.dateKey;
+    if (typeof dk !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) {
+      res.status(400).json({ ok: false, error: "dateKey が不正です。" });
+      return;
+    }
+
+    const ext = extFromMime(req.file.mimetype);
+    const key = `sites/${safeSiteId}/${workKind}/${dk}/${randomUUID()}.${ext}`;
+
+    try {
+      const client = getR2Client();
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype || "image/jpeg",
+        })
+      );
+    } catch (e) {
+      console.error("[server] R2 PutObject failed:", e);
+      res.status(500).json({ ok: false, error: "ストレージへの保存に失敗しました。" });
+      return;
+    }
+
+    const url = `${publicBase}/${key}`;
+    res.json({ ok: true, url, key });
+  }
+);
+
 // ---- Persistent JSON storage (Render disk /var/data) ----
 const DATA_DIR =
   process.env.NODE_ENV === "production" ? "/var/data" : join(__dirname, "data");
@@ -58,6 +172,12 @@ try {
   // ignore
 }
 console.log("[server] data dir:", DATA_DIR);
+console.log(
+  "[server] R2 photo upload:",
+  process.env.R2_BUCKET_NAME?.trim() && process.env.R2_PUBLIC_BASE_URL?.trim()
+    ? "bucket + public URL 設定あり"
+    : "R2_BUCKET_NAME / R2_PUBLIC_BASE_URL を確認（写真API用）"
+);
 
 function safeKeyToPath(key) {
   const raw = String(key ?? "");

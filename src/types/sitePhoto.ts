@@ -27,8 +27,10 @@ export const PHOTO_CATEGORY_ORDER: readonly PhotoCategory[] = [
 
 export type SitePhoto = {
   id: string;
-  /** data:image/...;base64,... */
-  dataUrl: string;
+  /** 公開URL（Cloudflare R2 等）。あれば表示に優先使用 */
+  url?: string;
+  /** 従来の data:image/...;base64,...（ローカル保存・移行データ） */
+  dataUrl?: string;
   /** アップロード日時（ISO 8601） */
   uploadedAt: string;
   /** 元のファイル名（表示用） */
@@ -36,3 +38,12 @@ export type SitePhoto = {
   /** 撮影・登録の種別 */
   category: PhotoCategory;
 };
+
+/** img の src 用（url 優先、なければ dataUrl） */
+export function sitePhotoDisplaySrc(p: SitePhoto): string {
+  const u = p.url?.trim();
+  if (u && /^https?:\/\//i.test(u)) return u;
+  const d = p.dataUrl?.trim();
+  if (d) return d;
+  return "";
+}

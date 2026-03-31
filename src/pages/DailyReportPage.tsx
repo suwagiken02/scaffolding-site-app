@@ -6,6 +6,7 @@ import {
   PHOTO_CATEGORY_LABELS,
   type PhotoCategory,
   type SitePhoto,
+  sitePhotoDisplaySrc,
 } from "../types/sitePhoto";
 import { getSiteById } from "../lib/siteStorage";
 import { loadPhotosForSiteWorkDate } from "../lib/sitePhotoStorage";
@@ -203,7 +204,7 @@ export function DailyReportPage() {
                 </div>
                 <div className={styles.photoFrame}>
                   <img
-                    src={p.dataUrl}
+                    src={sitePhotoDisplaySrc(p)}
                     alt={`${PHOTO_CATEGORY_LABELS[p.category]} ${p.fileName}`}
                     className={styles.photoImg}
                   />
