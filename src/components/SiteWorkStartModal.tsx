@@ -195,7 +195,8 @@ export function SiteWorkStartModal({
           作業を追加する
         </h2>
 
-        <div className={styles.form}>
+        <div className={styles.modalScroll}>
+          <div className={styles.form}>
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>作業種別</legend>
             <div className={styles.radioRow}>
@@ -375,6 +376,15 @@ export function SiteWorkStartModal({
             </p>
           )}
 
+          {hasTodayRecordForSelectedKind && (
+            <p className={styles.note}>
+              この作業種別の本日分記録は既に作成されています。別の作業種別を選ぶか、作業記録一覧をご確認ください。
+            </p>
+          )}
+          </div>
+        </div>
+
+        <div className={styles.modalFooter}>
           <div className={styles.actions}>
             <button type="button" className={styles.cancelBtn} onClick={onClose}>
               キャンセル
@@ -388,12 +398,6 @@ export function SiteWorkStartModal({
               作業開始
             </button>
           </div>
-
-          {hasTodayRecordForSelectedKind && (
-            <p className={styles.note}>
-              この作業種別の本日分記録は既に作成されています。別の作業種別を選ぶか、作業記録一覧をご確認ください。
-            </p>
-          )}
         </div>
       </div>
     </div>
