@@ -28,6 +28,7 @@ const SORT_CHOICES: { value: SortOption; label: string }[] = [
 ];
 
 const jaCollator = new Intl.Collator("ja");
+const PIN_DEFAULT = "1234";
 
 function joinList(items: string[]): string {
   if (items.length === 0) return "—";
@@ -109,6 +110,11 @@ export function SiteListPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [tab, setTab] = useState<Tab>("list");
   const [confirmSite, setConfirmSite] = useState<Site | null>(null);
+  const [sitePendingDeletePin, setSitePendingDeletePin] = useState<Site | null>(
+    null
+  );
+  const [deletePin, setDeletePin] = useState("");
+  const [deletePinError, setDeletePinError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("start_desc");
   const [searchText, setSearchText] = useState("");
   const [workRevision, setWorkRevision] = useState(0);
@@ -151,13 +157,26 @@ export function SiteListPage() {
   }, []);
 
   useEffect(() => {
-    if (!confirmSite) return;
+    if (!sitePendingDeletePin) return;
+    setDeletePin("");
+    setDeletePinError(null);
+  }, [sitePendingDeletePin]);
+
+  useEffect(() => {
+    if (!confirmSite && !sitePendingDeletePin) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setConfirmSite(null);
+      if (e.key !== "Escape") return;
+      if (sitePendingDeletePin) {
+        setSitePendingDeletePin(null);
+        setDeletePin("");
+        setDeletePinError(null);
+      } else {
+        setConfirmSite(null);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [confirmSite]);
+  }, [confirmSite, sitePendingDeletePin]);
 
   function handleConfirmDelete() {
     if (!confirmSite) return;
@@ -399,7 +418,7 @@ export function SiteListPage() {
                         <button
                           type="button"
                           className={styles.deleteBtn}
-                          onClick={() => setConfirmSite(site)}
+                          onClick={() => setSitePendingDeletePin(site)}
                         >
                           削除
                         </button>
@@ -436,6 +455,114 @@ export function SiteListPage() {
           aria-labelledby="tab-map"
         >
           <SiteMapView sites={sites} />
+        </div>
+      )}
+
+      {sitePendingDeletePin && (
+        <div
+          className={styles.pinBackdrop}
+          role="presentation"
+          onClick={() => {
+            setSitePendingDeletePin(null);
+            setDeletePin("");
+            setDeletePinError(null);
+          }}
+        >
+          <div
+            className={styles.pinCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-list-pin-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="site-list-pin-title" className={styles.pinTitle}>
+              PINコード
+            </h2>
+            <p className={styles.pinLead}>4桁のPINコードを入力してください。</p>
+            <div className={styles.pinDots} aria-label="入力状況">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <span
+                  key={j}
+                  className={
+                    deletePin.length > j ? styles.pinDotOn : styles.pinDotOff
+                  }
+                />
+              ))}
+            </div>
+            {deletePinError && (
+              <p className={styles.pinError} role="alert">
+                {deletePinError}
+              </p>
+            )}
+            <div className={styles.keypad} role="group" aria-label="テンキー">
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "enter",
+                "0",
+                "back",
+              ].map((k) => {
+                const isEnter = k === "enter";
+                const isBack = k === "back";
+                const label = isEnter ? "確定" : isBack ? "⌫" : k;
+                const disabled = isEnter ? deletePin.length !== 4 : false;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    className={isEnter ? styles.enterBtn : styles.keyBtn}
+                    disabled={disabled}
+                    onClick={() => {
+                      setDeletePinError(null);
+                      if (isEnter) {
+                        if (deletePin.length !== 4) return;
+                        if (deletePin !== PIN_DEFAULT) {
+                          setDeletePinError("PINが違います");
+                          setDeletePin("");
+                          return;
+                        }
+                        const target = sitePendingDeletePin;
+                        setSitePendingDeletePin(null);
+                        setDeletePin("");
+                        if (target) setConfirmSite(target);
+                        return;
+                      }
+                      if (isBack) {
+                        setDeletePin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      setDeletePin((p) => (p.length >= 4 ? p : `${p}${k}`));
+                    }}
+                    aria-label={
+                      isEnter ? "確定" : isBack ? "1文字削除" : `数字${k}`
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={styles.pinFooter}>
+              <button
+                type="button"
+                className={styles.pinCancelBtn}
+                onClick={() => {
+                  setSitePendingDeletePin(null);
+                  setDeletePin("");
+                  setDeletePinError(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

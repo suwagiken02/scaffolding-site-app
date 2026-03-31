@@ -402,6 +402,142 @@
   word-break: break-word;
 }
 
+.pinBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.pinCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 1.35rem 1.4rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.pinTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.pinLead {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.pinDots {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0 0 0.65rem;
+}
+
+.pinDotOn,
+.pinDotOff {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+}
+
+.pinDotOn {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pinDotOff {
+  background: transparent;
+}
+
+.pinError {
+  margin: 0 0 0.75rem;
+  text-align: center;
+  font-weight: 800;
+  color: #dc2626;
+  font-size: 0.88rem;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+}
+
+.keyBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 900;
+  padding: 0.9rem 0.45rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.keyBtn:hover {
+  background: var(--surface-hover);
+}
+
+.enterBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  padding: 0.9rem 0.45rem;
+  border-radius: var(--radius);
+  border: none;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.enterBtn:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.enterBtn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.pinFooter {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.pinCancelBtn {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pinCancelBtn:hover {
+  background: var(--surface-hover);
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;
