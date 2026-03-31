@@ -27,11 +27,6 @@ function openDailyReport(siteId: string, workKind: WorkKind) {
   window.open(url.href, "_blank", "noopener,noreferrer");
 }
 
-function joinList(items: string[]): string {
-  if (items.length === 0) return "—";
-  return items.join("、");
-}
-
 function formatRemovalCompletedDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -301,7 +296,6 @@ export function SiteDetailPage() {
 
       <header className={styles.header}>
         <h1 className={styles.title}>{safeSite.name || "（現場名未設定）"}</h1>
-        <p className={styles.sub}>現場ファイル</p>
         <Link to={`/sites/${safeSite.id}/edit`} className={styles.editLink}>
           編集する
         </Link>
@@ -332,11 +326,8 @@ export function SiteDetailPage() {
               setWorkStartOpen(true);
             }}
           >
-            + 作業を追加する
+            ＋作業を開始する
           </button>
-          <p className={styles.startWorkHint}>
-            今日の記録は「作業開始」から作成します。開始後、写真アップロードと人工・手伝い班の記録が表示されます。
-          </p>
           {workStartMessage && (
             <p className={styles.workStartMessage} role="status">
               {workStartMessage}
@@ -441,28 +432,6 @@ export function SiteDetailPage() {
           revision={fileRevision}
           onInvalidate={bumpFile}
         />
-
-        <div className={styles.reportBar}>
-          <button
-            type="button"
-            className={styles.reportBtn}
-            onClick={() =>
-              openDailyReport(
-                safeSite.id,
-                todayWorkKinds.length === 1
-                  ? todayWorkKinds[0]
-                  : todayWorkKinds.length > 1
-                    ? todayUploadKind
-                    : todayWorkKind ?? workKind
-              )
-            }
-          >
-            日報を生成する
-          </button>
-          <span className={styles.reportHint}>
-            選択中の作業種別・今日の日付で開きます。別タブで印刷またはPDF保存にご利用ください。
-          </span>
-        </div>
       </section>
 
       <section aria-label="人工・交通費">
@@ -627,20 +596,8 @@ export function SiteDetailPage() {
             <dd className={styles.dd}>{safeSite.salesName || "—"}</dd>
           </div>
           <div className={styles.row}>
-            <dt className={styles.dt}>職長名</dt>
-            <dd className={styles.dd}>{safeSite.foremanName || "—"}</dd>
-          </div>
-          <div className={styles.row}>
-            <dt className={styles.dt}>子方名</dt>
-            <dd className={styles.dd}>{joinList(safeSite.kogataNames)}</dd>
-          </div>
-          <div className={styles.row}>
             <dt className={styles.dt}>人員数</dt>
             <dd className={styles.dd}>{safeSite.workerCount} 名</dd>
-          </div>
-          <div className={styles.row}>
-            <dt className={styles.dt}>車両</dt>
-            <dd className={styles.dd}>{joinList(safeSite.vehicleLabels)}</dd>
           </div>
           <div className={styles.row}>
             <dt className={styles.dt}>現場種別</dt>
@@ -677,6 +634,25 @@ export function SiteDetailPage() {
             足場撤去完了
           </button>
         )}
+      </div>
+
+      <div className={styles.reportBar}>
+        <button
+          type="button"
+          className={styles.reportBtn}
+          onClick={() =>
+            openDailyReport(
+              safeSite.id,
+              todayWorkKinds.length === 1
+                ? todayWorkKinds[0]
+                : todayWorkKinds.length > 1
+                  ? todayUploadKind
+                  : todayWorkKind ?? workKind
+            )
+          }
+        >
+          日報を生成する
+        </button>
       </div>
 
       {removalConfirmOpen && (

@@ -89,12 +89,6 @@
   font-weight: 700;
 }
 
-.sub {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
 .editLink {
   display: inline-block;
   margin-top: 0.65rem;
@@ -187,7 +181,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem 1rem;
-  margin: 1.5rem 0 0;
+  margin: 1.5rem 0 2rem;
   padding: 1rem 1.1rem;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -221,15 +215,6 @@
 
 .startWorkBtn:hover {
   background: #0284c7;
-}
-
-.startWorkHint {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-  flex: 1;
-  min-width: 14rem;
 }
 
 .workStartMessage {
@@ -376,12 +361,6 @@
 
 .reportBtn:hover {
   background: #0d47a1;
-}
-
-.reportHint {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  line-height: 1.45;
 }
 
 .dt {
