@@ -31,6 +31,8 @@ export type Site = {
   createdAt: string;
   /** 足場撤去完了を記録した日時（ISO 8601）。未完了のときは未設定 */
   scaffoldingRemovalCompletedAt?: string;
+  /** 一覧の「要確認」警告を表示しない（編集画面で設定） */
+  ignoreSiteListWarning?: boolean;
 };
 
 /** 旧形式（移行用） */

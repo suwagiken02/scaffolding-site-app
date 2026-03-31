@@ -45,6 +45,8 @@ type Props = {
   pageTitle: string;
   lead?: string;
   submitLabel: string;
+  /** 現場編集時のみ。一覧の「要確認」警告を抑止するチェックを表示 */
+  showSiteListWarningIgnore?: boolean;
 };
 
 export function SiteEditorForm({
@@ -54,6 +56,7 @@ export function SiteEditorForm({
   pageTitle,
   lead,
   submitLabel,
+  showSiteListWarningIgnore = false,
 }: Props) {
   const clients = loadClientMasters();
   const vehicles = loadVehicleMasters();
@@ -77,6 +80,7 @@ export function SiteEditorForm({
   const [salesSelectId, setSalesSelectId] = useState("");
   const [siteTypeSelectId, setSiteTypeSelectId] = useState("");
   const [companyKind, setCompanyKind] = useState<CompanyKind>("自社");
+  const [ignoreSiteListWarning, setIgnoreSiteListWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,6 +105,7 @@ export function SiteEditorForm({
     const tid = st.find((x) => x.name === initialSite.siteTypeName)?.id ?? "";
     setSiteTypeSelectId(tid);
     setCompanyKind(initialSite.companyKind);
+    setIgnoreSiteListWarning(initialSite.ignoreSiteListWarning === true);
   }, [initialSite]);
 
   useEffect(() => {
@@ -237,6 +242,13 @@ export function SiteEditorForm({
       companyKind,
       createdAt: initialSite?.createdAt ?? new Date().toISOString(),
       scaffoldingRemovalCompletedAt: initialSite?.scaffoldingRemovalCompletedAt,
+      ignoreSiteListWarning: showSiteListWarningIgnore
+        ? ignoreSiteListWarning
+          ? true
+          : undefined
+        : initialSite?.ignoreSiteListWarning === true
+          ? true
+          : undefined,
     };
 
     onSubmit(site);
@@ -422,6 +434,23 @@ export function SiteEditorForm({
             </label>
           </div>
         </div>
+
+        {showSiteListWarningIgnore && (
+          <label className={`${formStyles.field} ${styles.checkboxField}`}>
+            <span className={formStyles.label}>一覧の警告</span>
+            <span className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={ignoreSiteListWarning}
+                onChange={(e) => setIgnoreSiteListWarning(e.target.checked)}
+              />
+              <span>警告を無視する</span>
+            </span>
+            <p className={styles.hint}>
+              チェックを入れると、現場一覧の「要確認」表示の対象外になります。
+            </p>
+          </label>
+        )}
 
         <div className={formStyles.actions}>
           <button type="submit" className={formStyles.submit}>

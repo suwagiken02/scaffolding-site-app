@@ -77,6 +77,7 @@ function normalizeSite(x: unknown): Site | null {
         : undefined;
     const siteCode =
       typeof o.siteCode === "string" && o.siteCode.trim() ? o.siteCode.trim() : "";
+    const ignoreSiteListWarning = o.ignoreSiteListWarning === true;
     return {
       id: o.id as string,
       name: o.name as string,
@@ -95,6 +96,7 @@ function normalizeSite(x: unknown): Site | null {
       companyKind: o.companyKind as Site["companyKind"],
       createdAt: o.createdAt as string,
       scaffoldingRemovalCompletedAt,
+      ...(ignoreSiteListWarning ? { ignoreSiteListWarning: true } : {}),
     };
   }
   return migrateLegacyRow(o);

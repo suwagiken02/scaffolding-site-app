@@ -342,6 +342,12 @@
   border-color: rgba(148, 163, 184, 0.45);
 }
 
+.warnBadge {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.45);
+}
+
 .cardDetailLink {
   display: block;
   margin: 0 -0.15rem;

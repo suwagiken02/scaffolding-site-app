@@ -154,6 +154,7 @@ export function SiteDetailPage() {
       companyKind: "自社",
       createdAt: "",
       scaffoldingRemovalCompletedAt: undefined,
+      ignoreSiteListWarning: undefined,
     };
 
     if (!site) return empty;
@@ -184,6 +185,8 @@ export function SiteDetailPage() {
         s.scaffoldingRemovalCompletedAt.trim()
           ? s.scaffoldingRemovalCompletedAt
           : undefined,
+      ignoreSiteListWarning:
+        s?.ignoreSiteListWarning === true ? true : undefined,
     };
   }, [site, siteId]);
 

@@ -5,6 +5,7 @@ import { loadSites } from "../lib/siteStorage";
 import { purgeSiteData } from "../lib/purgeSiteData";
 import { SiteMapView } from "../components/SiteMapView";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
+import { siteNeedsRemovalFollowUpWarning } from "../lib/siteRemovalFollowUpWarning";
 import { WORK_KINDS } from "../types/workKind";
 import { loadContractorMasters } from "../lib/contractorMasterStorage";
 import styles from "./SiteListPage.module.css";
@@ -111,6 +112,7 @@ export function SiteListPage() {
   const [sortBy, setSortBy] = useState<SortOption>("start_desc");
   const [searchText, setSearchText] = useState("");
   const [workRevision, setWorkRevision] = useState(0);
+  const [photoRevision, setPhotoRevision] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [contractorFilter, setContractorFilter] = useState<string>("");
 
@@ -138,6 +140,14 @@ export function SiteListPage() {
     }
     window.addEventListener("siteDailyLaborSaved", bump);
     return () => window.removeEventListener("siteDailyLaborSaved", bump);
+  }, []);
+
+  useEffect(() => {
+    function bump() {
+      setPhotoRevision((r) => r + 1);
+    }
+    window.addEventListener("siteWorkPhotosChanged", bump);
+    return () => window.removeEventListener("siteWorkPhotosChanged", bump);
   }, []);
 
   useEffect(() => {
@@ -187,7 +197,13 @@ export function SiteListPage() {
     for (const s of sorted) {
       (computeSiteStatus(s) === "終了" ? ended : active).push(s);
     }
-    return [...active, ...ended];
+    const activeWarn = active.filter((s) => siteNeedsRemovalFollowUpWarning(s));
+    const activeOk = active.filter((s) => !siteNeedsRemovalFollowUpWarning(s));
+    return [
+      ...sortSites(activeWarn, sortBy),
+      ...sortSites(activeOk, sortBy),
+      ...ended,
+    ];
   }, [
     sites,
     searchText,
@@ -195,6 +211,7 @@ export function SiteListPage() {
     statusFilter,
     contractorFilter,
     workRevision,
+    photoRevision,
   ]);
 
   return (
@@ -337,6 +354,7 @@ export function SiteListPage() {
             <ul className={styles.list}>
               {listForDisplay.map((site) => {
                 const status = computeSiteStatus(site);
+                const needsWarn = siteNeedsRemovalFollowUpWarning(site);
                 const badgeClass =
                   status === "組立前"
                     ? styles.statusPre
@@ -385,6 +403,14 @@ export function SiteListPage() {
                         >
                           削除
                         </button>
+                        {needsWarn && (
+                          <span
+                            className={`${styles.statusBadge} ${styles.warnBadge}`}
+                            aria-label="要確認"
+                          >
+                            要確認
+                          </span>
+                        )}
                         <span
                           className={`${styles.statusBadge} ${badgeClass}`}
                           aria-label={`ステータス: ${status}`}

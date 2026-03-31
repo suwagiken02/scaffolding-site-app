@@ -48,6 +48,7 @@ export function SiteEditPage() {
       pageTitle="現場の編集"
       lead="内容を変更して保存すると、現場ページに反映されます。"
       submitLabel="保存する"
+      showSiteListWarningIgnore
     />
   );
 }

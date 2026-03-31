@@ -269,6 +269,18 @@ export type SiteLaborSummary = {
   total: number;
 };
 
+/** 全作業種別の日付キーのうち最も新しいもの（作業記録が無ければ null） */
+export function getLatestLaborDateKeyAcrossKinds(siteId: string): string | null {
+  let best = "";
+  for (const k of WORK_KINDS) {
+    const map = loadDailyLaborMap(siteId, k);
+    for (const dk of Object.keys(map)) {
+      if (dk.localeCompare(best) > 0) best = dk;
+    }
+  }
+  return best || null;
+}
+
 export function getSiteLaborSummary(siteId: string): SiteLaborSummary {
   const all = readStore();
   const site = all[siteId];
