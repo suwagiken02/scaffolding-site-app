@@ -40,11 +40,25 @@ const app = express();
 app.use(
   cors({
     origin: true,
-    methods: ["POST", "OPTIONS"],
+    methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );
 app.use(express.json({ limit: "256kb" }));
+
+// ---- Static hosting (Vite dist) ----
+// dist is at project root: ../dist (relative to server/)
+const DIST_DIR = join(__dirname, "..", "dist");
+const hasDist = existsSync(DIST_DIR);
+if (process.env.NODE_ENV === "production") {
+  console.log("[mail-server] NODE_ENV=production");
+}
+console.log("[mail-server] dist dir:", DIST_DIR, "exists:", hasDist);
+
+// Serve built assets if present (Render: same service for FE+BE)
+if (hasDist) {
+  app.use(express.static(DIST_DIR));
+}
 
 function normalizeEmails(value) {
   if (!Array.isArray(value)) return [];
@@ -112,6 +126,18 @@ app.post("/api/send-email", async (req, res) => {
     });
   }
 });
+
+// SPA fallback: return dist/index.html for non-API routes
+// (Some hosting envs may not set NODE_ENV explicitly.)
+if (hasDist) {
+  app.get("*", (req, res) => {
+    if (req.path.startsWith("/api/")) {
+      res.status(404).json({ ok: false, error: "API route not found." });
+      return;
+    }
+    res.sendFile(join(DIST_DIR, "index.html"));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`メールAPI server listening on http://localhost:${PORT}`);
