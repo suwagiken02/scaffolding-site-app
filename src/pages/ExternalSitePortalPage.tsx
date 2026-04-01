@@ -172,6 +172,7 @@ export function ExternalSitePortalPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [listTab, setListTab] = useState<"sites" | "masters">("sites");
   const [listSort, setListSort] = useState<ExternalSiteListSort>("entranceDesc");
+  const [listSearchQuery, setListSearchQuery] = useState("");
   const [masterRevision, setMasterRevision] = useState(0);
 
   const [deletePinSiteId, setDeletePinSiteId] = useState<string | null>(null);
@@ -216,9 +217,22 @@ export function ExternalSitePortalPage() {
 
   const siteTypeMasters = useMemo(() => loadSiteTypeMasters(), [revision]);
 
+  const filteredSites = useMemo(() => {
+    const q = listSearchQuery.trim().toLowerCase();
+    if (!q) return sites;
+    return sites.filter((s) => {
+      const name = (s.name || "").toLowerCase();
+      const client = (s.clientName || "").trim().toLowerCase();
+      return name.includes(q) || client.includes(q);
+    });
+  }, [sites, listSearchQuery]);
+
   const sortedSites = useMemo(
-    () => [...sites].sort((a, b) => compareExternalSites(a, b, listSort)),
-    [sites, listSort]
+    () =>
+      [...filteredSites].sort((a, b) =>
+        compareExternalSites(a, b, listSort)
+      ),
+    [filteredSites, listSort]
   );
 
   if (!companyKeyParam || !normalizedKey || !company) {
@@ -418,72 +432,94 @@ export function ExternalSitePortalPage() {
         <p className={styles.empty}>まだ現場が登録されていません。</p>
       ) : (
         <>
-          <div className={styles.sortRow}>
-            <label className={styles.sortLabel} htmlFor="ext-site-list-sort">
-              並び替え
-            </label>
-            <select
-              id="ext-site-list-sort"
-              className={formStyles.input}
-              value={listSort}
-              onChange={(e) =>
-                setListSort(e.target.value as ExternalSiteListSort)
-              }
-              aria-label="一覧の並び替え"
-            >
-              <option value="entranceDesc">入場日が新しい順</option>
-              <option value="entranceAsc">入場日が古い順</option>
-              <option value="name">現場名順（あいうえお順）</option>
-              <option value="status">ステータス順</option>
-            </select>
+          <div className={styles.listToolbar}>
+            <div className={styles.searchGroup}>
+              <label className={styles.toolbarLabel} htmlFor="ext-site-search">
+                検索
+              </label>
+              <input
+                id="ext-site-search"
+                type="search"
+                className={formStyles.input}
+                value={listSearchQuery}
+                onChange={(e) => setListSearchQuery(e.target.value)}
+                placeholder="現場名・元請け名"
+                autoComplete="off"
+                enterKeyHint="search"
+                aria-label="現場名・元請け名で検索"
+              />
+            </div>
+            <div className={styles.sortGroup}>
+              <label className={styles.toolbarLabel} htmlFor="ext-site-list-sort">
+                並び替え
+              </label>
+              <select
+                id="ext-site-list-sort"
+                className={formStyles.input}
+                value={listSort}
+                onChange={(e) =>
+                  setListSort(e.target.value as ExternalSiteListSort)
+                }
+                aria-label="一覧の並び替え"
+              >
+                <option value="entranceDesc">入場日が新しい順</option>
+                <option value="entranceAsc">入場日が古い順</option>
+                <option value="name">現場名順（あいうえお順）</option>
+                <option value="status">ステータス順</option>
+              </select>
+            </div>
           </div>
-          <ul className={styles.list}>
-          {sortedSites.map((s) => {
-            const st = computeSiteStatus(s);
-            return (
-              <li key={s.id} className={styles.card}>
-                <Link
-                  className={styles.cardLink}
-                  to={`/external/${normalizedKey}/site/${s.id}`}
-                  aria-label={`${s.name || "（無題）"}の詳細`}
-                >
-                  <div className={styles.cardMain}>
-                    <span className={styles.siteName}>{s.name || "（無題）"}</span>
-                    <span className={styles.siteClient}>
-                      {s.clientName?.trim() || "—"}
-                    </span>
-                  </div>
-                  <span className={`${styles.statusBadge} ${statusBadgeClass(st)}`}>
-                    {st}
-                  </span>
-                </Link>
-                <div className={styles.cardActions}>
-                  <button
-                    type="button"
-                    className={styles.editBtn}
-                    onClick={() => {
-                      setEditingId(s.id);
-                      setMode("form");
-                    }}
-                  >
-                    編集
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.deleteSiteCardBtn}
-                    onClick={() => {
-                      setDeletePinSiteId(s.id);
-                      setDeletePin("");
-                      setDeletePinError(null);
-                    }}
-                  >
-                    削除
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+          {sortedSites.length === 0 ? (
+            <p className={styles.empty}>該当する現場がありません。</p>
+          ) : (
+            <ul className={styles.list}>
+              {sortedSites.map((s) => {
+                const st = computeSiteStatus(s);
+                return (
+                  <li key={s.id} className={styles.card}>
+                    <Link
+                      className={styles.cardLink}
+                      to={`/external/${normalizedKey}/site/${s.id}`}
+                      aria-label={`${s.name || "（無題）"}の詳細`}
+                    >
+                      <div className={styles.cardMain}>
+                        <span className={styles.siteName}>{s.name || "（無題）"}</span>
+                        <span className={styles.siteClient}>
+                          {s.clientName?.trim() || "—"}
+                        </span>
+                      </div>
+                      <span className={`${styles.statusBadge} ${statusBadgeClass(st)}`}>
+                        {st}
+                      </span>
+                    </Link>
+                    <div className={styles.cardActions}>
+                      <button
+                        type="button"
+                        className={styles.editBtn}
+                        onClick={() => {
+                          setEditingId(s.id);
+                          setMode("form");
+                        }}
+                      >
+                        編集
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.deleteSiteCardBtn}
+                        onClick={() => {
+                          setDeletePinSiteId(s.id);
+                          setDeletePin("");
+                          setDeletePinError(null);
+                        }}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </>
       )}
 
