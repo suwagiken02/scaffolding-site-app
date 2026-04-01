@@ -3,7 +3,7 @@ import styles from "./Layout.module.css";
 
 export function Layout() {
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-app-shell>
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link to="/" className={styles.brand}>
@@ -37,6 +37,9 @@ export function Layout() {
             </Link>
             <Link to="/payslips" className={styles.navLink}>
               給与明細
+            </Link>
+            <Link to="/roster" className={styles.navLink}>
+              名簿管理
             </Link>
             <Link to="/attendance" className={styles.navLink}>
               打刻

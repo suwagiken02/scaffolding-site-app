@@ -16,6 +16,7 @@ import { StaffListPage } from "./pages/StaffListPage";
 import { StaffPersonalPage } from "./pages/StaffPersonalPage";
 import { LeaveRequestsPage } from "./pages/LeaveRequestsPage";
 import { PayslipsPage } from "./pages/PayslipsPage";
+import { RosterPage } from "./pages/RosterPage";
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/staff/:id" element={<StaffPersonalPage />} />
         <Route path="/leave-requests" element={<LeaveRequestsPage />} />
         <Route path="/payslips" element={<PayslipsPage />} />
+        <Route path="/roster" element={<RosterPage />} />
         <Route path="/contractor" element={<ContractorAdminPage />} />
         <Route path="/contractor/view" element={<ContractorViewPage />} />
         <Route path="/kousei-admin" element={<KouseiAdminPage />} />

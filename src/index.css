@@ -52,3 +52,23 @@ select,
 textarea {
   font-family: inherit;
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body[data-print-roster="1"] [data-app-shell] > header {
+    display: none !important;
+  }
+
+  body[data-print-roster="1"] [data-app-shell] > main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  body[data-print-roster="1"] {
+    background: #fff !important;
+  }
+}
