@@ -229,4 +229,7 @@ export function updateSite(site: Site): void {
 export function removeSite(id: string): void {
   const sites = loadSites().filter((s) => s.id !== id);
   saveSites(sites);
+  window.dispatchEvent(
+    new CustomEvent("siteDataSaved", { detail: { siteId: id } })
+  );
 }

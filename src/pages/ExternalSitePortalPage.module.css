@@ -158,6 +158,13 @@
   border-color: rgba(148, 163, 184, 0.4);
 }
 
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .editBtn {
   font: inherit;
   font-size: 0.85rem;
@@ -172,6 +179,23 @@
 
 .editBtn:hover {
   background: var(--surface-hover);
+}
+
+.deleteSiteCardBtn {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(185, 28, 28, 0.45);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.deleteSiteCardBtn:hover {
+  background: rgba(220, 38, 38, 0.14);
+  border-color: #b91c1c;
 }
 
 .entranceRow {
