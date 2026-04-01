@@ -17,10 +17,15 @@ import { StaffPersonalPage } from "./pages/StaffPersonalPage";
 import { LeaveRequestsPage } from "./pages/LeaveRequestsPage";
 import { PayslipsPage } from "./pages/PayslipsPage";
 import { RosterPage } from "./pages/RosterPage";
+import { ExternalSitePortalPage } from "./pages/ExternalSitePortalPage";
 
 export default function App() {
   return (
     <Routes>
+      <Route
+        path="/external/:companyKey"
+        element={<ExternalSitePortalPage />}
+      />
       <Route
         path="/sites/:siteId/daily-report"
         element={<DailyReportPage />}

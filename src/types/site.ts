@@ -41,6 +41,12 @@ export type Site = {
   scaffoldingRemovalCompletedAt?: string;
   /** 一覧の「要確認」警告を表示しない（編集画面で設定） */
   ignoreSiteListWarning?: boolean;
+  /** 外部会社登録で未確認のとき true（諏訪技建側で確認後に false） */
+  externalUnconfirmed?: boolean;
+  /** 外部登録元の URL キー（英数字・小文字想定） */
+  externalCompanyKey?: string;
+  /** 外部登録元の会社表示名 */
+  externalCompanyName?: string;
 };
 
 /** 旧形式（移行用） */

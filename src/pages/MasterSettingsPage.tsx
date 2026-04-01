@@ -48,6 +48,14 @@ import {
   saveCompanyProfile,
   type CompanyProfile,
 } from "../lib/companyProfileStorage";
+import type { ExternalCompany } from "../types/externalCompany";
+import {
+  addExternalCompany,
+  loadExternalCompanies,
+  normalizeCompanyKey,
+  removeExternalCompany,
+  updateExternalCompany,
+} from "../lib/externalCompaniesStorage";
 import styles from "./MasterSettingsPage.module.css";
 
 const PIN_DEFAULT = "1234";
@@ -62,7 +70,8 @@ type TabId =
   | "vehicle"
   | "sales"
   | "siteType"
-  | "traffic";
+  | "traffic"
+  | "externalCompany";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "notify", label: "通知先" },
@@ -74,6 +83,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "sales", label: "担当営業" },
   { id: "siteType", label: "現場種別" },
   { id: "traffic", label: "交通費設定" },
+  { id: "externalCompany", label: "外部会社" },
 ];
 
 const STAFF_ROLE_OPTIONS: StaffRole[] = ["職長", "子方", "その他"];
@@ -1222,6 +1232,183 @@ export function MasterSettingsPage() {
       )}
 
       {tab === "traffic" && <TrafficCostPanel onRefresh={refresh} />}
+
+      {tab === "externalCompany" && <ExternalCompanyPanel onRefresh={refresh} />}
+    </div>
+  );
+}
+
+function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
+  const list = loadExternalCompanies();
+  const [companyName, setCompanyName] = useState("");
+  const [companyKeyRaw, setCompanyKeyRaw] = useState("");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function onAdd(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const n = companyName.trim();
+    if (!n) {
+      setError("会社名を入力してください。");
+      return;
+    }
+    const k = normalizeCompanyKey(companyKeyRaw);
+    if (!k || !/^[a-z0-9]+$/.test(k)) {
+      setError("URLキーは英数字のみで入力してください。");
+      return;
+    }
+    const p = pin.replace(/\D/g, "").slice(0, 4);
+    if (p.length !== 4) {
+      setError("PINは4桁の数字を入力してください。");
+      return;
+    }
+    const created = addExternalCompany({
+      companyName: n,
+      companyKey: k,
+      pin: p,
+    });
+    if (!created) {
+      setError("このURLキーは既に使われています。");
+      return;
+    }
+    setCompanyName("");
+    setCompanyKeyRaw("");
+    setPin("");
+    onRefresh();
+  }
+
+  function setRow(next: ExternalCompany) {
+    updateExternalCompany(next);
+    onRefresh();
+  }
+
+  return (
+    <div className={styles.panel}>
+      <h2 className={styles.panelTitle}>外部会社マスター</h2>
+      <p className={styles.panelDesc}>
+        外部会社向けの現場登録ページ（パス{" "}
+        <code>/external/URLキー</code>）で使う会社名・URLキー・PINを登録します。
+      </p>
+
+      <form className={styles.form} onSubmit={onAdd} noValidate>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+        <div className={styles.fields}>
+          <label className={styles.field}>
+            <span className={styles.label}>会社名（必須）</span>
+            <input
+              className={styles.input}
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="例：〇〇工業株式会社"
+              autoComplete="organization"
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>URLキー（英数字のみ・必須）</span>
+            <input
+              className={styles.input}
+              type="text"
+              value={companyKeyRaw}
+              onChange={(e) =>
+                setCompanyKeyRaw(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))
+              }
+              placeholder="例：kousei"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <span className={styles.fieldHint}>
+              登録時のURL例：…/external/
+              {companyKeyRaw ? normalizeCompanyKey(companyKeyRaw) || "（キー）" : "（キー）"}
+            </span>
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>PIN（4桁）</span>
+            <input
+              className={`${styles.input} ${styles.pinInput}`}
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="例：1234"
+              autoComplete="off"
+            />
+          </label>
+          <button type="submit" className={styles.submit}>
+            追加
+          </button>
+        </div>
+      </form>
+
+      <h3 className={styles.subTitle}>登録一覧</h3>
+      {list.length === 0 ? (
+        <p className={styles.empty}>まだ登録がありません。</p>
+      ) : (
+        <ul className={styles.list}>
+          {list.map((r) => (
+            <li key={r.id} className={styles.card}>
+              <div className={styles.cardBody}>
+                <div className={styles.staffRowTop}>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    value={r.companyName}
+                    onChange={(e) =>
+                      setRow({ ...r, companyName: e.target.value })
+                    }
+                    aria-label="会社名"
+                  />
+                  <input
+                    className={styles.input}
+                    type="text"
+                    value={r.companyKey}
+                    onChange={(e) =>
+                      setRow({
+                        ...r,
+                        companyKey: normalizeCompanyKey(e.target.value),
+                      })
+                    }
+                    aria-label="URLキー"
+                    spellCheck={false}
+                  />
+                </div>
+                <label className={styles.field}>
+                  <span className={styles.label}>PIN（4桁）</span>
+                  <input
+                    className={`${styles.input} ${styles.pinInput}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={r.pin}
+                    onChange={(e) =>
+                      setRow({
+                        ...r,
+                        pin: e.target.value.replace(/\D/g, "").slice(0, 4),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className={styles.delete}
+                onClick={() => {
+                  removeExternalCompany(r.id);
+                  onRefresh();
+                }}
+              >
+                削除
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

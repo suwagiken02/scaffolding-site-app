@@ -201,6 +201,9 @@ export function SiteDetailPage() {
       createdAt: "",
       scaffoldingRemovalCompletedAt: undefined,
       ignoreSiteListWarning: undefined,
+      externalUnconfirmed: undefined,
+      externalCompanyKey: "",
+      externalCompanyName: "",
     };
 
     if (!site) return empty;
@@ -239,6 +242,16 @@ export function SiteDetailPage() {
           : undefined,
       ignoreSiteListWarning:
         s?.ignoreSiteListWarning === true ? true : undefined,
+      externalUnconfirmed:
+        s?.externalUnconfirmed === true
+          ? true
+          : s?.externalUnconfirmed === false
+            ? false
+            : undefined,
+      externalCompanyKey:
+        typeof s?.externalCompanyKey === "string" ? s.externalCompanyKey : "",
+      externalCompanyName:
+        typeof s?.externalCompanyName === "string" ? s.externalCompanyName : "",
     };
   }, [site, siteId]);
 
@@ -358,6 +371,32 @@ export function SiteDetailPage() {
         </p>
         <SiteProcessSummaryPhotos siteId={safeSite.id} revision={fileRevision} />
       </header>
+
+      {safeSite.externalUnconfirmed === true && (
+        <div className={styles.externalConfirmBanner} role="region" aria-label="外部登録の確認">
+          <p className={styles.externalConfirmText}>
+            外部会社から登録された現場です。内容を確認したら「確認済みにする」を押してください。
+            {safeSite.externalCompanyName.trim()
+              ? `（登録元：${safeSite.externalCompanyName.trim()}）`
+              : null}
+          </p>
+          <button
+            type="button"
+            className={styles.externalConfirmBtn}
+            onClick={() => {
+              const cur = getSiteById(safeSite.id);
+              if (!cur) return;
+              updateSite({
+                ...cur,
+                externalUnconfirmed: false,
+              });
+              refreshSiteFromStorage();
+            }}
+          >
+            確認済みにする
+          </button>
+        </div>
+      )}
 
       <div className={styles.basicInfoJumpBar}>
         <button

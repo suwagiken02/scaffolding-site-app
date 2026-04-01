@@ -147,6 +147,19 @@ function normalizeSite(x: unknown): Site | null {
     const ignoreSiteListWarning = o.ignoreSiteListWarning === true;
     const entranceDateKeys = normalizeEntranceDateKeys(o.entranceDateKeys);
     const startDate = startDateFromEntranceDateKeys(entranceDateKeys);
+    const externalUnconfirmedRaw = o.externalUnconfirmed;
+    const externalUnconfirmed =
+      externalUnconfirmedRaw === true
+        ? true
+        : externalUnconfirmedRaw === false
+          ? false
+          : undefined;
+    const externalCompanyKey =
+      typeof o.externalCompanyKey === "string"
+        ? o.externalCompanyKey.trim().toLowerCase()
+        : "";
+    const externalCompanyName =
+      typeof o.externalCompanyName === "string" ? o.externalCompanyName.trim() : "";
     return {
       id: o.id as string,
       name: o.name as string,
@@ -167,6 +180,11 @@ function normalizeSite(x: unknown): Site | null {
       createdAt: o.createdAt as string,
       scaffoldingRemovalCompletedAt,
       ...(ignoreSiteListWarning ? { ignoreSiteListWarning: true } : {}),
+      ...(externalUnconfirmed !== undefined
+        ? { externalUnconfirmed }
+        : {}),
+      ...(externalCompanyKey ? { externalCompanyKey } : {}),
+      ...(externalCompanyName ? { externalCompanyName } : {}),
     };
   }
   return migrateLegacyRow(o);

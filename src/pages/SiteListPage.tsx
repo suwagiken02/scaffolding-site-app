@@ -167,14 +167,17 @@ export function SiteListPage() {
         )
       : statusFiltered;
     const sorted = sortSites(contractorFiltered, sortBy);
+    const pendingExternal = sorted.filter((s) => s.externalUnconfirmed === true);
+    const rest = sorted.filter((s) => s.externalUnconfirmed !== true);
     const active: Site[] = [];
     const ended: Site[] = [];
-    for (const s of sorted) {
+    for (const s of rest) {
       (computeSiteStatus(s) === "終了" ? ended : active).push(s);
     }
     const activeWarn = active.filter((s) => siteNeedsRemovalFollowUpWarning(s));
     const activeOk = active.filter((s) => !siteNeedsRemovalFollowUpWarning(s));
     return [
+      ...sortSites(pendingExternal, sortBy),
       ...sortSites(activeWarn, sortBy),
       ...sortSites(activeOk, sortBy),
       ...ended,
@@ -359,6 +362,19 @@ export function SiteListPage() {
                             aria-label="要確認"
                           >
                             要確認
+                          </span>
+                        )}
+                        {site.externalUnconfirmed === true && (
+                          <span
+                            className={`${styles.statusBadge} ${styles.externalConfirmBadge}`}
+                            aria-label="外部登録の確認待ち"
+                          >
+                            要確認
+                            {site.externalCompanyName?.trim()
+                              ? `（${site.externalCompanyName.trim()}）`
+                              : site.externalCompanyKey
+                                ? `（${site.externalCompanyKey}）`
+                                : ""}
                           </span>
                         )}
                         <span
