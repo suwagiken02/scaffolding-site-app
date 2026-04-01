@@ -1,0 +1,75 @@
+.wrap {
+  margin: 0.75rem 0 1rem;
+}
+
+.loadingText {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stripItem {
+  margin: 0;
+  padding: 0;
+}
+
+.thumbBtn {
+  position: relative;
+  flex: 0 0 auto;
+  width: 80px;
+  height: 80px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.thumbBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.thumbImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbSkeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover) 0%,
+    var(--border) 50%,
+    var(--surface-hover) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.thumbLoaded .thumbSkeleton {
+  display: none;
+}

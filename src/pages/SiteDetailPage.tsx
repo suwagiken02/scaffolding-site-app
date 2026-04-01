@@ -17,6 +17,7 @@ import { SiteWorkStartModal } from "../components/SiteWorkStartModal";
 import { SiteNotificationRecipientsPanel } from "../components/SiteNotificationRecipientsPanel";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
 import { loadPhotosForSiteWorkDate } from "../lib/sitePhotoStorage";
+import { SiteProcessSummaryPhotos } from "../components/SiteProcessSummaryPhotos";
 import { SiteWorkRecordList } from "../components/SiteWorkRecordList";
 import {
   loadTrafficCostSettings,
@@ -348,6 +349,7 @@ export function SiteDetailPage() {
         <p className={styles.headerClient}>
           {safeSite.clientName?.trim() || "—"}
         </p>
+        <SiteProcessSummaryPhotos siteId={safeSite.id} revision={fileRevision} />
       </header>
 
       <div className={styles.basicInfoJumpBar}>

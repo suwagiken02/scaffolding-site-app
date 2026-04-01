@@ -15,6 +15,10 @@ import {
   listDateKeysForSiteWork,
   removeDailyLaborRecord,
 } from "../lib/siteDailyLaborStorage";
+import {
+  FOCUS_SITE_WORK_RECORD,
+  siteWorkRecordElementId,
+} from "../lib/siteWorkRecordFocus";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import photoStyles from "./SitePhotosSection.module.css";
 import accStyles from "./SiteWorkDateAccordions.module.css";
@@ -106,6 +110,33 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
     // 今日の記録は常にデフォルト展開（記録作成/保存直後にも効く）
     setExpanded((prev) => new Set([...prev, todayLocalDateKey()]));
   }, [revision]);
+
+  useEffect(() => {
+    function onFocusSiteWorkRecord(e: Event) {
+      const d = (
+        e as CustomEvent<{
+          siteId?: string;
+          dateKey?: string;
+          workKind?: WorkKind;
+        }>
+      ).detail;
+      if (!d?.siteId || d.siteId !== siteId || !d.dateKey || !d.workKind) {
+        return;
+      }
+      setFilter("all");
+      setExpanded((prev) => new Set([...prev, d.dateKey!]));
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document
+            .getElementById(siteWorkRecordElementId(d.dateKey!, d.workKind!))
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    }
+    window.addEventListener(FOCUS_SITE_WORK_RECORD, onFocusSiteWorkRecord);
+    return () =>
+      window.removeEventListener(FOCUS_SITE_WORK_RECORD, onFocusSiteWorkRecord);
+  }, [siteId]);
 
   const toggle = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -202,7 +233,11 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
               : "—";
 
             return (
-              <li key={key} className={accStyles.accItem}>
+              <li
+                key={key}
+                id={siteWorkRecordElementId(dateKey, workKind)}
+                className={accStyles.accItem}
+              >
                 <div className={styles.rowHeader}>
                   <button
                     type="button"
