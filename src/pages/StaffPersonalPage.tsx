@@ -11,9 +11,12 @@ import { buildLaborListRowsForPerson } from "../lib/laborListForPerson";
 import {
   formatDurationHm,
   formatTimeJa,
+  getAttendanceRecord,
+  hhmmFromLocalIso,
   isCheckInLate,
   listAttendanceInMonth,
   loadAttendanceStore,
+  updateAttendanceFromHHmmFields,
   workMinutes,
 } from "../lib/attendanceStorage";
 import type { AttendanceRecord, AttendanceStore } from "../types/attendance";
@@ -38,6 +41,8 @@ import styles from "./StaffPersonalPage.module.css";
 
 const jaCollator = new Intl.Collator("ja");
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+/** 勤怠一覧の編集時PIN（稼働管理の一覧タブと同じ） */
+const ATT_EDIT_PIN = "1234";
 
 function yearOptions(): number[] {
   const y = new Date().getFullYear();
@@ -115,6 +120,19 @@ export function StaffPersonalPage() {
   const [myPayslips, setMyPayslips] = useState<PayslipRecord[]>([]);
   const [payslipLoading, setPayslipLoading] = useState(false);
   const [payslipError, setPayslipError] = useState<string | null>(null);
+
+  const [attPinGate, setAttPinGate] = useState<null | { dateKey: string }>(
+    null
+  );
+  const [attGatePin, setAttGatePin] = useState("");
+  const [attGatePinError, setAttGatePinError] = useState<string | null>(null);
+  const [attEditModal, setAttEditModal] = useState<null | { dateKey: string }>(
+    null
+  );
+  const [attEditIn, setAttEditIn] = useState("");
+  const [attEditOut, setAttEditOut] = useState("");
+  const [attEditMeeting, setAttEditMeeting] = useState("");
+  const [attEditError, setAttEditError] = useState<string | null>(null);
 
   const authed = useMemo(
     () => Boolean(id && isStaffPersonalAuthed(id)),
@@ -244,7 +262,34 @@ export function StaffPersonalPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [leaveModalOpen]);
 
+  useEffect(() => {
+    if (!attPinGate && !attEditModal) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setAttPinGate(null);
+        setAttEditModal(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [attPinGate, attEditModal]);
+
   const personName = draft?.name.trim() ?? "";
+
+  useEffect(() => {
+    if (!attEditModal || !personName) return;
+    const rec = getAttendanceRecord(attStore, personName, attEditModal.dateKey);
+    setAttEditIn(hhmmFromLocalIso(rec.inAt));
+    setAttEditOut(hhmmFromLocalIso(rec.outAt));
+    setAttEditMeeting(rec.meetingTime ?? "");
+    setAttEditError(null);
+  }, [attEditModal, personName, attStore]);
+
+  useEffect(() => {
+    if (!attPinGate) return;
+    setAttGatePin("");
+    setAttGatePinError(null);
+  }, [attPinGate]);
 
   const attendanceRows = useMemo(() => {
     if (!personName) return [];
@@ -1186,6 +1231,7 @@ export function StaffPersonalPage() {
                   <th scope="col">退勤</th>
                   <th scope="col">勤務時間</th>
                   <th scope="col">現場名</th>
+                  <th scope="col">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -1195,6 +1241,20 @@ export function StaffPersonalPage() {
                   const outAt = att ? formatTimeJa(att.outAt) : "—";
                   const dur = att ? formatDurationHm(workMinutes(att)) : "—";
                   const late = att ? isCheckInLate(att) : false;
+
+                  const editBtn = (
+                    <button
+                      type="button"
+                      className={laborStyles.actionBtn}
+                      onClick={() => {
+                        setAttGatePin("");
+                        setAttGatePinError(null);
+                        setAttPinGate({ dateKey: row.dateKey });
+                      }}
+                    >
+                      編集
+                    </button>
+                  );
 
                   if (row.kind === "holiday") {
                     return (
@@ -1207,6 +1267,9 @@ export function StaffPersonalPage() {
                         <td>{outAt}</td>
                         <td>{dur}</td>
                         <td className={laborStyles.holidayText}>—</td>
+                        <td>
+                          <div className={laborStyles.rowActions}>{editBtn}</div>
+                        </td>
                       </tr>
                     );
                   }
@@ -1217,6 +1280,9 @@ export function StaffPersonalPage() {
                       <td>{outAt}</td>
                       <td>{dur}</td>
                       <td>{row.siteNamesLabel}</td>
+                      <td>
+                        <div className={laborStyles.rowActions}>{editBtn}</div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -1232,6 +1298,217 @@ export function StaffPersonalPage() {
           </span>
         </div>
       </section>
+
+      {attPinGate && (
+        <div
+          className={laborStyles.pinBackdrop}
+          role="presentation"
+          onClick={() => setAttPinGate(null)}
+        >
+          <div
+            className={laborStyles.pinCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-att-pin-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="staff-att-pin-title" className={laborStyles.pinTitle}>
+              PINコード
+            </h2>
+            <p className={laborStyles.pinLead}>
+              4桁のPINコードを入力してください。
+            </p>
+            <div className={laborStyles.pinDots} aria-label="入力状況">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <span
+                  key={j}
+                  className={
+                    attGatePin.length > j
+                      ? laborStyles.pinDotOn
+                      : laborStyles.pinDotOff
+                  }
+                />
+              ))}
+            </div>
+            {attGatePinError && (
+              <p className={laborStyles.pinError} role="alert">
+                {attGatePinError}
+              </p>
+            )}
+            <div className={laborStyles.keypad} role="group" aria-label="テンキー">
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "enter",
+                "0",
+                "back",
+              ].map((k) => {
+                const isEnter = k === "enter";
+                const isBack = k === "back";
+                const label = isEnter ? "確定" : isBack ? "⌫" : k;
+                const disabled = isEnter ? attGatePin.length !== 4 : false;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    className={isEnter ? laborStyles.enterBtn : laborStyles.keyBtn}
+                    disabled={disabled}
+                    onClick={() => {
+                      setAttGatePinError(null);
+                      if (isEnter) {
+                        if (attGatePin.length !== 4) return;
+                        if (attGatePin !== ATT_EDIT_PIN) {
+                          setAttGatePinError("PINが違います");
+                          setAttGatePin("");
+                          return;
+                        }
+                        const dk = attPinGate.dateKey;
+                        setAttPinGate(null);
+                        setAttGatePin("");
+                        setAttEditModal({ dateKey: dk });
+                        return;
+                      }
+                      if (isBack) {
+                        setAttGatePin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      setAttGatePin((p) =>
+                        p.length >= 4 ? p : `${p}${k}`
+                      );
+                    }}
+                    aria-label={
+                      isEnter ? "確定" : isBack ? "1文字削除" : `数字${k}`
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={laborStyles.pinFooter}>
+              <button
+                type="button"
+                className={laborStyles.modalBack}
+                onClick={() => setAttPinGate(null)}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {attEditModal && (
+        <div
+          className={laborStyles.modalBackdrop}
+          role="presentation"
+          onClick={() => setAttEditModal(null)}
+        >
+          <div
+            className={laborStyles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-att-edit-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="staff-att-edit-title" className={laborStyles.modalTitle}>
+              打刻の編集（{formatDateKeyJa(attEditModal.dateKey)}）
+            </h2>
+            <div className={laborStyles.editFields}>
+              <label className={laborStyles.editLabel} htmlFor="staff-att-edit-in">
+                出勤時間（HH:MM）
+              </label>
+              <input
+                id="staff-att-edit-in"
+                className={laborStyles.editInput}
+                value={attEditIn}
+                onChange={(e) => {
+                  setAttEditIn(e.target.value);
+                  setAttEditError(null);
+                }}
+                placeholder="例: 08:30"
+                autoComplete="off"
+              />
+              <label className={laborStyles.editLabel} htmlFor="staff-att-edit-out">
+                退勤時間（HH:MM）
+              </label>
+              <input
+                id="staff-att-edit-out"
+                className={laborStyles.editInput}
+                value={attEditOut}
+                onChange={(e) => {
+                  setAttEditOut(e.target.value);
+                  setAttEditError(null);
+                }}
+                placeholder="例: 17:00"
+                autoComplete="off"
+              />
+              <label
+                className={laborStyles.editLabel}
+                htmlFor="staff-att-edit-meeting"
+              >
+                集合時間（HH:MM）
+              </label>
+              <input
+                id="staff-att-edit-meeting"
+                className={laborStyles.editInput}
+                value={attEditMeeting}
+                onChange={(e) => {
+                  setAttEditMeeting(e.target.value);
+                  setAttEditError(null);
+                }}
+                placeholder="例: 08:00"
+                autoComplete="off"
+              />
+            </div>
+            {attEditError && (
+              <p className={laborStyles.editError} role="alert">
+                {attEditError}
+              </p>
+            )}
+            <div className={laborStyles.modalActions}>
+              <button
+                type="button"
+                className={laborStyles.modalBack}
+                onClick={() => setAttEditModal(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={laborStyles.modalYes}
+                onClick={() => {
+                  void (async () => {
+                    const res = await updateAttendanceFromHHmmFields(
+                      personName,
+                      attEditModal.dateKey,
+                      {
+                        inHHmm: attEditIn,
+                        outHHmm: attEditOut,
+                        meetingHHmm: attEditMeeting,
+                      }
+                    );
+                    if (!res.ok) {
+                      setAttEditError(res.error);
+                      return;
+                    }
+                    setAttEditModal(null);
+                  })();
+                }}
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {leaveModalOpen && (
         <div
