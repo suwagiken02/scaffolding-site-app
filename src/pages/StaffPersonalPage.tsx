@@ -89,6 +89,21 @@ export function StaffPersonalPage() {
   /** sessionStorage 更新後に再描画するため */
   const [sessionBump, setSessionBump] = useState(0);
 
+  const [paidNewDate, setPaidNewDate] = useState("");
+  const [paidNewDays, setPaidNewDays] = useState("1");
+  const [birthNewDate, setBirthNewDate] = useState("");
+
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [lrKind, setLrKind] = useState<"paid" | "birthday">("paid");
+  const [lrStart, setLrStart] = useState("");
+  const [lrEnd, setLrEnd] = useState("");
+  const [lrDays, setLrDays] = useState("1");
+  const [lrReason, setLrReason] = useState("");
+  const [lrSubmitError, setLrSubmitError] = useState<string | null>(null);
+  const [myLeaveRequests, setMyLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [leaveReqLoading, setLeaveReqLoading] = useState(false);
+  const [leaveReqError, setLeaveReqError] = useState<string | null>(null);
+
   const authed = useMemo(
     () => Boolean(id && isStaffPersonalAuthed(id)),
     [id, sessionBump]
@@ -220,21 +235,6 @@ export function StaffPersonalPage() {
   );
 
   const age = draft?.birthDate ? ageFromBirthDate(draft.birthDate) : null;
-
-  const [paidNewDate, setPaidNewDate] = useState("");
-  const [paidNewDays, setPaidNewDays] = useState("1");
-  const [birthNewDate, setBirthNewDate] = useState("");
-
-  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
-  const [lrKind, setLrKind] = useState<"paid" | "birthday">("paid");
-  const [lrStart, setLrStart] = useState("");
-  const [lrEnd, setLrEnd] = useState("");
-  const [lrDays, setLrDays] = useState("1");
-  const [lrReason, setLrReason] = useState("");
-  const [lrSubmitError, setLrSubmitError] = useState<string | null>(null);
-  const [myLeaveRequests, setMyLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [leaveReqLoading, setLeaveReqLoading] = useState(false);
-  const [leaveReqError, setLeaveReqError] = useState<string | null>(null);
 
   const paidLeaveStats = useMemo(() => {
     if (!draft?.hireDate?.trim()) return null;
