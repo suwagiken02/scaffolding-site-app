@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { MasterItem } from "../types/masterItem";
 import type { NotificationRecipient } from "../types/notificationRecipient";
@@ -1238,12 +1238,44 @@ export function MasterSettingsPage() {
   );
 }
 
+function buildExternalPortalUrl(companyKey: string): string {
+  const path = `external/${normalizeCompanyKey(companyKey)}`;
+  return new URL(path, `${window.location.origin}${import.meta.env.BASE_URL}`).href;
+}
+
 function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
   const list = loadExternalCompanies();
   const [companyName, setCompanyName] = useState("");
   const [companyKeyRaw, setCompanyKeyRaw] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [lastAddedUrl, setLastAddedUrl] = useState<string | null>(null);
+  const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
+  const copyFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyFlashTimerRef.current) {
+        clearTimeout(copyFlashTimerRef.current);
+      }
+    };
+  }, []);
+
+  async function copyUrlToClipboard(url: string, feedbackId: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      if (copyFlashTimerRef.current) {
+        clearTimeout(copyFlashTimerRef.current);
+      }
+      setCopyFeedbackId(feedbackId);
+      copyFlashTimerRef.current = setTimeout(() => {
+        setCopyFeedbackId(null);
+        copyFlashTimerRef.current = null;
+      }, 2000);
+    } catch {
+      window.alert("クリップボードへのコピーに失敗しました。");
+    }
+  }
 
   function onAdd(e: FormEvent) {
     e.preventDefault();
@@ -1275,6 +1307,8 @@ function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
     setCompanyName("");
     setCompanyKeyRaw("");
     setPin("");
+    setLastAddedUrl(buildExternalPortalUrl(created.companyKey));
+    setCopyFeedbackId(null);
     onRefresh();
   }
 
@@ -1346,6 +1380,32 @@ function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
         </div>
       </form>
 
+      {lastAddedUrl && (
+        <div className={styles.externalUrlBanner} role="status" aria-live="polite">
+          <p className={styles.externalUrlBannerTitle}>発行されたURL</p>
+          <div className={styles.externalUrlRow}>
+            <a
+              className={styles.externalUrlLink}
+              href={lastAddedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {lastAddedUrl}
+            </a>
+            <button
+              type="button"
+              className={styles.copyBtn}
+              onClick={() => void copyUrlToClipboard(lastAddedUrl, "add")}
+            >
+              コピー
+            </button>
+            {copyFeedbackId === "add" && (
+              <span className={styles.copyFlash}>コピーしました！</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <h3 className={styles.subTitle}>登録一覧</h3>
       {list.length === 0 ? (
         <p className={styles.empty}>まだ登録がありません。</p>
@@ -1394,6 +1454,26 @@ function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
                     }
                   />
                 </label>
+                <div className={styles.externalUrlRow}>
+                  <span className={styles.externalUrlText}>
+                    {buildExternalPortalUrl(r.companyKey)}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.copyBtn}
+                    onClick={() =>
+                      void copyUrlToClipboard(
+                        buildExternalPortalUrl(r.companyKey),
+                        r.id
+                      )
+                    }
+                  >
+                    コピー
+                  </button>
+                  {copyFeedbackId === r.id && (
+                    <span className={styles.copyFlash}>コピーしました！</span>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
