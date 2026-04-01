@@ -359,7 +359,7 @@ export function siteWorkSessionInProgressOnDate(
   return false;
 }
 
-/** いずれかの日で作業開始打刻があるか（現場ステータス「設置中」用） */
+/** いずれかの日で作業開始打刻があるか */
 export function siteHasAnyWorkStartPressed(siteId: string): boolean {
   for (const k of WORK_KINDS) {
     for (const r of Object.values(loadDailyLaborMap(siteId, k))) {
@@ -372,6 +372,30 @@ export function siteHasAnyWorkStartPressed(siteId: string): boolean {
 /** 払いで作業終了打刻が一度でもあるか（「解体中」用） */
 export function siteHasHaraiWorkEnded(siteId: string): boolean {
   for (const r of Object.values(loadDailyLaborMap(siteId, "払い"))) {
+    if (getWorkEndIso(r)) return true;
+  }
+  return false;
+}
+
+/** 払いでいずれかの日が作業開始済み・未終了か（現場ステータス「解体中」用） */
+export function siteHaraiWorkSessionInProgress(siteId: string): boolean {
+  for (const r of Object.values(loadDailyLaborMap(siteId, "払い"))) {
+    if (getWorkStartIso(r) && !getWorkEndIso(r)) return true;
+  }
+  return false;
+}
+
+/** 組みでいずれかの日が作業開始済み・未終了か（現場ステータス「組立中」用） */
+export function siteKumiWorkSessionInProgress(siteId: string): boolean {
+  for (const r of Object.values(loadDailyLaborMap(siteId, "組み"))) {
+    if (getWorkStartIso(r) && !getWorkEndIso(r)) return true;
+  }
+  return false;
+}
+
+/** 組みで作業終了打刻が一度でもあるか（現場ステータス「設置中」用） */
+export function siteKumiHasAnyWorkEndPressed(siteId: string): boolean {
+  for (const r of Object.values(loadDailyLaborMap(siteId, "組み"))) {
     if (getWorkEndIso(r)) return true;
   }
   return false;

@@ -45,7 +45,8 @@ function newSiteId(): string {
 function statusBadgeClass(
   status: ReturnType<typeof computeSiteDisplayStatus>
 ): string {
-  if (status === "組立前") return styles.stPre;
+  if (status === "入場前") return styles.stPre;
+  if (status === "組立中") return styles.stAssembly;
   if (status === "設置中") return styles.stActive;
   if (status === "解体中") return styles.stDismantle;
   return styles.stEnded;
@@ -61,10 +62,11 @@ const STATUS_SORT_ORDER: Record<
   ReturnType<typeof computeSiteDisplayStatus>,
   number
 > = {
-  組立前: 0,
-  設置中: 1,
-  解体中: 2,
-  終了: 3,
+  入場前: 0,
+  組立中: 1,
+  設置中: 2,
+  解体中: 3,
+  撤去済: 4,
 };
 
 /** 複数入場日があるときは最新日を代表とする。未設定時は開始日・登録日で代替。 */

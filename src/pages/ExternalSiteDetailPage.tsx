@@ -16,7 +16,8 @@ import portalStyles from "./ExternalSitePortalPage.module.css";
 function statusBadgeClass(
   status: ReturnType<typeof computeSiteDisplayStatus>
 ): string {
-  if (status === "組立前") return portalStyles.stPre;
+  if (status === "入場前") return portalStyles.stPre;
+  if (status === "組立中") return portalStyles.stAssembly;
   if (status === "設置中") return portalStyles.stActive;
   if (status === "解体中") return portalStyles.stDismantle;
   return portalStyles.stEnded;

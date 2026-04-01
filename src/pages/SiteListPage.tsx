@@ -84,7 +84,12 @@ function sortSites(list: Site[], sort: SortOption): Site[] {
   }
 }
 
-type SiteStatus = "組立前" | "設置中" | "解体中" | "終了";
+type SiteStatus =
+  | "入場前"
+  | "組立中"
+  | "設置中"
+  | "解体中"
+  | "撤去済";
 type StatusFilter = "all" | SiteStatus;
 
 function computeSiteStatus(site: Site): SiteStatus {
@@ -166,7 +171,7 @@ export function SiteListPage() {
     const active: Site[] = [];
     const ended: Site[] = [];
     for (const s of rest) {
-      (computeSiteStatus(s) === "終了" ? ended : active).push(s);
+      (computeSiteStatus(s) === "撤去済" ? ended : active).push(s);
     }
     const activeWarn = active.filter((s) => siteNeedsRemovalFollowUpWarning(s));
     const activeOk = active.filter((s) => !siteNeedsRemovalFollowUpWarning(s));
@@ -293,10 +298,11 @@ export function SiteListPage() {
                     {(
                       [
                         { value: "all", label: "すべて" },
-                        { value: "組立前", label: "組立前" },
+                        { value: "入場前", label: "入場前" },
+                        { value: "組立中", label: "組立中" },
                         { value: "設置中", label: "設置中" },
                         { value: "解体中", label: "解体中" },
-                        { value: "終了", label: "終了" },
+                        { value: "撤去済", label: "撤去済" },
                       ] as const
                     ).map((x) => (
                       <button
@@ -328,13 +334,15 @@ export function SiteListPage() {
                 const status = computeSiteStatus(site);
                 const needsWarn = siteNeedsRemovalFollowUpWarning(site);
                 const badgeClass =
-                  status === "組立前"
+                  status === "入場前"
                     ? styles.statusPre
-                    : status === "設置中"
-                      ? styles.statusActive
-                      : status === "解体中"
-                        ? styles.statusDismantle
-                        : styles.statusEnded;
+                    : status === "組立中"
+                      ? styles.statusAssembly
+                      : status === "設置中"
+                        ? styles.statusActive
+                        : status === "解体中"
+                          ? styles.statusDismantle
+                          : styles.statusEnded;
                 return (
                   <li key={site.id} className={styles.cardItem}>
                     <div className={styles.cardRow}>
