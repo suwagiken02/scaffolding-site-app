@@ -10,6 +10,7 @@ import {
 import {
   addSite,
   getSiteById,
+  loadSites,
   newSiteMemoId,
   normalizeEntranceDateKeys,
   normalizeSiteMemos,
@@ -134,21 +135,10 @@ export function ExternalSitePortalPage() {
     [sites]
   );
 
-  if (!companyKeyParam || !normalizedKey) {
+  if (!companyKeyParam || !normalizedKey || !company) {
     return (
       <div className={styles.page}>
-        <p className={styles.muted}>URL が不正です。</p>
-      </div>
-    );
-  }
-
-  if (!company) {
-    return (
-      <div className={styles.page}>
-        <h1 className={styles.title}>外部現場登録</h1>
-        <p className={styles.muted}>
-          このキー（{normalizedKey}）の会社がマスターに登録されていません。
-        </p>
+        <p className={styles.muted}>このURLは無効です。</p>
       </div>
     );
   }
