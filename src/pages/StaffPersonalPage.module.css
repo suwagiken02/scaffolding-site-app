@@ -78,6 +78,19 @@
   color: var(--text-muted);
 }
 
+.payslipList {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.85;
+}
+
+.payslipLink {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .ageHint {
   margin: 0;
   font-size: 0.85rem;

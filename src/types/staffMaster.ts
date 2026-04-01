@@ -27,6 +27,8 @@ export type StaffMaster = {
   attendanceEnabled: boolean;
   /** 個人ページ用 4 桁 PIN（事務員がマスターで設定） */
   personalPin: string;
+  /** 給与明細PDFの紐付け用 6 桁（数字のみ、事務員がマスターで設定） */
+  personalCode: string;
   /** 生年月日 YYYY-MM-DD */
   birthDate: string;
   /** 現住所 */

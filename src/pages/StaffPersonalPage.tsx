@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import type { LeaveRequest } from "../types/leaveRequest";
+import type { PayslipRecord } from "../types/payslip";
 import type { StaffMaster, StaffPaidLeaveUsage } from "../types/staffMaster";
+import { fetchPayslipsForStaff } from "../lib/payslipsApi";
 import { createLeaveRequest, fetchLeaveRequests } from "../lib/leaveRequestsApi";
 import { hydrateLocalStorageFromServer } from "../lib/persistStorageApi";
 import { ageFromBirthDate } from "../lib/ageFromBirthDate";
@@ -66,6 +68,12 @@ function leaveStatusLabel(s: LeaveRequest["status"]): string {
   return "否認";
 }
 
+function formatYearMonthJa(ym: string): string {
+  const [y, m] = ym.split("-");
+  if (!y || !m) return ym;
+  return `${y}年${parseInt(m, 10)}月`;
+}
+
 export function StaffPersonalPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -103,6 +111,10 @@ export function StaffPersonalPage() {
   const [myLeaveRequests, setMyLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveReqLoading, setLeaveReqLoading] = useState(false);
   const [leaveReqError, setLeaveReqError] = useState<string | null>(null);
+
+  const [myPayslips, setMyPayslips] = useState<PayslipRecord[]>([]);
+  const [payslipLoading, setPayslipLoading] = useState(false);
+  const [payslipError, setPayslipError] = useState<string | null>(null);
 
   const authed = useMemo(
     () => Boolean(id && isStaffPersonalAuthed(id)),
@@ -191,6 +203,31 @@ export function StaffPersonalPage() {
         }
       } finally {
         if (!cancelled) setLeaveReqLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, id]);
+
+  useEffect(() => {
+    if (!authed || !id) return;
+    let cancelled = false;
+    setPayslipLoading(true);
+    setPayslipError(null);
+    void (async () => {
+      try {
+        const rows = await fetchPayslipsForStaff(id);
+        if (!cancelled) setMyPayslips(rows);
+      } catch (e) {
+        if (!cancelled) {
+          setPayslipError(
+            e instanceof Error ? e.message : "給与明細の読み込みに失敗しました"
+          );
+          setMyPayslips([]);
+        }
+      } finally {
+        if (!cancelled) setPayslipLoading(false);
       }
     })();
     return () => {
@@ -581,6 +618,37 @@ export function StaffPersonalPage() {
               </tbody>
             </table>
           </div>
+        )}
+      </section>
+
+      <section className={styles.section} aria-label="給与明細">
+        <h2 className={styles.sectionTitle}>給与明細</h2>
+        {payslipError && (
+          <p className={styles.saveError} role="alert">
+            {payslipError}
+          </p>
+        )}
+        {payslipLoading && !payslipError && (
+          <p className={styles.lead}>給与明細を読み込み中…</p>
+        )}
+        {!payslipLoading && myPayslips.length === 0 && !payslipError && (
+          <p className={styles.leaveHint}>まだ給与明細がありません。</p>
+        )}
+        {myPayslips.length > 0 && (
+          <ul className={styles.payslipList}>
+            {myPayslips.map((p) => (
+              <li key={p.id}>
+                <a
+                  className={styles.payslipLink}
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {formatYearMonthJa(p.yearMonth)} — PDFを開く（{p.fileName}）
+                </a>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

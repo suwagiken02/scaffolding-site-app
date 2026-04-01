@@ -3,14 +3,14 @@ import dotenv from "dotenv";
 import express from "express";
 import multer from "multer";
 import nodemailer from "nodemailer";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,7 +46,7 @@ const app = express();
 app.use(
   cors({
     origin: true,
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );
@@ -61,6 +61,22 @@ const photoUpload = multer({
       return;
     }
     cb(new Error("画像ファイルのみアップロードできます。"));
+  },
+});
+
+const payslipUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const n = String(file.originalname ?? "").toLowerCase();
+    if (
+      file.mimetype === "application/pdf" ||
+      n.endsWith(".pdf")
+    ) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("PDFファイルのみアップロードできます。"));
   },
 });
 
@@ -583,6 +599,246 @@ app.post("/api/leave-requests/:id/decide", async (req, res) => {
   } catch (e) {
     console.error("[server] POST /api/leave-requests/:id/decide", e);
     res.status(500).json({ ok: false, error: "update failed" });
+  }
+});
+
+// ---- 給与明細（R2: payslips/{個人コード}/{ファイル名} + payslips-index.json） ----
+const PAYSLIPS_INDEX_FILE = join(DATA_DIR, "payslips-index.json");
+
+function normalizePersonalCode6Server(s) {
+  const d = String(s ?? "").replace(/\D/g, "").slice(0, 6);
+  return d.padStart(6, "0");
+}
+
+function parsePayslipFileName(originalName) {
+  const base = basename(String(originalName)).trim();
+  const m = /^(\d{8})(\d{6})\.pdf$/i.exec(base);
+  if (!m) return null;
+  return { yyyymmdd: m[1], code6: m[2] };
+}
+
+function yyyymmddToYearMonth(yyyymmdd) {
+  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}`;
+}
+
+async function readPayslipsFromDisk() {
+  try {
+    if (!existsSync(PAYSLIPS_INDEX_FILE)) return [];
+    const raw = await readFile(PAYSLIPS_INDEX_FILE, "utf8");
+    const p = JSON.parse(raw);
+    return Array.isArray(p) ? p : [];
+  } catch (e) {
+    console.error("[server] readPayslipsFromDisk", e);
+    return [];
+  }
+}
+
+async function writePayslipsToDisk(list) {
+  await writeFile(PAYSLIPS_INDEX_FILE, JSON.stringify(list, null, 0), "utf8");
+}
+
+async function r2DeleteObjectKey(key) {
+  const bucket = process.env.R2_BUCKET_NAME?.trim();
+  if (!getR2Client() || !bucket) return false;
+  try {
+    const client = getR2Client();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    return true;
+  } catch (e) {
+    console.error("[server] R2 DeleteObject failed:", e);
+    return false;
+  }
+}
+
+app.get("/api/payslips", async (_req, res) => {
+  try {
+    const list = await readPayslipsFromDisk();
+    list.sort((a, b) => String(b.uploadedAt || "").localeCompare(String(a.uploadedAt || "")));
+    res.json({ ok: true, list });
+  } catch (e) {
+    console.error("[server] GET /api/payslips", e);
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.get("/api/payslips/staff/:staffId", async (req, res) => {
+  try {
+    const staffId = String(req.params.staffId ?? "").trim();
+    if (!staffId) {
+      res.status(400).json({ ok: false, error: "staffId が不正です。" });
+      return;
+    }
+    const list = await readPayslipsFromDisk();
+    const filtered = list.filter((r) => r && r.staffId === staffId);
+    filtered.sort((a, b) => String(b.uploadedAt || "").localeCompare(String(a.uploadedAt || "")));
+    res.json({ ok: true, list: filtered });
+  } catch (e) {
+    console.error("[server] GET /api/payslips/staff", e);
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.post(
+  "/api/payslips/upload",
+  (req, res, next) => {
+    payslipUpload.array("files", 100)(req, res, (err) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "アップロードエラー";
+        res.status(400).json({ ok: false, error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const bucket = process.env.R2_BUCKET_NAME?.trim();
+    const publicBaseRaw = process.env.R2_PUBLIC_BASE_URL?.trim() ?? "";
+    const publicBase = publicBaseRaw.replace(/\/$/, "");
+
+    if (!getR2Client() || !bucket) {
+      res.status(503).json({
+        ok: false,
+        error:
+          "R2 の環境変数（R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET_NAME）が不足しています。",
+      });
+      return;
+    }
+    if (!publicBase) {
+      res.status(503).json({
+        ok: false,
+        error:
+          "R2_PUBLIC_BASE_URL が未設定です。R2 の公開アクセス用URL（末尾スラッシュなし）を設定してください。",
+      });
+      return;
+    }
+
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length === 0) {
+      res.status(400).json({ ok: false, error: "PDFファイルを選択してください。" });
+      return;
+    }
+
+    const staffList = await readStaffMastersFromDisk();
+    let index = await readPayslipsFromDisk();
+    const results = [];
+
+    for (const file of files) {
+      if (!file?.buffer) {
+        results.push({ originalName: file?.originalname ?? "", ok: false, error: "ファイルがありません。" });
+        continue;
+      }
+      const safeBase = basename(String(file.originalname ?? ""));
+      const parsed = parsePayslipFileName(safeBase);
+      if (!parsed) {
+        results.push({
+          originalName: safeBase,
+          ok: false,
+          error: "ファイル名は「年月日8桁＋個人コード6桁.pdf」（例：20260331000001.pdf）にしてください。",
+        });
+        continue;
+      }
+      const code6 = parsed.code6;
+      const staff = staffList.find(
+        (s) => s && normalizePersonalCode6Server(s.personalCode) === code6
+      );
+      if (!staff || !staff.id) {
+        results.push({
+          originalName: safeBase,
+          ok: false,
+          error: `個人コード ${code6} に該当するスタッフが見つかりません。マスターで個人コードを登録してください。`,
+        });
+        continue;
+      }
+      const staffName = typeof staff.name === "string" ? staff.name.trim() : "";
+      const r2Key = `payslips/${code6}/${safeBase}`;
+
+      const dup = index.filter((r) => r && r.r2Key === r2Key);
+      for (const d of dup) {
+        await r2DeleteObjectKey(d.r2Key);
+      }
+      index = index.filter((r) => !r || r.r2Key !== r2Key);
+
+      try {
+        const client = getR2Client();
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: r2Key,
+            Body: file.buffer,
+            ContentType: "application/pdf",
+          })
+        );
+      } catch (e) {
+        console.error("[server] payslip R2 PutObject failed:", e);
+        results.push({
+          originalName: safeBase,
+          ok: false,
+          error: "ストレージへの保存に失敗しました。",
+        });
+        continue;
+      }
+
+      const yearMonth = yyyymmddToYearMonth(parsed.yyyymmdd);
+      const url = `${publicBase}/${r2Key}`;
+      const uploadedAt = new Date().toISOString();
+      const record = {
+        id: randomUUID(),
+        staffId: staff.id,
+        staffName,
+        personalCode: code6,
+        fileName: safeBase,
+        dateKeyYyyymmdd: parsed.yyyymmdd,
+        yearMonth,
+        url,
+        r2Key,
+        uploadedAt,
+      };
+      index.push(record);
+      await writePayslipsToDisk(index);
+
+      results.push({ originalName: safeBase, ok: true, url, id: record.id });
+
+      const em = typeof staff.email === "string" ? staff.email.trim() : "";
+      if (em) {
+        const [y, mo] = yearMonth.split("-");
+        const monthJa = mo ? `${y}年${parseInt(mo, 10)}月` : yearMonth;
+        const textBody = `${monthJa}分の給与明細がアップロードされました。個人ページからご確認ください。`;
+        try {
+          await sendMailToRecipients([em], "【給与明細】アップロードのお知らせ", textBody);
+        } catch (e) {
+          console.error("[server] payslip notify mail", e);
+        }
+      }
+    }
+
+    res.json({ ok: true, results });
+  }
+);
+
+app.delete("/api/payslips/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id ?? "").trim();
+    if (!id) {
+      res.status(400).json({ ok: false, error: "id が不正です。" });
+      return;
+    }
+    const list = await readPayslipsFromDisk();
+    const idx = list.findIndex((r) => r && r.id === id);
+    if (idx < 0) {
+      res.status(404).json({ ok: false, error: "該当する給与明細がありません。" });
+      return;
+    }
+    const row = list[idx];
+    const key = typeof row.r2Key === "string" ? row.r2Key : "";
+    if (key) {
+      await r2DeleteObjectKey(key);
+    }
+    list.splice(idx, 1);
+    await writePayslipsToDisk(list);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] DELETE /api/payslips/:id", e);
+    res.status(500).json({ ok: false, error: "delete failed" });
   }
 });
 

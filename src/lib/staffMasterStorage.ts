@@ -31,6 +31,11 @@ function normalizePin4(raw: unknown): string {
   return raw.replace(/\D/g, "").slice(0, 4);
 }
 
+function normalizePersonalCode6(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/\D/g, "").slice(0, 6);
+}
+
 function defaultEmergency(): StaffEmergencyContact {
   return { name: "", relationship: "", phone: "" };
 }
@@ -113,6 +118,7 @@ function normalizeRow(x: unknown): StaffMaster | null {
     roles,
     attendanceEnabled,
     personalPin: normalizePin4(o.personalPin),
+    personalCode: normalizePersonalCode6(o.personalCode),
     birthDate: typeof o.birthDate === "string" ? o.birthDate.trim() : "",
     address: typeof o.address === "string" ? o.address.trim() : "",
     jobType: typeof o.jobType === "string" ? o.jobType.trim() : "",
@@ -136,6 +142,7 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
     roles: normalizeRoles(input.roles),
     attendanceEnabled: Boolean(input.attendanceEnabled),
     personalPin: normalizePin4(input.personalPin),
+    personalCode: normalizePersonalCode6(input.personalCode),
     birthDate: input.birthDate.trim(),
     address: input.address.trim(),
     jobType: input.jobType.trim(),
@@ -154,6 +161,7 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
 function defaultStaffFields(): Omit<StaffMaster, "id" | "name" | "roles" | "attendanceEnabled"> {
   return {
     personalPin: "",
+    personalCode: "",
     email: "",
     birthDate: "",
     address: "",

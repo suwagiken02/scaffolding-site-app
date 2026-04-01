@@ -84,6 +84,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   const [roles, setRoles] = useState<Set<StaffRole>>(new Set());
   const [attendanceEnabled, setAttendanceEnabled] = useState(true);
   const [personalPin, setPersonalPin] = useState("");
+  const [personalCode, setPersonalCode] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +110,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
       roles: [...roles],
       attendanceEnabled,
       personalPin: personalPin.replace(/\D/g, "").slice(0, 4),
+      personalCode: personalCode.replace(/\D/g, "").slice(0, 6),
       birthDate: "",
       address: "",
       jobType: "",
@@ -127,6 +129,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
     setRoles(new Set());
     setAttendanceEnabled(true);
     setPersonalPin("");
+    setPersonalCode("");
     setNewEmail("");
     onRefresh();
   }
@@ -210,6 +213,26 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
             />
             <span className={styles.fieldHint}>
               スタッフ一覧から個人ページを開くときに使います。
+            </span>
+          </label>
+
+          <label className={styles.field}>
+            <span className={styles.label}>個人コード（6桁）</span>
+            <input
+              className={styles.input}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={6}
+              value={personalCode}
+              onChange={(e) =>
+                setPersonalCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              placeholder="例：000001"
+              aria-label="個人コード"
+            />
+            <span className={styles.fieldHint}>
+              給与明細PDFのファイル名と紐付けます（数字6桁）。
             </span>
           </label>
 
@@ -300,6 +323,24 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                         })
                       }
                       aria-label="個人PIN"
+                    />
+                  </label>
+                  <label className={styles.staffPinRow}>
+                    <span className={styles.label}>個人コード（6桁）</span>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={6}
+                      value={r.personalCode ?? ""}
+                      onChange={(e) =>
+                        setRow({
+                          ...r,
+                          personalCode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                        })
+                      }
+                      aria-label="個人コード"
                     />
                   </label>
                 </div>
