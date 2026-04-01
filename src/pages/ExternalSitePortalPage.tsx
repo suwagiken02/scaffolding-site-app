@@ -26,6 +26,7 @@ import {
   updateSite,
 } from "../lib/siteStorage";
 import { externalPortalAuthStorageKey } from "../lib/externalPortalAuth";
+import { notifyExternalSiteRegisteredFcm } from "../lib/fcmTokensApi";
 import { computeSiteDisplayStatus } from "../lib/siteStatus";
 import { loadSiteTypeMasters } from "../lib/mastersStorage";
 import editorStyles from "../components/SiteEditorForm.module.css";
@@ -979,6 +980,7 @@ function ExternalSiteForm({
         externalCompanyName: company.companyName,
       };
       addSite(site);
+      void notifyExternalSiteRegisteredFcm(company.companyName, trimmedName);
     }
     onSaved();
   }

@@ -1,5 +1,7 @@
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { getFirebaseApp, hasFirebaseMessagingConfig } from "./firebase";
+import { postFcmTokenToServer } from "./fcmTokensApi";
+import { getFcmStaffContext } from "./staffPersonalSession";
 
 let started = false;
 
@@ -55,6 +57,18 @@ async function runFcmSetup(): Promise<void> {
       if (import.meta.env.DEV) {
         console.info("[FCM] 登録トークンを取得しました（開発時のみ表示）");
       }
+      const staffId = getFcmStaffContext();
+      if (staffId) {
+        try {
+          await postFcmTokenToServer(staffId, token);
+        } catch (e) {
+          console.warn("[FCM] サーバーへのトークン登録に失敗:", e);
+        }
+      } else {
+        console.info(
+          "[FCM] staffId 未設定のためトークンをサーバーに送りません（個人ページでPIN認証後に紐付きます）。"
+        );
+      }
     } else {
       console.warn("[FCM] トークンを取得できませんでした。");
     }
@@ -78,5 +92,33 @@ async function runFcmSetup(): Promise<void> {
     });
   } catch (e) {
     console.warn("[FCM] 初期化に失敗しました:", e);
+  }
+}
+
+/**
+ * 個人ページで PIN 認証したあとに呼ぶ。既に取得済みの FCM トークンを staffId に紐付けてサーバーへ送る。
+ */
+export async function registerCurrentFcmTokenToServer(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!hasFirebaseMessagingConfig()) return;
+  const staffId = getFcmStaffContext();
+  if (!staffId) return;
+  try {
+    if (!(await isSupported())) return;
+    const app = getFirebaseApp();
+    const messaging = getMessaging(app);
+    const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+    const swUrl = `${base}firebase-messaging-sw.js`;
+    const registration =
+      (await navigator.serviceWorker.getRegistration(swUrl)) ?? undefined;
+    const token = await getToken(messaging, {
+      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: registration,
+    });
+    if (token) {
+      await postFcmTokenToServer(staffId, token);
+    }
+  } catch (e) {
+    console.warn("[FCM] registerCurrentFcmTokenToServer:", e);
   }
 }

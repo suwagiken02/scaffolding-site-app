@@ -5,6 +5,7 @@ import type { PayslipRecord } from "../types/payslip";
 import type { StaffMaster, StaffPaidLeaveUsage } from "../types/staffMaster";
 import { fetchPayslipsForStaff } from "../lib/payslipsApi";
 import { createLeaveRequest, fetchLeaveRequests } from "../lib/leaveRequestsApi";
+import { registerCurrentFcmTokenToServer } from "../lib/fcmInit";
 import { hydrateLocalStorageFromServer } from "../lib/persistStorageApi";
 import { ageFromBirthDate } from "../lib/ageFromBirthDate";
 import { buildLaborListRowsForPerson } from "../lib/laborListForPerson";
@@ -33,6 +34,7 @@ import {
 import {
   clearStaffPersonalAuthed,
   isStaffPersonalAuthed,
+  setFcmStaffContext,
   setStaffPersonalAuthed,
 } from "../lib/staffPersonalSession";
 import laborStyles from "./LaborManagementPage.module.css";
@@ -193,6 +195,12 @@ export function StaffPersonalPage() {
     setPin("");
     setPinError(null);
   }, [authed]);
+
+  useEffect(() => {
+    if (!authed || !id) return;
+    setFcmStaffContext(id);
+    void registerCurrentFcmTokenToServer();
+  }, [authed, id]);
 
   useEffect(() => {
     if (!authed || !id) return;
@@ -533,6 +541,8 @@ export function StaffPersonalPage() {
                           return;
                         }
                         setStaffPersonalAuthed(id);
+                        setFcmStaffContext(id);
+                        void registerCurrentFcmTokenToServer();
                         setPin("");
                         setSessionBump((x) => x + 1);
                         return;

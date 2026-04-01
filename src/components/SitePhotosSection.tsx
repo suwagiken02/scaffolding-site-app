@@ -82,6 +82,8 @@ export function SitePhotosSection({
             siteId,
             workKind,
             dateKey: todayDateKey,
+            photoCategory: UPLOAD_CATEGORY,
+            siteName: _site.name?.trim() ?? "",
           });
           newItems.push({
             id: newPhotoId(),

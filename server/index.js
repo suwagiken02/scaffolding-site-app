@@ -11,6 +11,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { basename, dirname, join } from "node:path";
+import {
+  initFirebaseAdminIfPossible,
+  isFcmConfigured,
+  notifyOfficeStaff,
+  notifyStaffIds,
+  readFcmTokensStore,
+  registerFcmToken,
+} from "./fcm.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -51,6 +59,23 @@ app.use(
   })
 );
 app.use(express.json({ limit: "256kb" }));
+
+// ---- Persistent data dir (FCM tokens, JSON stores) — before routes that need DATA_DIR ----
+const DATA_DIR =
+  process.env.NODE_ENV === "production" ? "/var/data" : join(__dirname, "data");
+try {
+  mkdirSync(DATA_DIR, { recursive: true });
+} catch {
+  // ignore
+}
+console.log("[server] data dir:", DATA_DIR);
+console.log(
+  "[server] R2 photo upload:",
+  process.env.R2_BUCKET_NAME?.trim() && process.env.R2_PUBLIC_BASE_URL?.trim()
+    ? "bucket + public URL 設定あり"
+    : "R2_BUCKET_NAME / R2_PUBLIC_BASE_URL を確認（写真API用）"
+);
+initFirebaseAdminIfPossible();
 
 const photoUpload = multer({
   storage: multer.memoryStorage(),
@@ -99,7 +124,7 @@ const siteDocumentUpload = multer({
   },
 });
 
-const WORK_KINDS_JA = ["組み", "払い", "その他"];
+const WORK_KINDS_JA = ["組み", "払い", "その他", "常用作業"];
 
 function extFromMime(mime) {
   if (mime === "image/png") return "png";
@@ -194,6 +219,24 @@ app.post(
     }
 
     const url = `${publicBase}/${key}`;
+    const photoCategory =
+      typeof req.body?.photoCategory === "string" ? req.body.photoCategory.trim() : "";
+    const siteNameForNotify =
+      typeof req.body?.siteName === "string" ? req.body.siteName.trim() : "";
+    if (photoCategory === "入場時" && siteNameForNotify && isFcmConfigured()) {
+      try {
+        const staffList = await readStaffMastersFromDisk();
+        await notifyOfficeStaff(
+          staffList,
+          DATA_DIR,
+          "【写真】",
+          `${siteNameForNotify}の入場写真がアップロードされました`
+        );
+      } catch (e) {
+        console.error("[server] FCM 入場写真通知", e);
+      }
+    }
+
     res.json({ ok: true, url, key });
   }
 );
@@ -318,21 +361,65 @@ app.post("/api/site-documents/delete", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- Persistent JSON storage (Render disk /var/data) ----
-const DATA_DIR =
-  process.env.NODE_ENV === "production" ? "/var/data" : join(__dirname, "data");
-try {
-  mkdirSync(DATA_DIR, { recursive: true });
-} catch {
-  // ignore
-}
-console.log("[server] data dir:", DATA_DIR);
-console.log(
-  "[server] R2 photo upload:",
-  process.env.R2_BUCKET_NAME?.trim() && process.env.R2_PUBLIC_BASE_URL?.trim()
-    ? "bucket + public URL 設定あり"
-    : "R2_BUCKET_NAME / R2_PUBLIC_BASE_URL を確認（写真API用）"
-);
+// ---- FCM（トークン登録・プッシュ） ----
+app.post("/api/fcm-tokens", async (req, res) => {
+  try {
+    const staffId = typeof req.body?.staffId === "string" ? req.body.staffId.trim() : "";
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    if (!staffId || !token) {
+      res.status(400).json({ ok: false, error: "staffId と token が必要です。" });
+      return;
+    }
+    await registerFcmToken(DATA_DIR, staffId, token);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] POST /api/fcm-tokens", e);
+    res.status(500).json({ ok: false, error: "save failed" });
+  }
+});
+
+app.get("/api/fcm-tokens/:staffId", async (req, res) => {
+  try {
+    const staffId = String(req.params.staffId ?? "").trim();
+    if (!staffId) {
+      res.status(400).json({ ok: false, error: "staffId が不正です。" });
+      return;
+    }
+    const store = await readFcmTokensStore(DATA_DIR);
+    const tokens = Array.isArray(store[staffId]) ? store[staffId] : [];
+    res.json({ ok: true, tokens });
+  } catch (e) {
+    console.error("[server] GET /api/fcm-tokens", e);
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.post("/api/fcm-notify/external-site", async (req, res) => {
+  try {
+    const companyName =
+      typeof req.body?.companyName === "string" ? req.body.companyName.trim() : "";
+    const siteName = typeof req.body?.siteName === "string" ? req.body.siteName.trim() : "";
+    if (!companyName || !siteName) {
+      res.status(400).json({ ok: false, error: "companyName と siteName が必要です。" });
+      return;
+    }
+    if (!isFcmConfigured()) {
+      res.json({ ok: true, skipped: true });
+      return;
+    }
+    const staffList = await readStaffMastersFromDisk();
+    await notifyOfficeStaff(
+      staffList,
+      DATA_DIR,
+      "【新規現場】",
+      `${companyName}から${siteName}が登録されました`
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] POST /api/fcm-notify/external-site", e);
+    res.status(500).json({ ok: false, error: "notify failed" });
+  }
+});
 
 function safeKeyToPath(key) {
   const raw = String(key ?? "");
@@ -628,6 +715,20 @@ app.post("/api/leave-requests", async (req, res) => {
       }
     }
 
+    if (isFcmConfigured()) {
+      try {
+        const staffList = await readStaffMastersFromDisk();
+        await notifyOfficeStaff(
+          staffList,
+          DATA_DIR,
+          "【休暇申請】",
+          `${staffName}から休暇申請が届きました`
+        );
+      } catch (e) {
+        console.error("[server] FCM leave-request notify", e);
+      }
+    }
+
     res.json({ ok: true, request });
   } catch (e) {
     console.error("[server] POST /api/leave-requests", e);
@@ -685,6 +786,15 @@ app.post("/api/leave-requests/:id/decide", async (req, res) => {
         }
       }
 
+      if (isFcmConfigured()) {
+        try {
+          const staffList = await readStaffMastersFromDisk();
+          await notifyStaffIds([row.staffId], staffList, DATA_DIR, "【休暇申請】", "否認されました");
+        } catch (e) {
+          console.error("[server] FCM leave reject", e);
+        }
+      }
+
       res.json({ ok: true, request: nextRow });
       return;
     }
@@ -731,6 +841,15 @@ app.post("/api/leave-requests/:id/decide", async (req, res) => {
         await sendMailToRecipients([em], "【休暇申請】承認のお知らせ", textBody);
       } catch (e) {
         console.error("[server] leave approve mail", e);
+      }
+    }
+
+    if (isFcmConfigured()) {
+      try {
+        const staffList = await readStaffMastersFromDisk();
+        await notifyStaffIds([row.staffId], staffList, DATA_DIR, "【休暇申請】", "承認されました");
+      } catch (e) {
+        console.error("[server] FCM leave approve", e);
       }
     }
 
@@ -937,15 +1056,31 @@ app.post(
 
       results.push({ originalName: safeBase, ok: true, url, id: record.id });
 
+      const [y, mo] = yearMonth.split("-");
+      const monthJa = mo ? `${y}年${parseInt(mo, 10)}月` : yearMonth;
+
       const em = typeof staff.email === "string" ? staff.email.trim() : "";
       if (em) {
-        const [y, mo] = yearMonth.split("-");
-        const monthJa = mo ? `${y}年${parseInt(mo, 10)}月` : yearMonth;
         const textBody = `${monthJa}分の給与明細がアップロードされました。個人ページからご確認ください。`;
         try {
           await sendMailToRecipients([em], "【給与明細】アップロードのお知らせ", textBody);
         } catch (e) {
           console.error("[server] payslip notify mail", e);
+        }
+      }
+
+      if (isFcmConfigured()) {
+        try {
+          const staffListFcm = await readStaffMastersFromDisk();
+          await notifyStaffIds(
+            [staff.id],
+            staffListFcm,
+            DATA_DIR,
+            "【給与明細】",
+            `${monthJa}分の給与明細がアップロードされました`
+          );
+        } catch (e) {
+          console.error("[server] FCM payslip notify", e);
         }
       }
     }

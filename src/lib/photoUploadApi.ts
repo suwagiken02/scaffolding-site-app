@@ -9,13 +9,22 @@ function photoUploadApiBase(): string {
 
 export async function uploadSitePhotoToR2(
   file: File,
-  meta: { siteId: string; workKind: string; dateKey: string }
+  meta: {
+    siteId: string;
+    workKind: string;
+    dateKey: string;
+    /** 入場時のときサーバーが事務員へ FCM（任意） */
+    photoCategory?: string;
+    siteName?: string;
+  }
 ): Promise<string> {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("siteId", meta.siteId);
   fd.append("workKind", meta.workKind);
   fd.append("dateKey", meta.dateKey);
+  if (meta.photoCategory) fd.append("photoCategory", meta.photoCategory);
+  if (meta.siteName) fd.append("siteName", meta.siteName);
 
   const url = `${photoUploadApiBase()}/api/photos/upload`;
   let res: Response;
