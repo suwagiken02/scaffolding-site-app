@@ -265,6 +265,13 @@ export function SiteDetailPage() {
     return WORK_KINDS.filter((k) => Boolean(loadDailyLaborMap(safeSite.id, k)[todayKey]));
   }, [safeSite.id, todayKey, fileRevision]);
 
+  /** 写真アップロード先の作業種別（今日の人工が無いときは画面上の workKind を使う） */
+  const photoSectionWorkKind = useMemo<WorkKind>(() => {
+    if (todayWorkKinds.length === 1) return todayWorkKinds[0];
+    if (todayWorkKinds.length > 1) return todayUploadKind;
+    return workKind;
+  }, [todayWorkKinds, todayUploadKind, workKind]);
+
   useEffect(() => {
     // 今日の作業が1件なら自動選択、複数なら先頭をデフォルトにする
     if (todayWorkKinds.length === 0) return;
@@ -286,8 +293,8 @@ export function SiteDetailPage() {
   const beforeAddPhotos = useCallback(() => {
     setPhotoAddMessage(null);
     if (todayWorkKinds.length === 0) {
-      setPhotoAddMessage("先に作業を追加してください");
-      return false;
+      // 人工未登録でも今日の日付へ写真を追加できる（作業種別は workKind）
+      return true;
     }
     if (todayWorkKinds.length === 1) {
       setTodayUploadKind(todayWorkKinds[0]);
@@ -312,7 +319,7 @@ export function SiteDetailPage() {
     setPhotoTargetKind(initial);
     setPhotoTargetOpen(true);
     return false;
-  }, [todayWorkKinds, todayUploadKind]);
+  }, [todayWorkKinds, todayUploadKind, safeSite.id, todayKey]);
 
   const resolvedTraffic = useMemo(() => {
     const address = safeSite.address.trim();
@@ -399,19 +406,17 @@ export function SiteDetailPage() {
           />
         )}
 
-        {todayWorkKinds.length > 0 && (
-          <SitePhotosSection
-            siteId={safeSite.id}
-            site={safeSite}
-            workKind={todayWorkKinds.length === 1 ? todayWorkKinds[0] : todayUploadKind}
-            todayDateKey={todayKey}
-            onStorageChange={bumpFile}
-            beforeAddPhotos={beforeAddPhotos}
-            registerAddPhotosTrigger={(fn) => {
-              photoAddTriggerRef.current = fn;
-            }}
-          />
-        )}
+        <SitePhotosSection
+          siteId={safeSite.id}
+          site={safeSite}
+          workKind={photoSectionWorkKind}
+          todayDateKey={todayKey}
+          onStorageChange={bumpFile}
+          beforeAddPhotos={beforeAddPhotos}
+          registerAddPhotosTrigger={(fn) => {
+            photoAddTriggerRef.current = fn;
+          }}
+        />
 
         {photoAddMessage && (
           <p className={styles.workStartMessage} role="status">

@@ -28,7 +28,7 @@ export function SiteProcessSummaryPhotos({ siteId, revision }: Props) {
   useEffect(() => {
     setLoadedIds(new Set());
     setFailedIds(new Set());
-  }, [siteId, revision, slots]);
+  }, [siteId, revision]);
 
   const markLoaded = useCallback((id: string) => {
     setLoadedIds((prev) => new Set([...prev, id]));
@@ -67,7 +67,7 @@ export function SiteProcessSummaryPhotos({ siteId, revision }: Props) {
           写真を読み込み中…
         </p>
       )}
-      <ul className={styles.strip}>
+      <ul className={styles.strip} key={revision}>
         {slots.map((s) => {
           const src = sitePhotoDisplaySrc(s.photo).trim();
           const settled =
@@ -87,6 +87,7 @@ export function SiteProcessSummaryPhotos({ siteId, revision }: Props) {
                 <span className={styles.thumbSkeleton} aria-hidden />
                 {src ? (
                   <img
+                    key={`${s.photo.id}-r${revision}`}
                     className={styles.thumbImg}
                     src={src}
                     alt=""

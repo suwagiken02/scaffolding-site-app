@@ -1,10 +1,7 @@
 import type { SitePhoto } from "../types/sitePhoto";
 import type { WorkKind } from "../types/workKind";
-import { listDateKeysForSiteWork } from "./siteDailyLaborStorage";
-import {
-  listPhotoDateKeysForSiteWork,
-  loadPhotosForSiteWorkDate,
-} from "./sitePhotoStorage";
+import { loadPhotosForSiteWorkDate } from "./sitePhotoStorage";
+import { dateKeysForSiteWorkKind } from "./siteWorkRecordKeys";
 
 export type ProcessSummarySlot = {
   photo: SitePhoto;
@@ -12,11 +9,11 @@ export type ProcessSummarySlot = {
   dateKey: string;
 };
 
-/** 作業記録の日付キー（写真・人工のいずれかがある日）、古い順 */
+/** 作業記録の日付キー（一覧・ステータスと同一）、古い順 */
 function recordDateKeysAsc(siteId: string, workKind: WorkKind): string[] {
-  const pk = listPhotoDateKeysForSiteWork(siteId, workKind);
-  const dks = listDateKeysForSiteWork(siteId, workKind, pk);
-  return [...new Set(dks)].sort((a, b) => a.localeCompare(b));
+  return [...dateKeysForSiteWorkKind(siteId, workKind)].sort((a, b) =>
+    a.localeCompare(b)
+  );
 }
 
 function firstEntryPhoto(photos: SitePhoto[]): SitePhoto | null {
