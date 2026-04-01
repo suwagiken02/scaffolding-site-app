@@ -324,7 +324,7 @@ export function LaborManagementPage() {
                     const dur = att ? formatDurationHm(workMinutes(att)) : "—";
                     const late = att ? isCheckInLate(att) : false;
                     const hasAttRecord = att != null;
-                    const actionsCell = hasAttRecord ? (
+                    const actionsCell = (
                       <div className={styles.rowActions}>
                         <button
                           type="button"
@@ -333,16 +333,16 @@ export function LaborManagementPage() {
                         >
                           編集
                         </button>
-                        <button
-                          type="button"
-                          className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
-                          onClick={() => setPinGate({ mode: "delete", dateKey: row.dateKey })}
-                        >
-                          削除
-                        </button>
+                        {hasAttRecord ? (
+                          <button
+                            type="button"
+                            className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+                            onClick={() => setPinGate({ mode: "delete", dateKey: row.dateKey })}
+                          >
+                            削除
+                          </button>
+                        ) : null}
                       </div>
-                    ) : (
-                      "—"
                     );
                     if (row.kind === "holiday") {
                       return (
