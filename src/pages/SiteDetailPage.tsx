@@ -18,6 +18,7 @@ import { SiteWorkTimeSection } from "../components/SiteWorkTimeSection";
 import { SiteWorkStartModal } from "../components/SiteWorkStartModal";
 import { SiteNotificationRecipientsPanel } from "../components/SiteNotificationRecipientsPanel";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
+import { SiteDocumentsSection } from "../components/SiteDocumentsSection";
 import { SiteProcessSummaryPhotos } from "../components/SiteProcessSummaryPhotos";
 import { SiteWorkRecordList } from "../components/SiteWorkRecordList";
 import {
@@ -376,6 +377,11 @@ export function SiteDetailPage() {
         <p className={styles.headerClient}>
           {safeSite.clientName?.trim() || "—"}
         </p>
+        <SiteDocumentsSection
+          siteId={safeSite.id}
+          revision={fileRevision}
+          onStorageChange={bumpFile}
+        />
         <SiteProcessSummaryPhotos siteId={safeSite.id} revision={fileRevision} />
       </header>
 

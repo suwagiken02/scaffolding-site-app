@@ -80,6 +80,25 @@ const payslipUpload = multer({
   },
 });
 
+/** 現場書類（PDF / JPG / PNG）→ sites/{siteId}/documents/ */
+const siteDocumentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const m = file.mimetype;
+    if (
+      m === "image/jpeg" ||
+      m === "image/jpg" ||
+      m === "image/png" ||
+      m === "application/pdf"
+    ) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("PDF・JPG・PNGのみアップロードできます。"));
+  },
+});
+
 const WORK_KINDS_JA = ["組み", "払い", "その他"];
 
 function extFromMime(mime) {
@@ -178,6 +197,126 @@ app.post(
     res.json({ ok: true, url, key });
   }
 );
+
+function safeDocumentObjectName(originalName) {
+  const base = basename(String(originalName || "document"));
+  const cleaned = base.replace(/[/\\]/g, "").replace(/^\.+/, "").trim();
+  if (!cleaned) return "document";
+  return cleaned.slice(0, 180);
+}
+
+function documentContentType(mime, originalName) {
+  const m = String(mime || "");
+  if (m === "image/jpeg" || m === "image/jpg") return "image/jpeg";
+  if (m === "image/png") return "image/png";
+  if (m === "application/pdf") return "application/pdf";
+  const n = String(originalName).toLowerCase();
+  if (n.endsWith(".png")) return "image/png";
+  if (n.endsWith(".pdf")) return "application/pdf";
+  return "application/octet-stream";
+}
+
+app.post(
+  "/api/site-documents/upload",
+  (req, res, next) => {
+    siteDocumentUpload.single("file")(req, res, (err) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "アップロードエラー";
+        res.status(400).json({ ok: false, error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const bucket = process.env.R2_BUCKET_NAME?.trim();
+    const publicBaseRaw = process.env.R2_PUBLIC_BASE_URL?.trim() ?? "";
+    const publicBase = publicBaseRaw.replace(/\/$/, "");
+
+    if (!getR2Client() || !bucket) {
+      res.status(503).json({
+        ok: false,
+        error:
+          "R2 の環境変数（R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET_NAME）が不足しています。",
+      });
+      return;
+    }
+    if (!publicBase) {
+      res.status(503).json({
+        ok: false,
+        error:
+          "R2_PUBLIC_BASE_URL が未設定です。R2 の公開アクセス用URL（末尾スラッシュなし）を設定してください。",
+      });
+      return;
+    }
+    if (!req.file?.buffer) {
+      res.status(400).json({ ok: false, error: "ファイルがありません。" });
+      return;
+    }
+
+    const siteId = String(req.body?.siteId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+    const safeSiteId = siteId || "unknown";
+    const objectSuffix = safeDocumentObjectName(req.file.originalname);
+    const key = `sites/${safeSiteId}/documents/${randomUUID()}_${objectSuffix}`;
+
+    const ct = documentContentType(req.file.mimetype, req.file.originalname);
+
+    try {
+      const client = getR2Client();
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: req.file.buffer,
+          ContentType: ct,
+        })
+      );
+    } catch (e) {
+      console.error("[server] R2 site-documents PutObject failed:", e);
+      res.status(500).json({ ok: false, error: "ストレージへの保存に失敗しました。" });
+      return;
+    }
+
+    const url = `${publicBase}/${key}`;
+    res.json({ ok: true, url, key });
+  }
+);
+
+app.post("/api/site-documents/delete", async (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  const key = String(req.body?.key ?? "").trim();
+  const expectedPrefix = siteId ? `sites/${siteId}/documents/` : "";
+
+  if (!siteId || !expectedPrefix || !key.startsWith(expectedPrefix) || key.includes("..")) {
+    res.status(400).json({ ok: false, error: "不正な要求です。" });
+    return;
+  }
+
+  const bucket = process.env.R2_BUCKET_NAME?.trim();
+  if (!getR2Client() || !bucket) {
+    res.status(503).json({
+      ok: false,
+      error: "R2 が未設定です。",
+    });
+    return;
+  }
+
+  try {
+    const client = getR2Client();
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      })
+    );
+  } catch (e) {
+    console.error("[server] R2 site-documents DeleteObject failed:", e);
+    res.status(500).json({ ok: false, error: "ストレージからの削除に失敗しました。" });
+    return;
+  }
+
+  res.json({ ok: true });
+});
 
 // ---- Persistent JSON storage (Render disk /var/data) ----
 const DATA_DIR =
