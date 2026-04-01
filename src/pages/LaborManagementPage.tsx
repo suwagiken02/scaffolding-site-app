@@ -10,14 +10,15 @@ import {
   deleteAttendanceForPersonDate,
   formatDurationHm,
   formatTimeJa,
+  getAttendanceRecord,
   hhmmFromLocalIso,
   isCheckInLate,
   listAttendanceInMonth,
-  loadAttendanceForPersonDate,
+  loadAttendanceStore,
   updateAttendanceFromHHmmFields,
   workMinutes,
 } from "../lib/attendanceStorage";
-import type { AttendanceRecord } from "../types/attendance";
+import type { AttendanceRecord, AttendanceStore } from "../types/attendance";
 import styles from "./LaborManagementPage.module.css";
 
 const jaCollator = new Intl.Collator("ja");
@@ -64,6 +65,9 @@ export function LaborManagementPage() {
   const [personName, setPersonName] = useState("");
   const [tab, setTab] = useState<"list" | "labor" | "attendance">("list");
   const [attRevision, setAttRevision] = useState(0);
+  const [attStore, setAttStore] = useState<AttendanceStore>({});
+  const [attLoadError, setAttLoadError] = useState<string | null>(null);
+  const [attLoading, setAttLoading] = useState(false);
   const [pinGate, setPinGate] = useState<null | { mode: "edit" | "delete"; dateKey: string }>(
     null
   );
@@ -84,6 +88,30 @@ export function LaborManagementPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setAttLoading(true);
+    setAttLoadError(null);
+    void (async () => {
+      try {
+        const s = await loadAttendanceStore();
+        if (!cancelled) setAttStore(s);
+      } catch (e) {
+        if (!cancelled) {
+          setAttLoadError(
+            e instanceof Error ? e.message : "打刻データの読み込みに失敗しました"
+          );
+          setAttStore({});
+        }
+      } finally {
+        if (!cancelled) setAttLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [attRevision]);
+
+  useEffect(() => {
     if (!pinGate) return;
     setPin("");
     setPinError(null);
@@ -91,12 +119,12 @@ export function LaborManagementPage() {
 
   useEffect(() => {
     if (!editModal || !personName) return;
-    const rec = loadAttendanceForPersonDate(personName, editModal.dateKey);
+    const rec = getAttendanceRecord(attStore, personName, editModal.dateKey);
     setEditIn(hhmmFromLocalIso(rec.inAt));
     setEditOut(hhmmFromLocalIso(rec.outAt));
     setEditMeeting(rec.meetingTime ?? "");
     setEditError(null);
-  }, [editModal, personName]);
+  }, [editModal, personName, attStore]);
 
   useEffect(() => {
     if (!pinGate && !editModal) return;
@@ -122,8 +150,8 @@ export function LaborManagementPage() {
 
   const attendanceRows = useMemo(() => {
     if (!personName) return [];
-    return listAttendanceInMonth(personName, year, month);
-  }, [personName, year, month, attRevision]);
+    return listAttendanceInMonth(attStore, personName, year, month);
+  }, [personName, year, month, attStore]);
 
   const attendanceTotalMinutes = useMemo(() => {
     let total = 0;
@@ -262,7 +290,14 @@ export function LaborManagementPage() {
 
       {!personName ? (
         <p className={styles.placeholder}>対象者を選ぶと表示されます。</p>
-      ) : tab === "list" ? (
+      ) : (
+        <>
+          {attLoadError && (
+            <p className={styles.editError} role="alert">
+              {attLoadError}（打刻列は表示できません）
+            </p>
+          )}
+          {tab === "list" ? (
         <>
           <section className={styles.tableSection} aria-label="一覧">
             <h2 className={styles.sectionTitle}>
@@ -418,7 +453,15 @@ export function LaborManagementPage() {
                             setPin("");
                             if (mode === "delete") {
                               if (window.confirm("この打刻記録を削除しますか？")) {
-                                deleteAttendanceForPersonDate(personName, dk);
+                                void (async () => {
+                                  try {
+                                    await deleteAttendanceForPersonDate(personName, dk);
+                                  } catch (e) {
+                                    window.alert(
+                                      e instanceof Error ? e.message : "削除に失敗しました"
+                                    );
+                                  }
+                                })();
                               }
                             } else {
                               setEditModal({ dateKey: dk });
@@ -530,16 +573,22 @@ export function LaborManagementPage() {
                     type="button"
                     className={styles.modalYes}
                     onClick={() => {
-                      const res = updateAttendanceFromHHmmFields(personName, editModal.dateKey, {
-                        inHHmm: editIn,
-                        outHHmm: editOut,
-                        meetingHHmm: editMeeting,
-                      });
-                      if (!res.ok) {
-                        setEditError(res.error);
-                        return;
-                      }
-                      setEditModal(null);
+                      void (async () => {
+                        const res = await updateAttendanceFromHHmmFields(
+                          personName,
+                          editModal.dateKey,
+                          {
+                            inHHmm: editIn,
+                            outHHmm: editOut,
+                            meetingHHmm: editMeeting,
+                          }
+                        );
+                        if (!res.ok) {
+                          setEditError(res.error);
+                          return;
+                        }
+                        setEditModal(null);
+                      })();
                     }}
                   >
                     保存
@@ -642,6 +691,8 @@ export function LaborManagementPage() {
               </div>
             )}
           </section>
+        </>
+      )}
         </>
       )}
     </div>

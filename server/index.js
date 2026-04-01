@@ -233,6 +233,97 @@ app.put("/api/storage/:key", async (req, res) => {
   }
 });
 
+// ---- 打刻データ（専用 JSON。/var/data/attendance-store.json） ----
+const ATTENDANCE_FILE = join(DATA_DIR, "attendance-store.json");
+/** 旧: localStorage 同期で保存されていたファイル名 */
+const ATTENDANCE_LEGACY_FILE = join(DATA_DIR, "scaffolding-attendance-v1.json");
+
+async function readAttendanceStoreRaw() {
+  for (const p of [ATTENDANCE_FILE, ATTENDANCE_LEGACY_FILE]) {
+    try {
+      if (!existsSync(p)) continue;
+      const raw = await readFile(p, "utf8");
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // try next
+    }
+  }
+  return {};
+}
+
+async function writeAttendanceStoreJson(store) {
+  await writeFile(ATTENDANCE_FILE, JSON.stringify(store), "utf8");
+}
+
+app.get("/api/attendance", async (_req, res) => {
+  try {
+    const store = await readAttendanceStoreRaw();
+    res.json({ ok: true, store });
+  } catch (e) {
+    console.error("[server] GET /api/attendance", e);
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.post("/api/attendance", async (req, res) => {
+  try {
+    const body = req.body;
+    if (!body || typeof body !== "object") {
+      res.status(400).json({ ok: false, error: "body required" });
+      return;
+    }
+
+    if (body.action === "delete") {
+      const personName = typeof body.personName === "string" ? body.personName : "";
+      const dateKey = typeof body.dateKey === "string" ? body.dateKey : "";
+      if (!personName || !dateKey) {
+        res.status(400).json({ ok: false, error: "personName and dateKey required" });
+        return;
+      }
+      const store = await readAttendanceStoreRaw();
+      const prev = store[personName];
+      if (prev && typeof prev === "object" && prev[dateKey]) {
+        const nextPerson = { ...prev };
+        delete nextPerson[dateKey];
+        if (Object.keys(nextPerson).length === 0) {
+          const nextStore = { ...store };
+          delete nextStore[personName];
+          await writeAttendanceStoreJson(nextStore);
+        } else {
+          store[personName] = nextPerson;
+          await writeAttendanceStoreJson(store);
+        }
+      }
+      res.json({ ok: true });
+      return;
+    }
+
+    const personName = typeof body.personName === "string" ? body.personName : "";
+    const record = body.record;
+    if (!personName || !record || typeof record !== "object") {
+      res.status(400).json({ ok: false, error: "personName and record required" });
+      return;
+    }
+    const dateKey = typeof record.dateKey === "string" ? record.dateKey : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      res.status(400).json({ ok: false, error: "record.dateKey invalid" });
+      return;
+    }
+
+    const store = await readAttendanceStoreRaw();
+    const prev = store[personName] && typeof store[personName] === "object" ? store[personName] : {};
+    store[personName] = { ...prev, [dateKey]: record };
+    await writeAttendanceStoreJson(store);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] POST /api/attendance", e);
+    res.status(500).json({ ok: false, error: "write failed" });
+  }
+});
+
 // ---- Static hosting (Vite dist) ----
 // dist is at project root: ../dist (relative to server/)
 const DIST_DIR = join(__dirname, "..", "dist");

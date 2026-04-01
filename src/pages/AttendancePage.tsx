@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import {
   formatTimeJa,
-  loadAttendanceForPersonDate,
+  getAttendanceRecord,
+  loadAttendanceStore,
   nextPunchKind,
   punchAttendance,
 } from "../lib/attendanceStorage";
+import type { AttendanceStore } from "../types/attendance";
 import styles from "./AttendancePage.module.css";
 
 const jaCollator = new Intl.Collator("ja");
 const PIN_DEFAULT = "1234";
 const AUTH_KEY = "attendancePinAuthed";
+/** タブレット常時表示向け：打刻画面の定期リフレッシュ間隔 */
+const ATTENDANCE_AUTO_RELOAD_MS = 60 * 60 * 1000;
+/** 日付またぎ検知（本日の表示・サーバー再取得用） */
+const TODAY_ROLLOVER_CHECK_MS = 60 * 1000;
 
 type ConfirmState = {
   personName: string;
@@ -89,7 +95,7 @@ function normalizeHHmmOrNull(raw: string): string | null {
 }
 
 export function AttendancePage() {
-  const todayKey = useMemo(() => todayLocalDateKey(), []);
+  const [todayKey, setTodayKey] = useState(() => todayLocalDateKey());
   const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -128,6 +134,85 @@ export function AttendancePage() {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [meeting, setMeeting] = useState<MeetingState | null>(null);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
+  const [attStore, setAttStore] = useState<AttendanceStore>({});
+  const [attLoadError, setAttLoadError] = useState<string | null>(null);
+  const [attRefreshing, setAttRefreshing] = useState(false);
+
+  const confirmRef = useRef<ConfirmState | null>(null);
+  const meetingRef = useRef<MeetingState | null>(null);
+  const doneMessageRef = useRef<string | null>(null);
+  const punchBusyRef = useRef(false);
+  confirmRef.current = confirm;
+  meetingRef.current = meeting;
+  doneMessageRef.current = doneMessage;
+
+  /** 日付が変わったら表示用キーを更新（サーバー上の「本日」判定と一致させる） */
+  useEffect(() => {
+    function syncTodayKey() {
+      const next = todayLocalDateKey();
+      setTodayKey((prev) => (prev === next ? prev : next));
+    }
+    syncTodayKey();
+    const intervalId = window.setInterval(syncTodayKey, TODAY_ROLLOVER_CHECK_MS);
+    document.addEventListener("visibilitychange", syncTodayKey);
+    window.addEventListener("focus", syncTodayKey);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", syncTodayKey);
+      window.removeEventListener("focus", syncTodayKey);
+    };
+  }, []);
+
+  useEffect(() => {
+    setConfirm(null);
+    setMeeting(null);
+  }, [todayKey]);
+
+  const refreshAttendance = useCallback(async () => {
+    setAttLoadError(null);
+    setAttRefreshing(true);
+    try {
+      const s = await loadAttendanceStore();
+      setAttStore(s);
+    } catch (e) {
+      setAttLoadError(
+        e instanceof Error ? e.message : "打刻データを読み込めませんでした"
+      );
+    } finally {
+      setAttRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed) return;
+    void refreshAttendance();
+  }, [authed, todayKey, refreshAttendance]);
+
+  useEffect(() => {
+    if (!authed) return;
+    function onSaved() {
+      void refreshAttendance();
+    }
+    window.addEventListener("attendanceSaved", onSaved);
+    return () => window.removeEventListener("attendanceSaved", onSaved);
+  }, [authed, refreshAttendance]);
+
+  /** 打刻ページを定期的にリロード（sessionStorage の PIN 済みフラグは維持される） */
+  useEffect(() => {
+    if (!authed) return;
+    const intervalId = window.setInterval(() => {
+      if (
+        punchBusyRef.current ||
+        confirmRef.current !== null ||
+        meetingRef.current !== null ||
+        doneMessageRef.current !== null
+      ) {
+        return;
+      }
+      window.location.reload();
+    }, ATTENDANCE_AUTO_RELOAD_MS);
+    return () => window.clearInterval(intervalId);
+  }, [authed]);
 
   function resetPinAuth() {
     try {
@@ -274,6 +359,17 @@ export function AttendancePage() {
       <h1 className={styles.title}>打刻</h1>
       <p className={styles.lead}>本日（{todayKey.replaceAll("-", "/")}）の出勤・退勤を打刻します。</p>
 
+      {attLoadError && (
+        <p className={styles.empty} role="alert">
+          {attLoadError}
+        </p>
+      )}
+      {attRefreshing && !attLoadError && (
+        <p className={styles.empty} aria-live="polite">
+          打刻データを読み込み中…
+        </p>
+      )}
+
       {people.length === 0 ? (
         <p className={styles.empty}>
           打刻対象のスタッフがいません。マスター設定の「スタッフ」タブで「打刻対象」をONにしてください。
@@ -286,7 +382,8 @@ export function AttendancePage() {
               type="button"
               className={styles.personBtn}
               onClick={() => {
-                const rec = loadAttendanceForPersonDate(name, todayKey);
+                const dk = todayLocalDateKey();
+                const rec = getAttendanceRecord(attStore, name, dk);
                 setConfirm({ personName: name, kind: nextPunchKind(rec) });
               }}
             >
@@ -350,16 +447,29 @@ export function AttendancePage() {
                   // 「退勤」は集合時間入力をスキップしてそのまま打刻する。
                   if (confirm.kind === "out") {
                     const nowIso = new Date().toISOString();
-                    const res = punchAttendance(
-                      confirm.personName,
-                      todayKey,
-                      nowIso,
-                      null
-                    );
-                    const t = formatTimeJa(nowIso);
-                    if (res.kind === "out") setDoneMessage(`退勤：${t}`);
-                    else if (res.kind === "in") setDoneMessage(`出勤：${t}`);
-                    else setDoneMessage(`本日は打刻済みです`);
+                    const personName = confirm.personName;
+                    void (async () => {
+                      punchBusyRef.current = true;
+                      try {
+                        const dateKey = todayLocalDateKey();
+                        const res = await punchAttendance(
+                          personName,
+                          dateKey,
+                          nowIso,
+                          null
+                        );
+                        const t = formatTimeJa(nowIso);
+                        if (res.kind === "out") setDoneMessage(`退勤：${t}`);
+                        else if (res.kind === "in") setDoneMessage(`出勤：${t}`);
+                        else setDoneMessage(`本日は打刻済みです`);
+                      } catch (e) {
+                        window.alert(
+                          e instanceof Error ? e.message : "打刻の保存に失敗しました"
+                        );
+                      } finally {
+                        punchBusyRef.current = false;
+                      }
+                    })();
                     return;
                   }
                   setMeeting({
@@ -484,12 +594,30 @@ export function AttendancePage() {
                     return;
                   }
                   const nowIso = new Date().toISOString();
-                  const res = punchAttendance(meeting.personName, todayKey, nowIso, chosen);
-                  const t = formatTimeJa(nowIso);
+                  const personName = meeting.personName;
                   setMeeting(null);
-                  if (res.kind === "in") setDoneMessage(`出勤：${t}`);
-                  else if (res.kind === "out") setDoneMessage(`退勤：${t}`);
-                  else setDoneMessage(`本日は打刻済みです`);
+                  void (async () => {
+                    punchBusyRef.current = true;
+                    try {
+                      const dateKey = todayLocalDateKey();
+                      const res = await punchAttendance(
+                        personName,
+                        dateKey,
+                        nowIso,
+                        chosen
+                      );
+                      const t = formatTimeJa(nowIso);
+                      if (res.kind === "in") setDoneMessage(`出勤：${t}`);
+                      else if (res.kind === "out") setDoneMessage(`退勤：${t}`);
+                      else setDoneMessage(`本日は打刻済みです`);
+                    } catch (e) {
+                      window.alert(
+                        e instanceof Error ? e.message : "打刻の保存に失敗しました"
+                      );
+                    } finally {
+                      punchBusyRef.current = false;
+                    }
+                  })();
                 }}
               >
                 打刻する

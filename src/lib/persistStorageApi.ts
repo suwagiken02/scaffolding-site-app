@@ -23,6 +23,8 @@ export async function hydrateLocalStorageFromServer(): Promise<void> {
     }
     for (const [k, v] of Object.entries(data)) {
       if (typeof k !== "string" || typeof v !== "string") continue;
+      // 打刻は /api/attendance で管理（localStorage には置かない）
+      if (k === "scaffolding-attendance-v1") continue;
       localStorage.setItem(k, v);
     }
   } catch {
