@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadSites } from "../lib/siteStorage";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
+import { buildLaborListRowsForPerson } from "../lib/laborListForPerson";
 import {
   buildActivityRowsForPerson,
   filterRowsByMonth,
@@ -45,17 +46,6 @@ function formatDateKeyJa(dateKey: string): string {
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(
     new Date(y, m - 1, d)
   );
-}
-
-function dateKey(y: number, m1: number, d: number): string {
-  return `${y}-${String(m1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-function daysInMonthDateKeys(y: number, m1: number): string[] {
-  const last = new Date(y, m1, 0).getDate();
-  const out: string[] = [];
-  for (let d = 1; d <= last; d++) out.push(dateKey(y, m1, d));
-  return out;
 }
 
 export function LaborManagementPage() {
@@ -168,34 +158,10 @@ export function LaborManagementPage() {
     return map;
   }, [attendanceRows]);
 
-  const listRows = useMemo(() => {
-    if (!personName) return [];
-    const byDate = new Map<string, { siteId: string; siteName: string; roles: Set<string> }[]>();
-    for (const r of rowsInMonth) {
-      const list = byDate.get(r.dateKey) ?? [];
-      const existing = list.find((x) => x.siteId === r.siteId);
-      if (existing) existing.roles.add(r.role);
-      else list.push({ siteId: r.siteId, siteName: r.siteName, roles: new Set([r.role]) });
-      byDate.set(r.dateKey, list);
-    }
-    const days = daysInMonthDateKeys(year, month).sort((a, b) => b.localeCompare(a));
-    return days.flatMap((dk) => {
-      const items = byDate.get(dk);
-      if (!items || items.length === 0) {
-        return [{ kind: "holiday" as const, dateKey: dk }];
-      }
-      return items
-        .slice()
-        .sort((a, b) => jaCollator.compare(a.siteName, b.siteName))
-        .map((it) => ({
-          kind: "work" as const,
-          dateKey: dk,
-          siteId: it.siteId,
-          siteName: it.siteName,
-          work: [...it.roles].join("・"),
-        }));
-    });
-  }, [personName, rowsInMonth, year, month]);
+  const listRows = useMemo(
+    () => buildLaborListRowsForPerson(personName, year, month, jaCollator),
+    [personName, year, month]
+  );
 
   return (
     <div className={styles.page}>

@@ -238,7 +238,25 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem 1rem;
-  align-items: center;
+  align-items: flex-end;
+}
+
+.fieldHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.staffPinRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 7.5rem;
+}
+
+.staffPinRow .input {
+  max-width: 6.5rem;
 }
 
 .field {

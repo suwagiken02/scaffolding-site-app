@@ -83,6 +83,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   const [name, setName] = useState("");
   const [roles, setRoles] = useState<Set<StaffRole>>(new Set());
   const [attendanceEnabled, setAttendanceEnabled] = useState(true);
+  const [personalPin, setPersonalPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function toggleRole(r: StaffRole) {
@@ -106,10 +107,22 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
       name: n,
       roles: [...roles],
       attendanceEnabled,
+      personalPin: personalPin.replace(/\D/g, "").slice(0, 4),
+      birthDate: "",
+      address: "",
+      jobType: "",
+      position: "",
+      hireDate: "",
+      emergencyContact: { name: "", relationship: "", phone: "" },
+      insurance: { health: "", pension: "", employment: "" },
+      kentaiBook: false,
+      chutaiBook: false,
+      qualifications: [],
     });
     setName("");
     setRoles(new Set());
     setAttendanceEnabled(true);
+    setPersonalPin("");
     onRefresh();
   }
 
@@ -175,6 +188,26 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
             </div>
           </label>
 
+          <label className={styles.field}>
+            <span className={styles.label}>個人PIN（4桁）</span>
+            <input
+              className={styles.input}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={personalPin}
+              onChange={(e) =>
+                setPersonalPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              placeholder="例：1234"
+              aria-label="個人PIN"
+            />
+            <span className={styles.fieldHint}>
+              スタッフ一覧から個人ページを開くときに使います。
+            </span>
+          </label>
+
           <button type="submit" className={styles.submit}>
             追加
           </button>
@@ -225,6 +258,24 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                       }
                     />
                     <span className={styles.toggleHint}>打刻対象</span>
+                  </label>
+                  <label className={styles.staffPinRow}>
+                    <span className={styles.label}>個人PIN（4桁）</span>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={4}
+                      value={r.personalPin}
+                      onChange={(e) =>
+                        setRow({
+                          ...r,
+                          personalPin: e.target.value.replace(/\D/g, "").slice(0, 4),
+                        })
+                      }
+                      aria-label="個人PIN"
+                    />
                   </label>
                 </div>
               </div>

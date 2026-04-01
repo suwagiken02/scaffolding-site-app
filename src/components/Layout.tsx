@@ -29,6 +29,9 @@ export function Layout() {
             <Link to="/kousei-admin" className={styles.navLink}>
               KOUSEI管理
             </Link>
+            <Link to="/staff" className={styles.navLink}>
+              スタッフ
+            </Link>
             <Link to="/attendance" className={styles.navLink}>
               打刻
             </Link>

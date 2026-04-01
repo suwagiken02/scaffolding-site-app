@@ -12,6 +12,8 @@ import { ContractorAdminPage } from "./pages/ContractorAdminPage";
 import { ContractorViewPage } from "./pages/ContractorViewPage";
 import { KouseiAdminPage } from "./pages/KouseiAdminPage";
 import { KouseiPage } from "./pages/KouseiPage";
+import { StaffListPage } from "./pages/StaffListPage";
+import { StaffPersonalPage } from "./pages/StaffPersonalPage";
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
         <Route path="/" element={<SiteListPage />} />
         <Route path="/labor" element={<LaborManagementPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/staff" element={<StaffListPage />} />
+        <Route path="/staff/:id" element={<StaffPersonalPage />} />
         <Route path="/contractor" element={<ContractorAdminPage />} />
         <Route path="/contractor/view" element={<ContractorViewPage />} />
         <Route path="/kousei-admin" element={<KouseiAdminPage />} />
