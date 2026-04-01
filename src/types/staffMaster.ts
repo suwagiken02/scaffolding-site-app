@@ -19,6 +19,8 @@ export type StaffMaster = {
   id: string;
   /** 表示名 */
   name: string;
+  /** 通知用メールアドレス（休暇申請の承認・否認など） */
+  email: string;
   /** 役割（複数可） */
   roles: StaffRole[];
   /** 打刻ページに表示するか */

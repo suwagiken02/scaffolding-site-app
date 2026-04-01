@@ -312,3 +312,89 @@
   color: var(--text-muted);
 }
 
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  padding: 1.25rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.modalActions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.modalBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.modalBtnPrimary {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+
+.reqStatusP {
+  color: #ca8a04;
+  font-weight: 800;
+}
+
+.reqStatusOk {
+  color: #15803d;
+  font-weight: 800;
+}
+
+.reqStatusNg {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.applyBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.applyBtn:hover {
+  filter: brightness(1.05);
+}
+

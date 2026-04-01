@@ -324,6 +324,268 @@ app.post("/api/attendance", async (req, res) => {
   }
 });
 
+// ---- 休暇申請（leave-requests.json + 承認時に master-staff-v1 を更新） ----
+const LEAVE_REQUESTS_FILE = join(DATA_DIR, "leave-requests.json");
+const STAFF_STORAGE_FILE = join(DATA_DIR, "master-staff-v1.json");
+const COMPANY_PROFILE_FILE = join(DATA_DIR, "company-profile-v1.json");
+
+async function readLeaveRequestsFromDisk() {
+  try {
+    if (!existsSync(LEAVE_REQUESTS_FILE)) return [];
+    const raw = await readFile(LEAVE_REQUESTS_FILE, "utf8");
+    const p = JSON.parse(raw);
+    return Array.isArray(p) ? p : [];
+  } catch (e) {
+    console.error("[server] readLeaveRequestsFromDisk", e);
+    return [];
+  }
+}
+
+async function writeLeaveRequestsToDisk(list) {
+  await writeFile(LEAVE_REQUESTS_FILE, JSON.stringify(list, null, 0), "utf8");
+}
+
+async function readStaffMastersFromDisk() {
+  try {
+    if (!existsSync(STAFF_STORAGE_FILE)) return [];
+    const raw = await readFile(STAFF_STORAGE_FILE, "utf8");
+    const p = JSON.parse(raw);
+    return Array.isArray(p) ? p : [];
+  } catch (e) {
+    console.error("[server] readStaffMastersFromDisk", e);
+    return [];
+  }
+}
+
+async function writeStaffMastersToDisk(list) {
+  await writeFile(STAFF_STORAGE_FILE, JSON.stringify(list), "utf8");
+}
+
+async function readCompanyAdminEmailFromDisk() {
+  try {
+    if (!existsSync(COMPANY_PROFILE_FILE)) return "";
+    const raw = await readFile(COMPANY_PROFILE_FILE, "utf8");
+    const p = JSON.parse(raw);
+    return typeof p.adminEmail === "string" ? p.adminEmail.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+async function sendMailToRecipients(toList, subject, text) {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return false;
+  const to = Array.isArray(toList)
+    ? toList
+        .filter((x) => typeof x === "string")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  if (to.length === 0) return false;
+  const transport = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+  });
+  await transport.sendMail({
+    from: `"${MAIL_FROM_NAME}" <${GMAIL_USER}>`,
+    to: to.join(", "),
+    subject: String(subject).trim(),
+    text: String(text).trim(),
+  });
+  return true;
+}
+
+app.get("/api/leave-requests", async (_req, res) => {
+  try {
+    const list = await readLeaveRequestsFromDisk();
+    list.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    res.json({ ok: true, list });
+  } catch (e) {
+    console.error("[server] GET /api/leave-requests", e);
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.post("/api/leave-requests", async (req, res) => {
+  try {
+    const body = req.body ?? {};
+    const staffId = typeof body.staffId === "string" ? body.staffId.trim() : "";
+    const staffName = typeof body.staffName === "string" ? body.staffName.trim() : "";
+    const kind = body.kind === "birthday" ? "birthday" : body.kind === "paid" ? "paid" : "";
+    const startDate = typeof body.startDate === "string" ? body.startDate.trim() : "";
+    const endDate = typeof body.endDate === "string" ? body.endDate.trim() : "";
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    const days = typeof body.days === "number" && Number.isFinite(body.days) ? body.days : NaN;
+
+    if (!staffId || !staffName || !kind) {
+      res.status(400).json({ ok: false, error: "staffId, staffName, kind が必要です。" });
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      res.status(400).json({ ok: false, error: "開始日・終了日は YYYY-MM-DD 形式で指定してください。" });
+      return;
+    }
+    if (!(days > 0)) {
+      res.status(400).json({ ok: false, error: "日数は正の数で指定してください。" });
+      return;
+    }
+    if (startDate > endDate) {
+      res.status(400).json({ ok: false, error: "終了日は開始日以降にしてください。" });
+      return;
+    }
+
+    const request = {
+      id: randomUUID(),
+      staffId,
+      staffName,
+      kind,
+      startDate,
+      endDate,
+      days,
+      reason,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      decidedAt: null,
+    };
+
+    const list = await readLeaveRequestsFromDisk();
+    list.push(request);
+    await writeLeaveRequestsToDisk(list);
+
+    const adminEmail = await readCompanyAdminEmailFromDisk();
+    if (adminEmail) {
+      const kindJa = kind === "paid" ? "有給休暇" : "誕生日休暇";
+      const textBody = [
+        `${staffName}さんから休暇申請が届きました。`,
+        "",
+        `種別: ${kindJa}`,
+        `期間: ${startDate} ～ ${endDate}`,
+        `日数: ${days} 日`,
+        reason ? `理由: ${reason}` : "",
+        "",
+        `申請ID: ${request.id}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      try {
+        await sendMailToRecipients([adminEmail], `【休暇申請】${staffName}さん`, textBody);
+      } catch (e) {
+        console.error("[server] leave-request notify admin mail", e);
+      }
+    }
+
+    res.json({ ok: true, request });
+  } catch (e) {
+    console.error("[server] POST /api/leave-requests", e);
+    res.status(500).json({ ok: false, error: "write failed" });
+  }
+});
+
+app.post("/api/leave-requests/:id/decide", async (req, res) => {
+  try {
+    const id = String(req.params.id ?? "").trim();
+    const action = req.body?.action === "reject" ? "reject" : req.body?.action === "approve" ? "approve" : "";
+    if (!id || !action) {
+      res.status(400).json({ ok: false, error: "action（approve / reject）が必要です。" });
+      return;
+    }
+
+    const list = await readLeaveRequestsFromDisk();
+    const idx = list.findIndex((r) => r && r.id === id);
+    if (idx < 0) {
+      res.status(404).json({ ok: false, error: "申請が見つかりません。" });
+      return;
+    }
+    const row = list[idx];
+    if (row.status !== "pending") {
+      res.status(400).json({ ok: false, error: "すでに処理済みの申請です。" });
+      return;
+    }
+
+    const decidedAt = new Date().toISOString();
+    const nextRow = { ...row, decidedAt };
+
+    if (action === "reject") {
+      nextRow.status = "rejected";
+      list[idx] = nextRow;
+      await writeLeaveRequestsToDisk(list);
+
+      const staffList = await readStaffMastersFromDisk();
+      const staff = staffList.find((s) => s && s.id === row.staffId);
+      const em = staff && typeof staff.email === "string" ? staff.email.trim() : "";
+      if (em) {
+        const kindJa = row.kind === "paid" ? "有給休暇" : "誕生日休暇";
+        const textBody = [
+          `${row.staffName}さん`,
+          "",
+          "休暇申請が否認されました。",
+          "",
+          `種別: ${kindJa}`,
+          `期間: ${row.startDate} ～ ${row.endDate}`,
+          `日数: ${row.days} 日`,
+        ].join("\n");
+        try {
+          await sendMailToRecipients([em], "【休暇申請】否認のお知らせ", textBody);
+        } catch (e) {
+          console.error("[server] leave reject mail", e);
+        }
+      }
+
+      res.json({ ok: true, request: nextRow });
+      return;
+    }
+
+    // approve
+    const staffList = await readStaffMastersFromDisk();
+    const sidx = staffList.findIndex((s) => s && s.id === row.staffId);
+    if (sidx < 0) {
+      res.status(400).json({ ok: false, error: "スタッフマスターに該当者がいません。" });
+      return;
+    }
+    const staff = { ...staffList[sidx] };
+    const dateKey = row.startDate;
+    const useDays = row.days;
+    if (row.kind === "paid") {
+      const arr = Array.isArray(staff.paidLeaveUsages) ? [...staff.paidLeaveUsages] : [];
+      arr.push({ dateKey, days: useDays });
+      staff.paidLeaveUsages = arr;
+    } else {
+      const arr = Array.isArray(staff.birthdayLeaveUsages) ? [...staff.birthdayLeaveUsages] : [];
+      arr.push({ dateKey, days: useDays });
+      staff.birthdayLeaveUsages = arr;
+    }
+    staffList[sidx] = staff;
+    await writeStaffMastersToDisk(staffList);
+
+    nextRow.status = "approved";
+    list[idx] = nextRow;
+    await writeLeaveRequestsToDisk(list);
+
+    const em = typeof staff.email === "string" ? staff.email.trim() : "";
+    if (em) {
+      const kindJa = row.kind === "paid" ? "有給休暇" : "誕生日休暇";
+      const textBody = [
+        `${row.staffName}さん`,
+        "",
+        "休暇申請が承認されました。有給・誕生日休暇の使用として記録されました。",
+        "",
+        `種別: ${kindJa}`,
+        `期間: ${row.startDate} ～ ${row.endDate}`,
+        `日数: ${row.days} 日`,
+      ].join("\n");
+      try {
+        await sendMailToRecipients([em], "【休暇申請】承認のお知らせ", textBody);
+      } catch (e) {
+        console.error("[server] leave approve mail", e);
+      }
+    }
+
+    res.json({ ok: true, request: nextRow });
+  } catch (e) {
+    console.error("[server] POST /api/leave-requests/:id/decide", e);
+    res.status(500).json({ ok: false, error: "update failed" });
+  }
+});
+
 // ---- Static hosting (Vite dist) ----
 // dist is at project root: ../dist (relative to server/)
 const DIST_DIR = join(__dirname, "..", "dist");

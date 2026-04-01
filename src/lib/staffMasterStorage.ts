@@ -102,12 +102,14 @@ function normalizeRow(x: unknown): StaffMaster | null {
   const id = typeof o.id === "string" ? o.id : "";
   const name = typeof o.name === "string" ? o.name.trim() : "";
   if (!id || !name) return null;
+  const email = typeof o.email === "string" ? o.email.trim() : "";
   const roles = normalizeRoles(o.roles);
   const attendanceEnabled =
     typeof o.attendanceEnabled === "boolean" ? o.attendanceEnabled : false;
   return {
     id,
     name,
+    email,
     roles,
     attendanceEnabled,
     personalPin: normalizePin4(o.personalPin),
@@ -130,6 +132,7 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
   return {
     id: input.id.trim(),
     name: input.name.trim(),
+    email: typeof input.email === "string" ? input.email.trim() : "",
     roles: normalizeRoles(input.roles),
     attendanceEnabled: Boolean(input.attendanceEnabled),
     personalPin: normalizePin4(input.personalPin),
@@ -151,6 +154,7 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
 function defaultStaffFields(): Omit<StaffMaster, "id" | "name" | "roles" | "attendanceEnabled"> {
   return {
     personalPin: "",
+    email: "",
     birthDate: "",
     address: "",
     jobType: "",

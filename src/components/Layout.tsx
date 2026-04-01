@@ -32,6 +32,9 @@ export function Layout() {
             <Link to="/staff" className={styles.navLink}>
               スタッフ
             </Link>
+            <Link to="/leave-requests" className={styles.navLink}>
+              休暇申請
+            </Link>
             <Link to="/attendance" className={styles.navLink}>
               打刻
             </Link>

@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import type { LeaveRequest } from "../types/leaveRequest";
 import type { StaffMaster, StaffPaidLeaveUsage } from "../types/staffMaster";
+import { createLeaveRequest, fetchLeaveRequests } from "../lib/leaveRequestsApi";
+import { hydrateLocalStorageFromServer } from "../lib/persistStorageApi";
 import { ageFromBirthDate } from "../lib/ageFromBirthDate";
 import { buildLaborListRowsForPerson } from "../lib/laborListForPerson";
 import {
@@ -51,6 +54,16 @@ function formatDateKeyJa(dateKey: string): string {
 
 function cloneStaff(s: StaffMaster): StaffMaster {
   return JSON.parse(JSON.stringify(s)) as StaffMaster;
+}
+
+function leaveKindLabel(k: LeaveRequest["kind"]): string {
+  return k === "paid" ? "有給休暇" : "誕生日休暇";
+}
+
+function leaveStatusLabel(s: LeaveRequest["status"]): string {
+  if (s === "pending") return "申請中";
+  if (s === "approved") return "承認済み";
+  return "否認";
 }
 
 export function StaffPersonalPage() {
@@ -136,6 +149,49 @@ export function StaffPersonalPage() {
     setPinError(null);
   }, [authed]);
 
+  useEffect(() => {
+    if (!authed || !id) return;
+    void hydrateLocalStorageFromServer().then(() => {
+      window.dispatchEvent(new CustomEvent("staffMasterSaved"));
+    });
+  }, [authed, id]);
+
+  useEffect(() => {
+    if (!authed || !id) return;
+    let cancelled = false;
+    setLeaveReqLoading(true);
+    void (async () => {
+      try {
+        const all = await fetchLeaveRequests();
+        if (!cancelled) {
+          setMyLeaveRequests(all.filter((r) => r.staffId === id));
+          setLeaveReqError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLeaveReqError(
+            e instanceof Error ? e.message : "休暇申請の読み込みに失敗しました"
+          );
+          setMyLeaveRequests([]);
+        }
+      } finally {
+        if (!cancelled) setLeaveReqLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, id]);
+
+  useEffect(() => {
+    if (!leaveModalOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setLeaveModalOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [leaveModalOpen]);
+
   const personName = draft?.name.trim() ?? "";
 
   const attendanceRows = useMemo(() => {
@@ -168,6 +224,17 @@ export function StaffPersonalPage() {
   const [paidNewDate, setPaidNewDate] = useState("");
   const [paidNewDays, setPaidNewDays] = useState("1");
   const [birthNewDate, setBirthNewDate] = useState("");
+
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [lrKind, setLrKind] = useState<"paid" | "birthday">("paid");
+  const [lrStart, setLrStart] = useState("");
+  const [lrEnd, setLrEnd] = useState("");
+  const [lrDays, setLrDays] = useState("1");
+  const [lrReason, setLrReason] = useState("");
+  const [lrSubmitError, setLrSubmitError] = useState<string | null>(null);
+  const [myLeaveRequests, setMyLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [leaveReqLoading, setLeaveReqLoading] = useState(false);
+  const [leaveReqError, setLeaveReqError] = useState<string | null>(null);
 
   const paidLeaveStats = useMemo(() => {
     if (!draft?.hireDate?.trim()) return null;
@@ -249,6 +316,42 @@ export function StaffPersonalPage() {
       ...draft,
       birthdayLeaveUsages: draft.birthdayLeaveUsages.filter((_, j) => j !== index),
     });
+  }
+
+  async function submitLeaveRequest() {
+    if (!draft || !id) return;
+    setLrSubmitError(null);
+    const days = parseFloat(String(lrDays).replace(",", "."));
+    if (!lrStart || !lrEnd || !/^\d{4}-\d{2}-\d{2}$/.test(lrStart) || !/^\d{4}-\d{2}-\d{2}$/.test(lrEnd)) {
+      setLrSubmitError("開始日・終了日を入力してください。");
+      return;
+    }
+    if (lrStart > lrEnd) {
+      setLrSubmitError("終了日は開始日以降にしてください。");
+      return;
+    }
+    if (!(days > 0)) {
+      setLrSubmitError("日数は正の数にしてください。");
+      return;
+    }
+    try {
+      await createLeaveRequest({
+        staffId: id,
+        staffName: draft.name.trim(),
+        kind: lrKind,
+        startDate: lrStart,
+        endDate: lrEnd,
+        days,
+        reason: lrReason.trim(),
+      });
+      const all = await fetchLeaveRequests();
+      setMyLeaveRequests(all.filter((r) => r.staffId === id));
+      setLeaveModalOpen(false);
+      setLrReason("");
+      setLrSubmitError(null);
+    } catch (e) {
+      setLrSubmitError(e instanceof Error ? e.message : "送信に失敗しました。");
+    }
   }
 
   function onSubmitProfile(e: FormEvent) {
@@ -413,6 +516,74 @@ export function StaffPersonalPage() {
         プロフィールを編集して保存できます。勤怠は打刻・稼働管理と同じデータを参照します。
       </p>
 
+      <section className={styles.section} aria-label="休暇申請">
+        <h2 className={styles.sectionTitle}>休暇申請</h2>
+        <button
+          type="button"
+          className={styles.applyBtn}
+          onClick={() => {
+            setLrSubmitError(null);
+            setLeaveModalOpen(true);
+          }}
+        >
+          休暇を申請する
+        </button>
+        <p className={styles.leaveHint}>
+          申請を送ると事務員（自社設定の通知先メール）に通知されます。承認後に有給・誕生日休暇から日数が差し引かれます。
+        </p>
+        {leaveReqError && (
+          <p className={styles.saveError} role="alert">
+            {leaveReqError}
+          </p>
+        )}
+        {leaveReqLoading && !leaveReqError && (
+          <p className={styles.lead}>申請一覧を読み込み中…</p>
+        )}
+        {!leaveReqLoading && myLeaveRequests.length === 0 && !leaveReqError && (
+          <p className={styles.leaveHint}>まだ申請がありません。</p>
+        )}
+        {myLeaveRequests.length > 0 && (
+          <div className={styles.leaveTableWrap}>
+            <table className={styles.leaveTable}>
+              <thead>
+                <tr>
+                  <th>種別</th>
+                  <th>期間</th>
+                  <th>日数</th>
+                  <th>理由</th>
+                  <th>ステータス</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...myLeaveRequests]
+                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                  .map((r) => (
+                  <tr key={r.id}>
+                    <td>{leaveKindLabel(r.kind)}</td>
+                    <td>
+                      {formatDateKeyJa(r.startDate)} ～ {formatDateKeyJa(r.endDate)}
+                    </td>
+                    <td>{r.days} 日</td>
+                    <td>{r.reason?.trim() ? r.reason : "—"}</td>
+                    <td
+                      className={
+                        r.status === "pending"
+                          ? styles.reqStatusP
+                          : r.status === "approved"
+                            ? styles.reqStatusOk
+                            : styles.reqStatusNg
+                      }
+                    >
+                      {leaveStatusLabel(r.status)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <form className={styles.section} onSubmit={onSubmitProfile} noValidate>
         <h2 className={styles.sectionTitle}>プロフィール</h2>
         <div className={styles.grid}>
@@ -424,6 +595,17 @@ export function StaffPersonalPage() {
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               autoComplete="name"
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>メールアドレス（通知用）</span>
+            <input
+              className={styles.input}
+              type="email"
+              value={draft.email ?? ""}
+              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+              autoComplete="email"
+              placeholder="休暇申請の結果通知など"
             />
           </label>
           <label className={styles.field}>
@@ -641,7 +823,7 @@ export function StaffPersonalPage() {
         </div>
 
         <p className={styles.readOnlyHint} style={{ marginTop: "1rem" }}>
-          マスター上の「役割」「打刻対象」「個人PIN」はマスター設定画面でのみ変更されます。
+          マスター上の「役割」「打刻対象」「個人PIN」はマスター設定画面でのみ変更されます。メールは休暇申請の承認・否認通知に使います。
         </p>
 
         <div className={styles.saveRow}>
@@ -985,6 +1167,100 @@ export function StaffPersonalPage() {
           </span>
         </div>
       </section>
+
+      {leaveModalOpen && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setLeaveModalOpen(false)}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-req-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="leave-req-title" className={styles.modalTitle}>
+              休暇申請
+            </h2>
+            {lrSubmitError && (
+              <p className={styles.saveError} role="alert">
+                {lrSubmitError}
+              </p>
+            )}
+            <div className={styles.grid}>
+              <label className={styles.field}>
+                <span className={styles.label}>休暇種別</span>
+                <select
+                  className={styles.input}
+                  value={lrKind}
+                  onChange={(e) =>
+                    setLrKind(e.target.value === "birthday" ? "birthday" : "paid")
+                  }
+                >
+                  <option value="paid">有給休暇</option>
+                  <option value="birthday">誕生日休暇</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>開始日</span>
+                <input
+                  className={styles.input}
+                  type="date"
+                  value={lrStart}
+                  onChange={(e) => setLrStart(e.target.value)}
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>終了日</span>
+                <input
+                  className={styles.input}
+                  type="date"
+                  value={lrEnd}
+                  onChange={(e) => setLrEnd(e.target.value)}
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>日数</span>
+                <input
+                  className={styles.input}
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={lrDays}
+                  onChange={(e) => setLrDays(e.target.value)}
+                />
+              </label>
+              <label className={`${styles.field} ${styles.fieldFull}`}>
+                <span className={styles.label}>理由（任意）</span>
+                <textarea
+                  className={styles.textarea}
+                  value={lrReason}
+                  onChange={(e) => setLrReason(e.target.value)}
+                  rows={3}
+                />
+              </label>
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalBtn}
+                onClick={() => setLeaveModalOpen(false)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={`${styles.modalBtn} ${styles.modalBtnPrimary}`}
+                onClick={() => void submitLeaveRequest()}
+              >
+                申請する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

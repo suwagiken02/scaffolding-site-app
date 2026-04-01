@@ -84,6 +84,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   const [roles, setRoles] = useState<Set<StaffRole>>(new Set());
   const [attendanceEnabled, setAttendanceEnabled] = useState(true);
   const [personalPin, setPersonalPin] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function toggleRole(r: StaffRole) {
@@ -120,11 +121,13 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
       qualifications: [],
       paidLeaveUsages: [],
       birthdayLeaveUsages: [],
+      email: newEmail.trim(),
     });
     setName("");
     setRoles(new Set());
     setAttendanceEnabled(true);
     setPersonalPin("");
+    setNewEmail("");
     onRefresh();
   }
 
@@ -210,6 +213,18 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
             </span>
           </label>
 
+          <label className={styles.field}>
+            <span className={styles.label}>メールアドレス（通知用）</span>
+            <input
+              className={styles.input}
+              type="email"
+              autoComplete="off"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="休暇申請の結果通知など"
+            />
+          </label>
+
           <button type="submit" className={styles.submit}>
             追加
           </button>
@@ -231,6 +246,14 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                     value={r.name}
                     onChange={(e) => setRow({ ...r, name: e.target.value })}
                     aria-label="名前"
+                  />
+                  <input
+                    className={styles.input}
+                    type="email"
+                    value={r.email ?? ""}
+                    onChange={(e) => setRow({ ...r, email: e.target.value })}
+                    placeholder="メール（通知用）"
+                    aria-label="メールアドレス"
                   />
                 </div>
                 <div className={styles.staffRowMid}>

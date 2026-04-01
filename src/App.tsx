@@ -14,6 +14,7 @@ import { KouseiAdminPage } from "./pages/KouseiAdminPage";
 import { KouseiPage } from "./pages/KouseiPage";
 import { StaffListPage } from "./pages/StaffListPage";
 import { StaffPersonalPage } from "./pages/StaffPersonalPage";
+import { LeaveRequestsPage } from "./pages/LeaveRequestsPage";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/staff" element={<StaffListPage />} />
         <Route path="/staff/:id" element={<StaffPersonalPage />} />
+        <Route path="/leave-requests" element={<LeaveRequestsPage />} />
         <Route path="/contractor" element={<ContractorAdminPage />} />
         <Route path="/contractor/view" element={<ContractorViewPage />} />
         <Route path="/kousei-admin" element={<KouseiAdminPage />} />
