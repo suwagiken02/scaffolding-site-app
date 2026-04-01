@@ -7,6 +7,7 @@ import {
   formatManDayOneDecimal,
   helpTeamManDays,
   hoursBetweenHHmmSameDay,
+  hoursBetweenIso,
   roundManDayOneDecimal,
 } from "../lib/manDayCalculations";
 import { loadDailyLaborMap, saveDailyLaborRecord } from "../lib/siteDailyLaborStorage";
@@ -58,6 +59,31 @@ function parseFinalInput(input: string, fallback: number): number {
   return roundManDayOneDecimal(n);
 }
 
+/** 作業開始時に保存された職長・子方。未保存時は現場の職長・子方名で代替（startMetaFields と同じ） */
+function getRegularMemberLists(
+  site: Site,
+  siteId: string,
+  workKind: WorkKind,
+  dateKey: string
+): { memberForemanNames: string[]; memberKogataNames: string[] } {
+  const prev = loadDailyLaborMap(siteId, workKind)[dateKey];
+  const fallbackForeman = site.foremanName.trim()
+    ? [site.foremanName.trim()]
+    : [];
+  const fallbackKogata = site.kogataNames
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+  const hasSelectedMembers =
+    (prev?.memberForemanNames?.length ?? 0) > 0 ||
+    (prev?.memberKogataNames?.length ?? 0) > 0;
+  return {
+    memberForemanNames: hasSelectedMembers
+      ? prev!.memberForemanNames
+      : fallbackForeman,
+    memberKogataNames: hasSelectedMembers ? prev!.memberKogataNames : fallbackKogata,
+  };
+}
+
 export function HelpTeamLaborModal({
   siteId,
   site,
@@ -82,9 +108,22 @@ export function HelpTeamLaborModal({
   const [memberError, setMemberError] = useState<string | null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
 
-  const companyRaw = useMemo(
-    () => companyManDays(entryIso, endIso, 0),
+  const regularMembers = useMemo(
+    () => getRegularMemberLists(site, siteId, workKind, dateKey),
+    [site, siteId, workKind, dateKey]
+  );
+  const regularWorkerCount =
+    regularMembers.memberForemanNames.length +
+    regularMembers.memberKogataNames.length;
+
+  const companyHours = useMemo(
+    () => hoursBetweenIso(entryIso, endIso),
     [entryIso, endIso]
+  );
+
+  const companyRaw = useMemo(
+    () => companyManDays(entryIso, endIso, regularWorkerCount),
+    [entryIso, endIso, regularWorkerCount]
   );
   const companyDisplay = useMemo(
     () => roundManDayOneDecimal(companyRaw),
@@ -135,26 +174,17 @@ export function HelpTeamLaborModal({
     memberKogataNames: string[];
   } {
     const prev = loadDailyLaborMap(siteId, workKind)[dateKey];
-
-    const fallbackForeman = site.foremanName.trim()
-      ? [site.foremanName.trim()]
-      : [];
-    const fallbackKogata = site.kogataNames
-      .map((n) => n.trim())
-      .filter((n) => n.length > 0);
-    const fallbackVehicleCount = site.vehicleLabels.length;
-
-    const hasSelectedMembers =
-      (prev?.memberForemanNames?.length ?? 0) > 0 ||
-      (prev?.memberKogataNames?.length ?? 0) > 0;
+    const lists = getRegularMemberLists(site, siteId, workKind, dateKey);
 
     return {
-      createdAt: typeof prev?.createdAt === "string" && prev.createdAt ? prev.createdAt : new Date().toISOString(),
-      vehicleCount: typeof prev?.vehicleCount === "number" ? prev.vehicleCount : 0,
-      memberForemanNames: hasSelectedMembers
-        ? prev!.memberForemanNames
-        : fallbackForeman,
-      memberKogataNames: hasSelectedMembers ? prev!.memberKogataNames : fallbackKogata,
+      createdAt:
+        typeof prev?.createdAt === "string" && prev.createdAt
+          ? prev.createdAt
+          : new Date().toISOString(),
+      vehicleCount:
+        typeof prev?.vehicleCount === "number" ? prev.vehicleCount : 0,
+      memberForemanNames: lists.memberForemanNames,
+      memberKogataNames: lists.memberKogataNames,
     };
   }
 
@@ -500,8 +530,9 @@ export function HelpTeamLaborModal({
             <dl className={styles.breakdown}>
               <dt>自社人工</dt>
               <dd>
-                {formatManDayOneDecimal(companyDisplay)} 人工（入場〜終了の時間差 ÷ 8。
-                人員数は現場情報に含まれないため 0 名として計算）
+                {formatManDayOneDecimal(companyDisplay)} 人工（職長・子方{" "}
+                {regularWorkerCount} 名 × 入場〜終了{" "}
+                {companyHours.toFixed(1)} 時間 ÷ 8）
               </dd>
               <dt>手伝い人工</dt>
               <dd>

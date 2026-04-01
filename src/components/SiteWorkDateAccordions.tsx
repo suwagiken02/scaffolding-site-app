@@ -6,6 +6,7 @@ import { type SitePhoto, sitePhotoDisplaySrc } from "../types/sitePhoto";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   loadPhotosForSiteWorkDate,
+  mainMemberWorkTimesFromPhotos,
   savePhotosForSiteWorkDate,
   listPhotoDateKeysForSiteWork,
 } from "../lib/sitePhotoStorage";
@@ -48,6 +49,11 @@ function formatUploadedAt(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function formatIsoMaybe(iso: string | null): string {
+  if (!iso) return "—";
+  return formatUploadedAt(iso);
 }
 
 function joinList(items: string[]): string {
@@ -125,6 +131,8 @@ export function SiteWorkDateAccordions({
           const isOpen = expanded.has(dateKey);
           const labor = laborByDate[dateKey];
           const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
+          const { entryIso: mainEntryIso, endIso: mainEndIso } =
+            mainMemberWorkTimesFromPhotos(photos);
           const manLabel = labor ? formatManDay(labor.finalManDays) : "—";
 
           const recordMemberNames =
@@ -184,6 +192,23 @@ export function SiteWorkDateAccordions({
                       <>
                         <dl className={styles.laborDl}>
                           <div className={styles.laborRow}>
+                            <dt>メインメンバー（職長・子方）</dt>
+                            <dd>
+                              {joinList([
+                                ...labor.memberForemanNames,
+                                ...labor.memberKogataNames,
+                              ])}
+                            </dd>
+                          </div>
+                          <div className={styles.laborRow}>
+                            <dt>メインメンバー作業開始</dt>
+                            <dd>{formatIsoMaybe(mainEntryIso)}</dd>
+                          </div>
+                          <div className={styles.laborRow}>
+                            <dt>メインメンバー作業終了</dt>
+                            <dd>{formatIsoMaybe(mainEndIso)}</dd>
+                          </div>
+                          <div className={styles.laborRow}>
                             <dt>最終人工</dt>
                             <dd>{formatManDay(labor.finalManDays)}人工</dd>
                           </div>
@@ -192,7 +217,7 @@ export function SiteWorkDateAccordions({
                             <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
                           </div>
                           <div className={styles.laborRow}>
-                            <dt>メンバー</dt>
+                            <dt>手伝いメンバー</dt>
                             <dd>
                               {labor.hadHelpTeam &&
                               labor.helpMemberNames.length > 0

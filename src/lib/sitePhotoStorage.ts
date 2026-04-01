@@ -200,6 +200,36 @@ export function loadPhotosForSiteWorkDate(
   return Array.isArray(list) ? list.map(normalizePhoto) : [];
 }
 
+/**
+ * メインメンバー（職長・子方）の作業開始・終了の目安。
+ * 入場時カテゴリの最も早い撮影時刻、終了時カテゴリの最も遅い撮影時刻。
+ */
+export function mainMemberWorkTimesFromPhotos(
+  photos: SitePhoto[]
+): { entryIso: string | null; endIso: string | null } {
+  let entryIso: string | null = null;
+  let minT = Infinity;
+  for (const p of photos) {
+    if (p.category !== "入場時") continue;
+    const t = new Date(p.uploadedAt).getTime();
+    if (!Number.isNaN(t) && t < minT) {
+      minT = t;
+      entryIso = p.uploadedAt;
+    }
+  }
+  let endIso: string | null = null;
+  let maxT = -Infinity;
+  for (const p of photos) {
+    if (p.category !== "終了時") continue;
+    const t = new Date(p.uploadedAt).getTime();
+    if (!Number.isNaN(t) && t > maxT) {
+      maxT = t;
+      endIso = p.uploadedAt;
+    }
+  }
+  return { entryIso, endIso };
+}
+
 export function savePhotosForSiteWorkDate(
   siteId: string,
   workKind: WorkKind,
