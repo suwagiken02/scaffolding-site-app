@@ -52,6 +52,7 @@ export default function App() {
           path="/settings/notifications"
           element={<Navigate to="/settings/masters" replace />}
         />
+        <Route path="/master" element={<MasterSettingsPage />} />
         <Route path="/settings/masters" element={<MasterSettingsPage />} />
         <Route path="/sites/new" element={<SiteNewPage />} />
         <Route path="/sites/:siteId/edit" element={<SiteEditPage />} />
