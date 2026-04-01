@@ -222,3 +222,139 @@
   resize: vertical;
   font-family: inherit;
 }
+
+.portalTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.35rem;
+}
+
+.tab,
+.tabActive {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.tabActive {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  margin-bottom: -1px;
+  padding-bottom: calc(0.45rem + 1px);
+}
+
+.mastersWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.masterSection {
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.masterHeading {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.masterLead {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.masterAddRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.masterAddRow .input,
+.masterAddRow input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.masterAddBtn {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.masterAddBtn:hover {
+  background: var(--accent-hover);
+}
+
+.masterEmpty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.masterList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.masterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.masterName {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.masterRemoveBtn {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.15rem 0;
+}

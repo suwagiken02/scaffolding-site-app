@@ -8,6 +8,13 @@ import {
   pinMatches,
 } from "../lib/externalCompaniesStorage";
 import {
+  addExternalClientMaster,
+  addExternalSalesMaster,
+  loadExternalCompanyMasters,
+  removeExternalClientMaster,
+  removeExternalSalesMaster,
+} from "../lib/externalCompanyMastersStorage";
+import {
   addSite,
   getSiteById,
   loadSites,
@@ -21,7 +28,8 @@ import {
   siteHasAnyWorkRecordRows,
   siteHasHaraiWorkRecordRows,
 } from "../lib/siteWorkRecordKeys";
-import { loadSalesMasters, loadSiteTypeMasters } from "../lib/mastersStorage";
+import { loadSiteTypeMasters } from "../lib/mastersStorage";
+import editorStyles from "../components/SiteEditorForm.module.css";
 import formStyles from "./SiteFormPage.module.css";
 import pinStyles from "./LeaveRequestsPage.module.css";
 import styles from "./ExternalSitePortalPage.module.css";
@@ -90,6 +98,8 @@ export function ExternalSitePortalPage() {
 
   const [mode, setMode] = useState<"list" | "form">("list");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [listTab, setListTab] = useState<"sites" | "masters">("sites");
+  const [masterRevision, setMasterRevision] = useState(0);
 
   const reloadSites = useCallback(() => {
     if (!normalizedKey) {
@@ -124,7 +134,6 @@ export function ExternalSitePortalPage() {
     }
   }, [normalizedKey]);
 
-  const salesMasters = useMemo(() => loadSalesMasters(), [revision]);
   const siteTypeMasters = useMemo(() => loadSiteTypeMasters(), [revision]);
 
   const sortedSites = useMemo(
@@ -242,7 +251,7 @@ export function ExternalSitePortalPage() {
       <ExternalSiteForm
         company={company}
         normalizedKey={normalizedKey}
-        salesMasters={salesMasters}
+        masterRevision={masterRevision}
         siteTypeMasters={siteTypeMasters}
         editingId={editingId}
         onCancel={() => {
@@ -273,6 +282,7 @@ export function ExternalSitePortalPage() {
             className={styles.primaryBtn}
             onClick={() => {
               setEditingId(null);
+              setListTab("sites");
               setMode("form");
             }}
           >
@@ -295,7 +305,34 @@ export function ExternalSitePortalPage() {
         </div>
       </header>
 
-      {sites.length === 0 ? (
+      <div className={styles.portalTabs} role="tablist" aria-label="外部ポータル">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listTab === "sites"}
+          className={listTab === "sites" ? styles.tabActive : styles.tab}
+          onClick={() => setListTab("sites")}
+        >
+          現場一覧
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listTab === "masters"}
+          className={listTab === "masters" ? styles.tabActive : styles.tab}
+          onClick={() => setListTab("masters")}
+        >
+          マスター設定
+        </button>
+      </div>
+
+      {listTab === "masters" ? (
+        <ExternalCompanyMastersPanel
+          normalizedKey={normalizedKey}
+          masterRevision={masterRevision}
+          onChanged={() => setMasterRevision((r) => r + 1)}
+        />
+      ) : sites.length === 0 ? (
         <p className={styles.empty}>まだ現場が登録されていません。</p>
       ) : (
         <ul className={styles.list}>
@@ -331,10 +368,137 @@ export function ExternalSitePortalPage() {
   );
 }
 
+type MastersPanelProps = {
+  normalizedKey: string;
+  masterRevision: number;
+  onChanged: () => void;
+};
+
+function ExternalCompanyMastersPanel({
+  normalizedKey,
+  masterRevision,
+  onChanged,
+}: MastersPanelProps) {
+  const { clients, sales } = useMemo(
+    () => loadExternalCompanyMasters(normalizedKey),
+    [normalizedKey, masterRevision]
+  );
+  const [clientDraft, setClientDraft] = useState("");
+  const [salesDraft, setSalesDraft] = useState("");
+
+  function handleAddClient(e: FormEvent) {
+    e.preventDefault();
+    const added = addExternalClientMaster(normalizedKey, clientDraft);
+    if (added) {
+      setClientDraft("");
+      onChanged();
+    }
+  }
+
+  function handleAddSales(e: FormEvent) {
+    e.preventDefault();
+    const added = addExternalSalesMaster(normalizedKey, salesDraft);
+    if (added) {
+      setSalesDraft("");
+      onChanged();
+    }
+  }
+
+  return (
+    <div className={styles.mastersWrap}>
+      <section className={styles.masterSection} aria-labelledby="ext-master-client">
+        <h2 id="ext-master-client" className={styles.masterHeading}>
+          元請け様名マスター
+        </h2>
+        <p className={styles.masterLead}>
+          現場登録フォームの「元請け様名」で選べる候補です。貴社のみに保存されます。
+        </p>
+        <form className={styles.masterAddRow} onSubmit={handleAddClient}>
+          <input
+            className={formStyles.input}
+            value={clientDraft}
+            onChange={(e) => setClientDraft(e.target.value)}
+            placeholder="名前を入力して追加"
+            aria-label="元請け様名を追加"
+            autoComplete="off"
+          />
+          <button type="submit" className={styles.masterAddBtn}>
+            追加
+          </button>
+        </form>
+        {clients.length === 0 ? (
+          <p className={styles.masterEmpty}>まだ登録がありません。</p>
+        ) : (
+          <ul className={styles.masterList}>
+            {clients.map((row) => (
+              <li key={row.id} className={styles.masterRow}>
+                <span className={styles.masterName}>{row.name}</span>
+                <button
+                  type="button"
+                  className={styles.masterRemoveBtn}
+                  onClick={() => {
+                    removeExternalClientMaster(normalizedKey, row.id);
+                    onChanged();
+                  }}
+                >
+                  削除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={styles.masterSection} aria-labelledby="ext-master-sales">
+        <h2 id="ext-master-sales" className={styles.masterHeading}>
+          担当営業名マスター
+        </h2>
+        <p className={styles.masterLead}>
+          現場登録フォームの「担当営業名」で選べる候補です。貴社のみに保存されます。
+        </p>
+        <form className={styles.masterAddRow} onSubmit={handleAddSales}>
+          <input
+            className={formStyles.input}
+            value={salesDraft}
+            onChange={(e) => setSalesDraft(e.target.value)}
+            placeholder="名前を入力して追加"
+            aria-label="担当営業名を追加"
+            autoComplete="off"
+          />
+          <button type="submit" className={styles.masterAddBtn}>
+            追加
+          </button>
+        </form>
+        {sales.length === 0 ? (
+          <p className={styles.masterEmpty}>まだ登録がありません。</p>
+        ) : (
+          <ul className={styles.masterList}>
+            {sales.map((row) => (
+              <li key={row.id} className={styles.masterRow}>
+                <span className={styles.masterName}>{row.name}</span>
+                <button
+                  type="button"
+                  className={styles.masterRemoveBtn}
+                  onClick={() => {
+                    removeExternalSalesMaster(normalizedKey, row.id);
+                    onChanged();
+                  }}
+                >
+                  削除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 type FormProps = {
   company: ExternalCompany;
   normalizedKey: string;
-  salesMasters: { id: string; name: string }[];
+  masterRevision: number;
   siteTypeMasters: { id: string; name: string }[];
   editingId: string | null;
   onCancel: () => void;
@@ -344,13 +508,22 @@ type FormProps = {
 function ExternalSiteForm({
   company,
   normalizedKey,
-  salesMasters,
+  masterRevision,
   siteTypeMasters,
   editingId,
   onCancel,
   onSaved,
 }: FormProps) {
   const existing = editingId ? getSiteById(editingId) : undefined;
+
+  const clientMasters = useMemo(
+    () => loadExternalCompanyMasters(normalizedKey).clients,
+    [normalizedKey, masterRevision]
+  );
+  const salesMasters = useMemo(
+    () => loadExternalCompanyMasters(normalizedKey).sales,
+    [normalizedKey, masterRevision]
+  );
 
   if (editingId && !existing) {
     return (
@@ -364,12 +537,14 @@ function ExternalSiteForm({
   }
 
   const [name, setName] = useState("");
-  const [clientName, setClientName] = useState("");
+  const [clientSelectId, setClientSelectId] = useState("");
+  const [clientFree, setClientFree] = useState("");
   const [googleMapUrl, setGoogleMapUrl] = useState("");
   const [address, setAddress] = useState("");
   const [entranceDateKeys, setEntranceDateKeys] = useState<string[]>([]);
   const [entranceDraft, setEntranceDraft] = useState("");
   const [salesSelectId, setSalesSelectId] = useState("");
+  const [salesFree, setSalesFree] = useState("");
   const [siteTypeSelectId, setSiteTypeSelectId] = useState("");
   const [memoText, setMemoText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -377,29 +552,36 @@ function ExternalSiteForm({
   useEffect(() => {
     if (!existing) {
       setName("");
-      setClientName("");
+      setClientSelectId("");
+      setClientFree("");
       setGoogleMapUrl("");
       setAddress("");
       setEntranceDateKeys([]);
       setEntranceDraft("");
       setSalesSelectId("");
+      setSalesFree("");
       setSiteTypeSelectId("");
       setMemoText("");
       return;
     }
     setName(existing.name);
-    setClientName(existing.clientName ?? "");
+    const cid =
+      clientMasters.find((x) => x.name === existing.clientName)?.id ?? "";
+    setClientSelectId(cid);
+    setClientFree(cid ? "" : (existing.clientName ?? ""));
     setGoogleMapUrl(existing.googleMapUrl ?? "");
     setAddress(existing.address ?? "");
     setEntranceDateKeys(normalizeEntranceDateKeys(existing.entranceDateKeys));
     setEntranceDraft("");
-    const sid = salesMasters.find((x) => x.name === existing.salesName)?.id ?? "";
+    const sid =
+      salesMasters.find((x) => x.name === existing.salesName)?.id ?? "";
     setSalesSelectId(sid);
+    setSalesFree(sid ? "" : (existing.salesName ?? ""));
     const tid = siteTypeMasters.find((x) => x.name === existing.siteTypeName)?.id ?? "";
     setSiteTypeSelectId(tid);
     const memos = normalizeSiteMemos(existing.siteMemos);
     setMemoText(memos.map((m) => m.text).join("\n"));
-  }, [existing, salesMasters, siteTypeMasters]);
+  }, [existing, clientMasters, salesMasters, siteTypeMasters]);
 
   function masterName(list: { id: string; name: string }[], id: string): string {
     return list.find((m) => m.id === id)?.name ?? "";
@@ -422,7 +604,8 @@ function ExternalSiteForm({
       }
     }
     const entrances = normalizeEntranceDateKeys(entranceDateKeys);
-    const salesName = masterName(salesMasters, salesSelectId);
+    const clientName = clientFree.trim() || masterName(clientMasters, clientSelectId);
+    const salesName = salesFree.trim() || masterName(salesMasters, salesSelectId);
     const siteTypeName = masterName(siteTypeMasters, siteTypeSelectId);
     const memos = memoText.trim()
       ? [{ id: newSiteMemoId(), text: memoText.trim() }]
@@ -504,15 +687,35 @@ function ExternalSiteForm({
           />
         </label>
 
-        <label className={formStyles.field}>
+        <div className={formStyles.field}>
           <span className={formStyles.label}>元請け様名</span>
-          <input
-            className={formStyles.input}
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
+          <div className={editorStyles.dualField}>
+            <select
+              className={editorStyles.select}
+              value={clientSelectId}
+              onChange={(e) => setClientSelectId(e.target.value)}
+              aria-label="元請け様マスターから選択"
+            >
+              <option value="">マスターから選択</option>
+              {clientMasters.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <input
+              className={formStyles.input}
+              type="text"
+              value={clientFree}
+              onChange={(e) => setClientFree(e.target.value)}
+              placeholder="手入力（マスター未使用時、または上書き）"
+              autoComplete="organization"
+            />
+          </div>
+          <p className={editorStyles.hint}>
+            手入力がある場合はそちらを優先して保存します。
+          </p>
+        </div>
 
         <label className={formStyles.field}>
           <span className={formStyles.label}>GoogleマップURL</span>
@@ -580,22 +783,35 @@ function ExternalSiteForm({
           )}
         </div>
 
-        <label className={formStyles.field}>
+        <div className={formStyles.field}>
           <span className={formStyles.label}>担当営業名</span>
-          <select
-            className={formStyles.input}
-            value={salesSelectId}
-            onChange={(e) => setSalesSelectId(e.target.value)}
-            aria-label="担当営業"
-          >
-            <option value="">選択してください</option>
-            {salesMasters.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div className={editorStyles.dualField}>
+            <select
+              className={editorStyles.select}
+              value={salesSelectId}
+              onChange={(e) => setSalesSelectId(e.target.value)}
+              aria-label="担当営業マスターから選択"
+            >
+              <option value="">マスターから選択</option>
+              {salesMasters.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <input
+              className={formStyles.input}
+              type="text"
+              value={salesFree}
+              onChange={(e) => setSalesFree(e.target.value)}
+              placeholder="手入力（マスター未使用時、または上書き）"
+              autoComplete="name"
+            />
+          </div>
+          <p className={editorStyles.hint}>
+            手入力がある場合はそちらを優先して保存します。
+          </p>
+        </div>
 
         <label className={formStyles.field}>
           <span className={formStyles.label}>現場種別</span>
