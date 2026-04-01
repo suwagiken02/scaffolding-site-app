@@ -1,4 +1,5 @@
 import { loadSites } from "./siteStorage";
+import type { ActivityRole, ActivityRow } from "./workerActivity";
 import {
   buildActivityRowsForPerson,
   filterRowsByMonth,
@@ -9,8 +10,9 @@ export type LaborListRow =
   | {
       kind: "work";
       dateKey: string;
-      siteId: string;
-      siteName: string;
+      /** 同日複数現場は「・」区切り（作業開始打刻ベース） */
+      siteNamesLabel: string;
+      /** 職長・子方など */
       work: string;
     };
 
@@ -25,8 +27,13 @@ function daysInMonthDateKeys(y: number, m1: number): string[] {
   return out;
 }
 
+function roleSortKey(role: ActivityRole): number {
+  return role === "職長" ? 0 : 1;
+}
+
 /**
- * 稼働管理「一覧」タブと同じ行構成（日付・現場・作業内容・打刻列は別途結合）
+ * 稼働管理「一覧」・個人ページ勤怠：日付ごとに1行。
+ * 現場名は作業開始打刻があり、その日そのメンバーが参加している現場を「・」で結合。
  */
 export function buildLaborListRowsForPerson(
   personName: string,
@@ -38,32 +45,37 @@ export function buildLaborListRowsForPerson(
   const sites = loadSites();
   const allRows = buildActivityRowsForPerson(sites, personName);
   const rowsInMonth = filterRowsByMonth(allRows, year, month);
-  const byDate = new Map<
-    string,
-    { siteId: string; siteName: string; roles: Set<string> }[]
-  >();
+  const byDate = new Map<string, ActivityRow[]>();
   for (const r of rowsInMonth) {
     const list = byDate.get(r.dateKey) ?? [];
-    const existing = list.find((x) => x.siteId === r.siteId);
-    if (existing) existing.roles.add(r.role);
-    else list.push({ siteId: r.siteId, siteName: r.siteName, roles: new Set([r.role]) });
+    list.push(r);
     byDate.set(r.dateKey, list);
   }
-  const days = daysInMonthDateKeys(year, month).sort((a, b) => b.localeCompare(a));
-  return days.flatMap((dk) => {
-    const items = byDate.get(dk);
-    if (!items || items.length === 0) {
-      return [{ kind: "holiday" as const, dateKey: dk }];
+  const days = daysInMonthDateKeys(year, month).sort((a, b) =>
+    b.localeCompare(a)
+  );
+  return days.map((dk) => {
+    const rows = byDate.get(dk);
+    if (!rows || rows.length === 0) {
+      return { kind: "holiday" as const, dateKey: dk };
     }
-    return items
-      .slice()
-      .sort((a, b) => jaCollator.compare(a.siteName, b.siteName))
-      .map((it) => ({
-        kind: "work" as const,
-        dateKey: dk,
-        siteId: it.siteId,
-        siteName: it.siteName,
-        work: [...it.roles].join("・"),
-      }));
+    const siteById = new Map<string, string>();
+    const roles = new Set<ActivityRole>();
+    for (const r of rows) {
+      siteById.set(r.siteId, r.siteName);
+      roles.add(r.role);
+    }
+    const siteNamesLabel = [...siteById.values()]
+      .sort((a, b) => jaCollator.compare(a, b))
+      .join("・");
+    const work = [...roles]
+      .sort((a, b) => roleSortKey(a) - roleSortKey(b))
+      .join("・");
+    return {
+      kind: "work" as const,
+      dateKey: dk,
+      siteNamesLabel,
+      work,
+    };
   });
 }

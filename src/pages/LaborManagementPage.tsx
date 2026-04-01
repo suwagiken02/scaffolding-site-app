@@ -314,7 +314,7 @@ export function LaborManagementPage() {
                       return (
                         <tr key={`${row.dateKey}-holiday-${i}`} className={styles.holidayRow}>
                           <td>{formatDateKeyJa(row.dateKey)}</td>
-                          <td className={styles.holidayText}>— 休日 —</td>
+                          <td className={styles.holidayText}>—</td>
                           <td className={styles.holidayText}>—</td>
                           <td className={late ? styles.lateTime : undefined}>{inAt}</td>
                           <td>{outAt}</td>
@@ -324,9 +324,9 @@ export function LaborManagementPage() {
                       );
                     }
                     return (
-                      <tr key={`${row.dateKey}-${row.siteId}-${i}`}>
+                      <tr key={`${row.dateKey}-work-${i}`}>
                         <td>{formatDateKeyJa(row.dateKey)}</td>
-                        <td>{row.siteName}</td>
+                        <td>{row.siteNamesLabel}</td>
                         <td>{row.work}</td>
                         <td className={late ? styles.lateTime : undefined}>{inAt}</td>
                         <td>{outAt}</td>

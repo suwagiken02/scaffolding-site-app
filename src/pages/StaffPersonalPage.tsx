@@ -1182,11 +1182,10 @@ export function StaffPersonalPage() {
               <thead>
                 <tr>
                   <th scope="col">日付</th>
-                  <th scope="col">現場名</th>
-                  <th scope="col">作業内容</th>
                   <th scope="col">出勤</th>
                   <th scope="col">退勤</th>
                   <th scope="col">勤務時間</th>
+                  <th scope="col">現場名</th>
                 </tr>
               </thead>
               <tbody>
@@ -1204,22 +1203,20 @@ export function StaffPersonalPage() {
                         className={laborStyles.holidayRow}
                       >
                         <td>{formatDateKeyJa(row.dateKey)}</td>
-                        <td className={laborStyles.holidayText}>— 休日 —</td>
-                        <td className={laborStyles.holidayText}>—</td>
                         <td className={late ? laborStyles.lateTime : undefined}>{inAt}</td>
                         <td>{outAt}</td>
                         <td>{dur}</td>
+                        <td className={laborStyles.holidayText}>—</td>
                       </tr>
                     );
                   }
                   return (
-                    <tr key={`${row.dateKey}-${row.siteId}-${i}`}>
+                    <tr key={`${row.dateKey}-work-${i}`}>
                       <td>{formatDateKeyJa(row.dateKey)}</td>
-                      <td>{row.siteName}</td>
-                      <td>{row.work}</td>
                       <td className={late ? laborStyles.lateTime : undefined}>{inAt}</td>
                       <td>{outAt}</td>
                       <td>{dur}</td>
+                      <td>{row.siteNamesLabel}</td>
                     </tr>
                   );
                 })}
