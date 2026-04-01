@@ -3,7 +3,7 @@ export type SiteDailyLaborRecord = {
   /** 作業記録の作成日時（ISO 8601） */
   createdAt: string;
   dateKey: string;
-  /** 最終人工（終了時写真の確認後に確定。開始直後は null） */
+  /** 最終人工（手伝い班確認後に確定。作業終了直後は null のことがあります） */
   finalManDays: number | null;
 
   /** 社員 or 請負 */
@@ -28,9 +28,16 @@ export type SiteDailyLaborRecord = {
   helpStartTime: string | null;
   helpEndTime: string | null;
 
-  /** 常用作業のみ：打刻した作業開始・終了（ISO 8601） */
+  /** 作業開始・終了の打刻（ISO 8601）。全作業種別共通 */
+  workStartIso?: string | null;
+  workEndIso?: string | null;
+  /** 開始〜終了から算出した 1 人あたり人工（0.5 または 1） */
+  workManDaysPerPerson?: number | null;
+
+  /** @deprecated 移行用。workStartIso 等を優先 */
   joyoWorkStartIso?: string | null;
+  /** @deprecated */
   joyoWorkEndIso?: string | null;
-  /** 常用作業のみ：時間帯から算出した 1 人あたり人工（0.5 または 1） */
+  /** @deprecated */
   joyoManDaysPerPerson?: number | null;
 };

@@ -12,12 +12,12 @@ import {
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { WORK_KINDS, type WorkKind } from "../types/workKind";
 import { LaborSummaryBar } from "../components/LaborSummaryBar";
-import { SiteJoyoWorkSection } from "../components/SiteJoyoWorkSection";
+import { HelpTeamLaborModal } from "../components/HelpTeamLaborModal";
 import { SitePhotosSection } from "../components/SitePhotosSection";
+import { SiteWorkTimeSection } from "../components/SiteWorkTimeSection";
 import { SiteWorkStartModal } from "../components/SiteWorkStartModal";
 import { SiteNotificationRecipientsPanel } from "../components/SiteNotificationRecipientsPanel";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
-import { loadPhotosForSiteWorkDate } from "../lib/sitePhotoStorage";
 import { SiteProcessSummaryPhotos } from "../components/SiteProcessSummaryPhotos";
 import { SiteWorkRecordList } from "../components/SiteWorkRecordList";
 import {
@@ -77,6 +77,12 @@ export function SiteDetailPage() {
   const [photoAddMessage, setPhotoAddMessage] = useState<string | null>(null);
   const [photoTargetOpen, setPhotoTargetOpen] = useState(false);
   const [photoTargetKind, setPhotoTargetKind] = useState<WorkKind>("組み");
+  const [helpLaborModal, setHelpLaborModal] = useState<{
+    workKind: WorkKind;
+    dateKey: string;
+    entryIso: string | null;
+    endIso: string;
+  } | null>(null);
   const [entranceExpanded, setEntranceExpanded] = useState(false);
   const [deleteSitePinOpen, setDeleteSitePinOpen] = useState(false);
   const [deleteSiteConfirmOpen, setDeleteSiteConfirmOpen] = useState(false);
@@ -470,24 +476,37 @@ export function SiteDetailPage() {
           </div>
         )}
 
-        {photoSectionWorkKind === "常用作業" ? (
-          <SiteJoyoWorkSection
-            siteId={safeSite.id}
-            revision={fileRevision}
-            todayDateKey={todayKey}
-            onStorageChange={bumpFile}
-          />
-        ) : (
-          <SitePhotosSection
+        <SiteWorkTimeSection
+          siteId={safeSite.id}
+          workKind={photoSectionWorkKind}
+          revision={fileRevision}
+          todayDateKey={todayKey}
+          onStorageChange={bumpFile}
+          onLaborModalNeeded={(ctx) => setHelpLaborModal(ctx)}
+        />
+
+        <SitePhotosSection
+          siteId={safeSite.id}
+          site={safeSite}
+          workKind={photoSectionWorkKind}
+          todayDateKey={todayKey}
+          onStorageChange={bumpFile}
+          beforeAddPhotos={beforeAddPhotos}
+          registerAddPhotosTrigger={(fn) => {
+            photoAddTriggerRef.current = fn;
+          }}
+        />
+
+        {helpLaborModal && (
+          <HelpTeamLaborModal
             siteId={safeSite.id}
             site={safeSite}
-            workKind={photoSectionWorkKind}
-            todayDateKey={todayKey}
-            onStorageChange={bumpFile}
-            beforeAddPhotos={beforeAddPhotos}
-            registerAddPhotosTrigger={(fn) => {
-              photoAddTriggerRef.current = fn;
-            }}
+            workKind={helpLaborModal.workKind}
+            dateKey={helpLaborModal.dateKey}
+            entryIso={helpLaborModal.entryIso}
+            endIso={helpLaborModal.endIso}
+            onClose={() => setHelpLaborModal(null)}
+            onSaved={bumpFile}
           />
         )}
 

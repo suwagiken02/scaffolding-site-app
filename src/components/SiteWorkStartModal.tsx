@@ -171,13 +171,9 @@ export function SiteWorkStartModal({
       helpMemberNames: [],
       helpStartTime: null,
       helpEndTime: null,
-      ...(workKind === "常用作業"
-        ? {
-            joyoWorkStartIso: null,
-            joyoWorkEndIso: null,
-            joyoManDaysPerPerson: null,
-          }
-        : {}),
+      workStartIso: null,
+      workEndIso: null,
+      workManDaysPerPerson: null,
     };
 
     saveDailyLaborRecord(site.id, workKind, record);

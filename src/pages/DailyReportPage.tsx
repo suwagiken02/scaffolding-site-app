@@ -11,6 +11,7 @@ import {
 import { getSiteById } from "../lib/siteStorage";
 import { loadPhotosForSiteWorkDate } from "../lib/sitePhotoStorage";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
+import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { isWorkKind, type WorkKind } from "../types/workKind";
 import styles from "./DailyReportPage.module.css";
@@ -82,9 +83,9 @@ export function DailyReportPage() {
     return sortPhotosForReport(list);
   }, [siteId, workKind, reportDate]);
 
-  const joyoLabor = useMemo(() => {
-    if (!siteId || workKind !== "常用作業") return undefined;
-    return loadDailyLaborMap(siteId, "常用作業")[reportDate];
+  const dayLabor = useMemo(() => {
+    if (!siteId) return undefined;
+    return loadDailyLaborMap(siteId, workKind)[reportDate];
   }, [siteId, workKind, reportDate]);
 
   if (!siteId) {
@@ -199,78 +200,81 @@ export function DailyReportPage() {
         </table>
       </section>
 
-      {workKind === "常用作業" ? (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>常用作業の記録</h2>
-          {!joyoLabor ? (
-            <p className={styles.empty}>
-              この日の常用作業記録はありません。日付を変えるか、現場ページで登録してください。
-            </p>
-          ) : (
-            <table className={styles.infoTable}>
-              <tbody>
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>作業記録（打刻・人工）</h2>
+        {!dayLabor ? (
+          <p className={styles.empty}>
+            この日の作業記録はありません。日付を変えるか、現場ページで登録してください。
+          </p>
+        ) : (
+          <table className={styles.infoTable}>
+            <tbody>
+              <tr>
+                <th scope="row">作業開始</th>
+                <td>{formatJoyoAt(getWorkStartIso(dayLabor))}</td>
+              </tr>
+              <tr>
+                <th scope="row">作業終了</th>
+                <td>{formatJoyoAt(getWorkEndIso(dayLabor))}</td>
+              </tr>
+              <tr>
+                <th scope="row">最終人工</th>
+                <td>{formatManDayLine(dayLabor.finalManDays)} 人工</td>
+              </tr>
+              {(dayLabor.workManDaysPerPerson ??
+                dayLabor.joyoManDaysPerPerson) != null && (
                 <tr>
-                  <th scope="row">作業開始</th>
-                  <td>{formatJoyoAt(joyoLabor.joyoWorkStartIso)}</td>
+                  <th scope="row">1人あたり人工（セッション）</th>
+                  <td>
+                    {formatManDayLine(
+                      dayLabor.workManDaysPerPerson ??
+                        dayLabor.joyoManDaysPerPerson
+                    )}{" "}
+                    人工
+                  </td>
                 </tr>
-                <tr>
-                  <th scope="row">作業終了</th>
-                  <td>{formatJoyoAt(joyoLabor.joyoWorkEndIso)}</td>
-                </tr>
-                <tr>
-                  <th scope="row">最終人工</th>
-                  <td>{formatManDayLine(joyoLabor.finalManDays)} 人工</td>
-                </tr>
-                {joyoLabor.joyoManDaysPerPerson != null && (
-                  <tr>
-                    <th scope="row">1人あたり人工</th>
-                    <td>
-                      {formatManDayLine(joyoLabor.joyoManDaysPerPerson)} 人工
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </section>
-      ) : (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            本日の写真（{photosForDay.length} 件）
-          </h2>
-          {photosForDay.length === 0 ? (
-            <p className={styles.empty}>
-              この日に登録された写真はありません。日付を変えるか、現場ページで写真を追加してください。
-            </p>
-          ) : (
-            <ul className={styles.photoList}>
-              {photosForDay.map((p, index) => (
-                <li key={p.id} className={styles.photoBlock}>
-                  <div className={styles.photoHead}>
-                    <span className={styles.photoNo}>#{index + 1}</span>
-                    <PhotoCategoryBadge category={p.category} size="large" />
-                    <time
-                      className={styles.photoTime}
-                      dateTime={p.uploadedAt}
-                    >
-                      {new Intl.DateTimeFormat("ja-JP", {
-                        timeStyle: "medium",
-                      }).format(new Date(p.uploadedAt))}
-                    </time>
-                  </div>
-                  <div className={styles.photoFrame}>
-                    <img
-                      src={sitePhotoDisplaySrc(p)}
-                      alt={`${PHOTO_CATEGORY_LABELS[p.category]} ${p.fileName}`}
-                      className={styles.photoImg}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+              )}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          本日の写真（{photosForDay.length} 件）
+        </h2>
+        {photosForDay.length === 0 ? (
+          <p className={styles.empty}>
+            この日に登録された写真はありません。日付を変えるか、現場ページで写真を追加してください。
+          </p>
+        ) : (
+          <ul className={styles.photoList}>
+            {photosForDay.map((p, index) => (
+              <li key={p.id} className={styles.photoBlock}>
+                <div className={styles.photoHead}>
+                  <span className={styles.photoNo}>#{index + 1}</span>
+                  <PhotoCategoryBadge category={p.category} size="large" />
+                  <time
+                    className={styles.photoTime}
+                    dateTime={p.uploadedAt}
+                  >
+                    {new Intl.DateTimeFormat("ja-JP", {
+                      timeStyle: "medium",
+                    }).format(new Date(p.uploadedAt))}
+                  </time>
+                </div>
+                <div className={styles.photoFrame}>
+                  <img
+                    src={sitePhotoDisplaySrc(p)}
+                    alt={`${PHOTO_CATEGORY_LABELS[p.category]} ${p.fileName}`}
+                    className={styles.photoImg}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <footer className={`${styles.docFooter} ${styles.noPrint}`}>
         <button

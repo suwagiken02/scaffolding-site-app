@@ -13,6 +13,7 @@ import {
   listDateKeysForSiteWork,
   loadDailyLaborMap,
 } from "../lib/siteDailyLaborStorage";
+import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import photoStyles from "./SitePhotosSection.module.css";
 import accStyles from "./SiteWorkDateAccordions.module.css";
@@ -186,27 +187,22 @@ export function ExternalSiteReadOnlyWorkRecordList({
                   <div className={accStyles.accPanel}>
                     <section className={accStyles.block} aria-label="写真一覧">
                       <h3 className={accStyles.blockTitle}>作業写真</h3>
-                      {workKind === "常用作業" ? (
+                      {photos.length === 0 ? (
                         <p className={accStyles.muted}>
-                          常用作業では写真は使用しません。
-                          {labor?.joyoWorkStartIso && (
-                            <>
-                              {" "}
-                              開始：
-                              {formatUploadedAt(labor.joyoWorkStartIso)}
-                            </>
-                          )}
-                          {labor?.joyoWorkEndIso && (
-                            <>
-                              {" "}
-                              終了：
-                              {formatUploadedAt(labor.joyoWorkEndIso)}
-                            </>
-                          )}
-                        </p>
-                      ) : photos.length === 0 ? (
-                        <p className={accStyles.muted}>
-                          この日の写真はありません。
+                          {(() => {
+                            const ws = getWorkStartIso(labor);
+                            const we = getWorkEndIso(labor);
+                            if (ws || we) {
+                              return (
+                                <>
+                                  この日の写真はありません。開始：
+                                  {ws ? formatUploadedAt(ws) : "—"}　終了：
+                                  {we ? formatUploadedAt(we) : "—"}
+                                </>
+                              );
+                            }
+                            return "この日の写真はありません。";
+                          })()}
                         </p>
                       ) : (
                         <ul className={photoStyles.photoGrid}>

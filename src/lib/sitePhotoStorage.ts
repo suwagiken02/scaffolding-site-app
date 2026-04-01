@@ -5,9 +5,11 @@ import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
 import { isoToLocalDateKey } from "./dateUtils";
 import {
-  joyoLaborCompletedOnDate,
-  joyoLaborInProgressOnDate,
+  loadDailyLaborMap,
+  siteWorkSessionEndedOnDate,
+  siteWorkSessionInProgressOnDate,
 } from "./siteDailyLaborStorage";
+import { getWorkStartIso } from "./workSessionTimes";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY_V1 = "scaffolding-site-photos-v1";
@@ -303,9 +305,9 @@ export function getTodayMapPinKind(
   todayKey: string
 ): TodayMapPinKind {
   if (siteHasEndPhotoOnDate(siteId, todayKey)) return "finished";
-  if (joyoLaborCompletedOnDate(siteId, todayKey)) return "finished";
+  if (siteWorkSessionEndedOnDate(siteId, todayKey)) return "finished";
   if (siteHasEntryPhotoOnDate(siteId, todayKey)) return "in_progress";
-  if (joyoLaborInProgressOnDate(siteId, todayKey)) return "in_progress";
+  if (siteWorkSessionInProgressOnDate(siteId, todayKey)) return "in_progress";
   return "not_started";
 }
 
@@ -333,9 +335,12 @@ export function siteHasEndPhotoInWorkKind(
   return false;
 }
 
-/** 足場設置中マップ：組みに写真があり、足場撤去完了が未登録 */
+/** 足場設置中マップ：組みで作業開始打刻がある、または組みに写真があり、足場撤去完了が未登録 */
 export function siteMatchesScaffoldingInstallMap(site: Site): boolean {
   if (site.scaffoldingRemovalCompletedAt?.trim()) return false;
+  for (const r of Object.values(loadDailyLaborMap(site.id, "組み"))) {
+    if (getWorkStartIso(r)) return true;
+  }
   return siteHasAnyPhotoInWorkKind(site.id, "組み");
 }
 

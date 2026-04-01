@@ -67,14 +67,14 @@ export function formatManDayOneDecimal(n: number): string {
   return roundManDayOneDecimal(n).toFixed(1);
 }
 
-/** 常用作業：0〜3時間未満 → 0.5、3時間以上 → 1（時間は非負） */
-export function joyoManDaysPerPersonFromHours(hours: number): number {
+/** 作業セッション：0〜3時間未満 → 0.5人工/人、3時間以上 → 1人工/人（時間は非負） */
+export function sessionManDaysPerPersonFromHours(hours: number): number {
   if (!Number.isFinite(hours) || hours < 0) return 0.5;
   return hours >= 3 ? 1 : 0.5;
 }
 
-/** 常用作業の登録人数（社員＝職長＋子方、請負＝人数） */
-export function joyoRegisteredMemberCount(l: SiteDailyLaborRecord): number {
+/** 登録人数（社員＝職長＋子方、請負＝人数） */
+export function registeredMemberCountForLabor(l: SiteDailyLaborRecord): number {
   if (l.employmentKind === "請負") {
     const n = l.contractorPeopleCount;
     return typeof n === "number" && Number.isFinite(n) && n > 0
@@ -84,14 +84,14 @@ export function joyoRegisteredMemberCount(l: SiteDailyLaborRecord): number {
   return l.memberForemanNames.length + l.memberKogataNames.length;
 }
 
-export function joyoTotalManDaysFromRecord(
+export function workSessionTotalManDaysFromRecord(
   startIso: string | null,
   endIso: string,
   labor: SiteDailyLaborRecord
 ): { hours: number; perPerson: number; total: number } {
   const hours = hoursBetweenIso(startIso, endIso);
-  const perPerson = joyoManDaysPerPersonFromHours(hours);
-  const n = joyoRegisteredMemberCount(labor);
+  const perPerson = sessionManDaysPerPersonFromHours(hours);
+  const n = registeredMemberCountForLabor(labor);
   const total = roundManDayOneDecimal(perPerson * n);
   return { hours, perPerson, total };
 }

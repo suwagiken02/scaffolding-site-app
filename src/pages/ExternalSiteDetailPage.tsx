@@ -7,23 +7,14 @@ import {
   normalizeCompanyKey,
 } from "../lib/externalCompaniesStorage";
 import { getSiteById, normalizeEntranceDateKeys } from "../lib/siteStorage";
-import {
-  siteHasAnyWorkRecordRows,
-  siteHasHaraiWorkRecordRows,
-} from "../lib/siteWorkRecordKeys";
+import { computeSiteDisplayStatus } from "../lib/siteStatus";
 import { ExternalPortalPinGate } from "../components/ExternalPortalPinGate";
 import { ExternalSiteReadOnlyWorkRecordList } from "../components/ExternalSiteReadOnlyWorkRecordList";
 import formStyles from "./SiteFormPage.module.css";
 import portalStyles from "./ExternalSitePortalPage.module.css";
 
-function computeSiteStatus(site: Site): "組立前" | "設置中" | "解体中" | "終了" {
-  if (site.scaffoldingRemovalCompletedAt?.trim()) return "終了";
-  if (!siteHasAnyWorkRecordRows(site.id)) return "組立前";
-  return siteHasHaraiWorkRecordRows(site.id) ? "解体中" : "設置中";
-}
-
 function statusBadgeClass(
-  status: ReturnType<typeof computeSiteStatus>
+  status: ReturnType<typeof computeSiteDisplayStatus>
 ): string {
   if (status === "組立前") return portalStyles.stPre;
   if (status === "設置中") return portalStyles.stActive;
@@ -109,10 +100,10 @@ export function ExternalSiteDetailPage() {
                 <span className={portalStyles.detailStatusLabel}>ステータス</span>
                 <span
                   className={`${portalStyles.statusBadge} ${statusBadgeClass(
-                    computeSiteStatus(site)
+                    computeSiteDisplayStatus(site)
                   )}`}
                 >
-                  {computeSiteStatus(site)}
+                  {computeSiteDisplayStatus(site)}
                 </span>
               </p>
             </header>

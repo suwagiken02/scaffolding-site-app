@@ -4,10 +4,7 @@ import type { Site } from "../types/site";
 import { loadSites } from "../lib/siteStorage";
 import { SiteMapView } from "../components/SiteMapView";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
-import {
-  siteHasAnyWorkRecordRows,
-  siteHasHaraiWorkRecordRows,
-} from "../lib/siteWorkRecordKeys";
+import { computeSiteDisplayStatus } from "../lib/siteStatus";
 import { siteNeedsRemovalFollowUpWarning } from "../lib/siteRemovalFollowUpWarning";
 import { WORK_KINDS } from "../types/workKind";
 import { loadContractorMasters } from "../lib/contractorMasterStorage";
@@ -91,10 +88,7 @@ type SiteStatus = "組立前" | "設置中" | "解体中" | "終了";
 type StatusFilter = "all" | SiteStatus;
 
 function computeSiteStatus(site: Site): SiteStatus {
-  if (site.scaffoldingRemovalCompletedAt?.trim()) return "終了";
-  // 作業記録一覧と同じ基準（人工のみでなく写真のみの日も「記録あり」）
-  if (!siteHasAnyWorkRecordRows(site.id)) return "組立前";
-  return siteHasHaraiWorkRecordRows(site.id) ? "解体中" : "設置中";
+  return computeSiteDisplayStatus(site);
 }
 
 export function SiteListPage() {

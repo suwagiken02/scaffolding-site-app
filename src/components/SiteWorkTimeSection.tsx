@@ -1,0 +1,184 @@
+import { useMemo } from "react";
+import type { WorkKind } from "../types/workKind";
+import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
+import {
+  loadDailyLaborMap,
+  saveDailyLaborRecord,
+} from "../lib/siteDailyLaborStorage";
+import {
+  workSessionTotalManDaysFromRecord,
+} from "../lib/manDayCalculations";
+import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
+import styles from "./SiteJoyoWorkSection.module.css";
+
+type LaborModalCtx = {
+  workKind: WorkKind;
+  dateKey: string;
+  entryIso: string | null;
+  endIso: string;
+};
+
+type Props = {
+  siteId: string;
+  workKind: WorkKind;
+  revision: number;
+  todayDateKey: string;
+  onStorageChange?: () => void;
+  onLaborModalNeeded: (ctx: LaborModalCtx) => void;
+};
+
+function formatAt(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return new Intl.DateTimeFormat("ja-JP", {
+      dateStyle: "short",
+      timeStyle: "medium",
+    }).format(d);
+  } catch {
+    return iso;
+  }
+}
+
+function openLaborModalFromRecord(
+  labor: SiteDailyLaborRecord,
+  workKind: WorkKind,
+  onLaborModalNeeded: (ctx: LaborModalCtx) => void
+) {
+  const start = getWorkStartIso(labor);
+  const end = getWorkEndIso(labor);
+  if (!end) return;
+  onLaborModalNeeded({
+    workKind,
+    dateKey: labor.dateKey,
+    entryIso: start,
+    endIso: end,
+  });
+}
+
+export function SiteWorkTimeSection({
+  siteId,
+  workKind,
+  revision,
+  todayDateKey,
+  onStorageChange,
+  onLaborModalNeeded,
+}: Props) {
+  const labor = useMemo(
+    () => loadDailyLaborMap(siteId, workKind)[todayDateKey],
+    [siteId, workKind, todayDateKey, revision]
+  );
+
+  function persist(next: SiteDailyLaborRecord) {
+    saveDailyLaborRecord(siteId, workKind, next);
+    onStorageChange?.();
+  }
+
+  function onStart() {
+    if (!labor) return;
+    if (getWorkStartIso(labor)) return;
+    persist({
+      ...labor,
+      workStartIso: new Date().toISOString(),
+      workEndIso: null,
+      workManDaysPerPerson: null,
+      finalManDays: null,
+    });
+  }
+
+  function onEnd() {
+    if (!labor) return;
+    const start = getWorkStartIso(labor);
+    if (!start || getWorkEndIso(labor)) return;
+    const endIso = new Date().toISOString();
+    const { perPerson } = workSessionTotalManDaysFromRecord(start, endIso, labor);
+    persist({
+      ...labor,
+      workEndIso: endIso,
+      workManDaysPerPerson: perPerson,
+      finalManDays: null,
+    });
+    openLaborModalFromRecord(
+      { ...labor, workEndIso: endIso, workManDaysPerPerson: perPerson, dateKey: labor.dateKey },
+      workKind,
+      onLaborModalNeeded
+    );
+  }
+
+  if (!labor) {
+    return (
+      <section className={styles.section} aria-labelledby="work-time-heading">
+        <div className={styles.sectionHead}>
+          <h2 id="work-time-heading" className={styles.sectionTitle}>
+            作業の打刻（{workKind}）
+          </h2>
+          <p className={styles.empty}>
+            本日の作業記録がありません。「＋作業を開始する」から登録してください。
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const startIso = getWorkStartIso(labor);
+  const endIso = getWorkEndIso(labor);
+  const canStart = !startIso && !endIso;
+  const canEnd = Boolean(startIso && !endIso);
+  const needsLaborConfirm =
+    Boolean(endIso) && labor.finalManDays === null;
+
+  return (
+    <section className={styles.section} aria-labelledby="work-time-heading">
+      <div className={styles.sectionHead}>
+        <h2 id="work-time-heading" className={styles.sectionTitle}>
+          作業の打刻（{workKind}）
+        </h2>
+        <p className={styles.lead}>
+          作業開始・終了を打刻します。終了後に手伝い班の有無と最終人工を確定します。
+        </p>
+      </div>
+
+      <div className={styles.times}>
+        <dl>
+          <dt>作業開始</dt>
+          <dd>{startIso ? formatAt(startIso) : "—"}</dd>
+        </dl>
+        <dl>
+          <dt>作業終了</dt>
+          <dd>{endIso ? formatAt(endIso) : "—"}</dd>
+        </dl>
+      </div>
+
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className={styles.btnStart}
+          disabled={!canStart}
+          onClick={onStart}
+        >
+          作業を開始する
+        </button>
+        <button
+          type="button"
+          className={styles.btnEnd}
+          disabled={!canEnd}
+          onClick={onEnd}
+        >
+          作業を終了する
+        </button>
+      </div>
+
+      {needsLaborConfirm && (
+        <p className={styles.lead}>
+          <button
+            type="button"
+            className={styles.btnEnd}
+            onClick={() => openLaborModalFromRecord(labor, workKind, onLaborModalNeeded)}
+          >
+            手伝い班・最終人工の確定を続ける
+          </button>
+        </p>
+      )}
+    </section>
+  );
+}

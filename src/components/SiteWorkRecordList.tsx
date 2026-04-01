@@ -20,6 +20,7 @@ import {
   FOCUS_SITE_WORK_RECORD,
   siteWorkRecordElementId,
 } from "../lib/siteWorkRecordFocus";
+import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import photoStyles from "./SitePhotosSection.module.css";
 import accStyles from "./SiteWorkDateAccordions.module.css";
@@ -79,15 +80,16 @@ function formatIsoMaybe(iso: string | null): string {
 }
 
 function mainMemberTimesForWorkRecord(
-  workKind: WorkKind,
+  _workKind: WorkKind,
   photos: SitePhoto[],
   labor: SiteDailyLaborRecord | undefined
 ): { entryIso: string | null; endIso: string | null } {
-  if (workKind === "常用作業" && labor) {
-    return {
-      entryIso: labor.joyoWorkStartIso ?? null,
-      endIso: labor.joyoWorkEndIso ?? null,
-    };
+  if (labor) {
+    const ws = getWorkStartIso(labor);
+    const we = getWorkEndIso(labor);
+    if (ws || we) {
+      return { entryIso: ws, endIso: we };
+    }
   }
   return mainMemberWorkTimesFromPhotos(photos);
 }
@@ -323,15 +325,19 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                               <dt>最終人工</dt>
                               <dd>{formatManDay(labor.finalManDays)}人工</dd>
                             </div>
-                            {workKind === "常用作業" &&
-                              labor.joyoManDaysPerPerson != null && (
-                                <div className={accStyles.laborRow}>
-                                  <dt>常用（1人あたり人工）</dt>
-                                  <dd>
-                                    {formatManDay(labor.joyoManDaysPerPerson)}人工
-                                  </dd>
-                                </div>
-                              )}
+                            {(labor.workManDaysPerPerson ??
+                              labor.joyoManDaysPerPerson) != null && (
+                              <div className={accStyles.laborRow}>
+                                <dt>1人あたり人工（セッション）</dt>
+                                <dd>
+                                  {formatManDay(
+                                    labor.workManDaysPerPerson ??
+                                      labor.joyoManDaysPerPerson
+                                  )}
+                                  人工
+                                </dd>
+                              </div>
+                            )}
                             <div className={accStyles.laborRow}>
                               <dt>手伝い班</dt>
                               <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
@@ -366,18 +372,14 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                         </>
                       ) : (
                         <p className={accStyles.muted}>
-                          未登録です。終了時の写真を登録し、人工の確認フローを完了すると表示されます。
+                          未登録です。作業終了の打刻後、手伝い班・最終人工の確認を完了すると表示されます。
                         </p>
                       )}
                     </section>
 
                     <section className={accStyles.block} aria-label="写真一覧">
                       <h3 className={accStyles.blockTitle}>写真</h3>
-                      {workKind === "常用作業" ? (
-                        <p className={accStyles.muted}>
-                          常用作業では写真は使用しません。現場ページの打刻で開始・終了を記録します。
-                        </p>
-                      ) : photos.length === 0 ? (
+                      {photos.length === 0 ? (
                         <p className={accStyles.muted}>この日の写真はありません。</p>
                       ) : (
                         <ul className={photoStyles.photoGrid}>

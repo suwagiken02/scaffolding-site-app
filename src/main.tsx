@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App";
+import { initFirebaseCloudMessaging } from "./lib/fcmInit";
 import { hydrateLocalStorageFromServer } from "./lib/persistStorageApi";
 
 async function boot() {
@@ -16,6 +17,7 @@ async function boot() {
       </BrowserRouter>
     </StrictMode>
   );
+  initFirebaseCloudMessaging();
 }
 
 void boot();

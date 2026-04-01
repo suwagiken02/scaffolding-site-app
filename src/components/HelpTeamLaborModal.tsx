@@ -3,12 +3,13 @@ import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import {
-  companyManDays,
   formatManDayOneDecimal,
   helpTeamManDays,
   hoursBetweenHHmmSameDay,
   hoursBetweenIso,
+  registeredMemberCountForLabor,
   roundManDayOneDecimal,
+  workSessionTotalManDaysFromRecord,
 } from "../lib/manDayCalculations";
 import { loadDailyLaborMap, saveDailyLaborRecord } from "../lib/siteDailyLaborStorage";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
@@ -112,6 +113,11 @@ export function HelpTeamLaborModal({
     () => getRegularMemberLists(site, siteId, workKind, dateKey),
     [site, siteId, workKind, dateKey]
   );
+  const laborRecord = useMemo(
+    () => loadDailyLaborMap(siteId, workKind)[dateKey],
+    [siteId, workKind, dateKey]
+  );
+
   const regularWorkerCount =
     regularMembers.memberForemanNames.length +
     regularMembers.memberKogataNames.length;
@@ -121,10 +127,11 @@ export function HelpTeamLaborModal({
     [entryIso, endIso]
   );
 
-  const companyRaw = useMemo(
-    () => companyManDays(entryIso, endIso, regularWorkerCount),
-    [entryIso, endIso, regularWorkerCount]
-  );
+  const companyRaw = useMemo(() => {
+    if (!laborRecord) return 0;
+    return workSessionTotalManDaysFromRecord(entryIso, endIso, laborRecord)
+      .total;
+  }, [entryIso, endIso, laborRecord]);
   const companyDisplay = useMemo(
     () => roundManDayOneDecimal(companyRaw),
     [companyRaw]
@@ -189,7 +196,8 @@ export function HelpTeamLaborModal({
   }
 
   function persist(record: SiteDailyLaborRecord) {
-    saveDailyLaborRecord(siteId, workKind, record);
+    const prev = loadDailyLaborMap(siteId, workKind)[dateKey];
+    saveDailyLaborRecord(siteId, workKind, { ...prev, ...record });
     onSaved();
     onClose();
   }
@@ -252,6 +260,9 @@ export function HelpTeamLaborModal({
 
   const dateJa = formatDateKeyJa(dateKey);
   const noEntryWarn = !entryIso;
+  const companyMemberCountDisplay = laborRecord
+    ? registeredMemberCountForLabor(laborRecord)
+    : regularWorkerCount;
 
   return (
     <div className={styles.root} role="presentation">
@@ -270,7 +281,7 @@ export function HelpTeamLaborModal({
             <p className={styles.lead}>この現場に手伝い班は来ましたか？</p>
             {noEntryWarn && (
               <p className={styles.warn}>
-                当日の入場時写真が見つかりません。自社人工は 0
+                作業開始の打刻が見つかりません。自社人工は 0
                 として計算されます（後の画面で修正できます）。
               </p>
             )}
@@ -303,7 +314,7 @@ export function HelpTeamLaborModal({
             </h2>
             {noEntryWarn && (
               <p className={styles.warn}>
-                入場時写真がないため、自社人工は時間差 0 として計算しています。
+                作業開始打刻がないため、自社人工は時間差 0 として計算しています。
               </p>
             )}
             <p className={styles.lead}>
@@ -386,7 +397,7 @@ export function HelpTeamLaborModal({
             )}
             {kogataList.length === 0 ? (
               <p className={styles.emptyMasters}>
-                スタッフマスターに「子方」役割の登録がありません。マスター設定の「スタッフ」タブで役割「子方」のスタッフを追加してから、再度終了時写真を登録するか、いいえ（手伝いなし）で進んでください。
+                スタッフマスターに「子方」役割の登録がありません。マスター設定の「スタッフ」タブで役割「子方」のスタッフを追加してから、いいえ（手伝いなし）で進んでください。
               </p>
             ) : (
               <ul className={styles.checkList}>
@@ -530,9 +541,10 @@ export function HelpTeamLaborModal({
             <dl className={styles.breakdown}>
               <dt>自社人工</dt>
               <dd>
-                {formatManDayOneDecimal(companyDisplay)} 人工（職長・子方{" "}
-                {regularWorkerCount} 名 × 入場〜終了{" "}
-                {companyHours.toFixed(1)} 時間 ÷ 8）
+                {formatManDayOneDecimal(companyDisplay)} 人工（登録者数{" "}
+                {companyMemberCountDisplay} 名 × 作業{" "}
+                {companyHours.toFixed(1)} 時間：0〜3時間未満 0.5人工/人、3時間以上
+                1人工/人）
               </dd>
               <dt>手伝い人工</dt>
               <dd>

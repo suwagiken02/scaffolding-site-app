@@ -26,10 +26,7 @@ import {
   updateSite,
 } from "../lib/siteStorage";
 import { externalPortalAuthStorageKey } from "../lib/externalPortalAuth";
-import {
-  siteHasAnyWorkRecordRows,
-  siteHasHaraiWorkRecordRows,
-} from "../lib/siteWorkRecordKeys";
+import { computeSiteDisplayStatus } from "../lib/siteStatus";
 import { loadSiteTypeMasters } from "../lib/mastersStorage";
 import editorStyles from "../components/SiteEditorForm.module.css";
 import formStyles from "./SiteFormPage.module.css";
@@ -44,14 +41,8 @@ function newSiteId(): string {
   return `site-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function computeSiteStatus(site: Site): "組立前" | "設置中" | "解体中" | "終了" {
-  if (site.scaffoldingRemovalCompletedAt?.trim()) return "終了";
-  if (!siteHasAnyWorkRecordRows(site.id)) return "組立前";
-  return siteHasHaraiWorkRecordRows(site.id) ? "解体中" : "設置中";
-}
-
 function statusBadgeClass(
-  status: ReturnType<typeof computeSiteStatus>
+  status: ReturnType<typeof computeSiteDisplayStatus>
 ): string {
   if (status === "組立前") return styles.stPre;
   if (status === "設置中") return styles.stActive;
@@ -66,7 +57,7 @@ type ExternalSiteListSort =
   | "status";
 
 const STATUS_SORT_ORDER: Record<
-  ReturnType<typeof computeSiteStatus>,
+  ReturnType<typeof computeSiteDisplayStatus>,
   number
 > = {
   組立前: 0,
@@ -125,8 +116,8 @@ function compareExternalSites(
       return tieBreakNameId(a, b);
     case "status": {
       const c =
-        STATUS_SORT_ORDER[computeSiteStatus(a)] -
-        STATUS_SORT_ORDER[computeSiteStatus(b)];
+        STATUS_SORT_ORDER[computeSiteDisplayStatus(a)] -
+        STATUS_SORT_ORDER[computeSiteDisplayStatus(b)];
       return c !== 0 ? c : tieBreakNameId(a, b);
     }
     default:
@@ -474,7 +465,7 @@ export function ExternalSitePortalPage() {
           ) : (
             <ul className={styles.list}>
               {sortedSites.map((s) => {
-                const st = computeSiteStatus(s);
+                const st = computeSiteDisplayStatus(s);
                 return (
                   <li key={s.id} className={styles.card}>
                     <Link

@@ -1,10 +1,7 @@
 import type { Site } from "../types/site";
 import { WORK_KINDS } from "../types/workKind";
-import {
-  loadPhotosForSiteWorkDate,
-  listPhotoDateKeysForSiteWork,
-} from "./sitePhotoStorage";
 import { loadDailyLaborMap } from "./siteDailyLaborStorage";
+import { getWorkStartIso } from "./workSessionTimes";
 
 export type ActivityRole = "職長" | "子方";
 
@@ -15,13 +12,13 @@ export type ActivityRow = {
   role: ActivityRole;
 };
 
-/** 現場の全作業種別をまたぎ、「入場時」写真がある日付（重複なし・昇順） */
-export function getSiteDatesWithEntryPhoto(siteId: string): string[] {
+/** 現場の全作業種別をまたぎ、作業開始打刻がある日付（重複なし・昇順） */
+export function getSiteDatesWithWorkSessionStarted(siteId: string): string[] {
   const set = new Set<string>();
   for (const w of WORK_KINDS) {
-    for (const dk of listPhotoDateKeysForSiteWork(siteId, w)) {
-      const photos = loadPhotosForSiteWorkDate(siteId, w, dk);
-      if (photos.some((p) => p.category === "入場時")) set.add(dk);
+    const map = loadDailyLaborMap(siteId, w);
+    for (const [dk, r] of Object.entries(map)) {
+      if (getWorkStartIso(r)) set.add(dk);
     }
   }
   return [...set].sort((a, b) => a.localeCompare(b));
@@ -32,7 +29,7 @@ function namesEqual(a: string, b: string): boolean {
 }
 
 /**
- * 対象者名が現場の職長・子方として登録され、入場時写真がある日の一覧（役割ごとに行を分ける）
+ * 対象者名が現場の職長・子方として登録され、作業開始打刻がある日の一覧（役割ごとに行を分ける）
  */
 export function buildActivityRowsForPerson(
   sites: Site[],
@@ -42,7 +39,7 @@ export function buildActivityRowsForPerson(
   if (!norm) return [];
   const rows: ActivityRow[] = [];
   for (const site of sites) {
-    const entryDates = getSiteDatesWithEntryPhoto(site.id);
+    const entryDates = getSiteDatesWithWorkSessionStarted(site.id);
     if (entryDates.length === 0) continue;
     for (const dk of entryDates) {
       let hasAnyLaborForDate = false;

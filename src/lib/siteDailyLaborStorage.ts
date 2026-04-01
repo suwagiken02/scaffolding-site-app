@@ -2,6 +2,7 @@ import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
+import { getWorkEndIso, getWorkStartIso } from "./workSessionTimes";
 
 const KEY_V1 = "scaffolding-site-daily-labor-v1";
 const KEY_V2 = "scaffolding-site-daily-labor-v2";
@@ -104,6 +105,32 @@ function normalizeRecord(x: unknown): SiteDailyLaborRecord | null {
         ? o.joyoManDaysPerPerson
         : null;
 
+  let workStartIso =
+    o.workStartIso === null || o.workStartIso === undefined
+      ? null
+      : typeof o.workStartIso === "string"
+        ? o.workStartIso
+        : null;
+  let workEndIso =
+    o.workEndIso === null || o.workEndIso === undefined
+      ? null
+      : typeof o.workEndIso === "string"
+        ? o.workEndIso
+        : null;
+  let workManDaysPerPerson =
+    o.workManDaysPerPerson === null || o.workManDaysPerPerson === undefined
+      ? null
+      : typeof o.workManDaysPerPerson === "number" &&
+          Number.isFinite(o.workManDaysPerPerson)
+        ? o.workManDaysPerPerson
+        : null;
+
+  if (!workStartIso && joyoWorkStartIso) workStartIso = joyoWorkStartIso;
+  if (!workEndIso && joyoWorkEndIso) workEndIso = joyoWorkEndIso;
+  if (workManDaysPerPerson == null && joyoManDaysPerPerson != null) {
+    workManDaysPerPerson = joyoManDaysPerPerson;
+  }
+
   const employmentKind =
     o.employmentKind === "請負" || o.employmentKind === "社員"
       ? o.employmentKind
@@ -133,6 +160,9 @@ function normalizeRecord(x: unknown): SiteDailyLaborRecord | null {
     helpMemberNames,
     helpStartTime,
     helpEndTime,
+    workStartIso,
+    workEndIso,
+    workManDaysPerPerson,
     joyoWorkStartIso,
     joyoWorkEndIso,
     joyoManDaysPerPerson,
@@ -305,22 +335,46 @@ export type SiteLaborSummary = {
 };
 
 /** 全作業種別の日付キーのうち最も新しいもの（作業記録が無ければ null） */
-/** 常用作業で終了打刻まで済んでいるか（地図ピン等） */
-export function joyoLaborCompletedOnDate(
+/** いずれかの作業種別で終了打刻まで済んでいるか（地図ピン等） */
+export function siteWorkSessionEndedOnDate(
   siteId: string,
   dateKey: string
 ): boolean {
-  const r = loadDailyLaborMap(siteId, "常用作業")[dateKey];
-  return Boolean(r?.joyoWorkEndIso);
+  for (const k of WORK_KINDS) {
+    const r = loadDailyLaborMap(siteId, k)[dateKey];
+    if (getWorkEndIso(r)) return true;
+  }
+  return false;
 }
 
-/** 常用作業で開始済み・未終了か */
-export function joyoLaborInProgressOnDate(
+/** いずれかの作業種別で開始済み・未終了か */
+export function siteWorkSessionInProgressOnDate(
   siteId: string,
   dateKey: string
 ): boolean {
-  const r = loadDailyLaborMap(siteId, "常用作業")[dateKey];
-  return Boolean(r?.joyoWorkStartIso && !r?.joyoWorkEndIso);
+  for (const k of WORK_KINDS) {
+    const r = loadDailyLaborMap(siteId, k)[dateKey];
+    if (getWorkStartIso(r) && !getWorkEndIso(r)) return true;
+  }
+  return false;
+}
+
+/** いずれかの日で作業開始打刻があるか（現場ステータス「設置中」用） */
+export function siteHasAnyWorkStartPressed(siteId: string): boolean {
+  for (const k of WORK_KINDS) {
+    for (const r of Object.values(loadDailyLaborMap(siteId, k))) {
+      if (getWorkStartIso(r)) return true;
+    }
+  }
+  return false;
+}
+
+/** 払いで作業終了打刻が一度でもあるか（「解体中」用） */
+export function siteHasHaraiWorkEnded(siteId: string): boolean {
+  for (const r of Object.values(loadDailyLaborMap(siteId, "払い"))) {
+    if (getWorkEndIso(r)) return true;
+  }
+  return false;
 }
 
 export function getLatestLaborDateKeyAcrossKinds(siteId: string): string | null {

@@ -1,7 +1,9 @@
 import type { Site } from "../types/site";
 import { todayLocalDateKey } from "./dateUtils";
-import { getLatestLaborDateKeyAcrossKinds } from "./siteDailyLaborStorage";
-import { siteHasEndPhotoInWorkKind } from "./sitePhotoStorage";
+import {
+  getLatestLaborDateKeyAcrossKinds,
+  siteHasHaraiWorkEnded,
+} from "./siteDailyLaborStorage";
 
 /** 最終作業日からこの日数以上空いていれば警告対象になりうる */
 export const REMOVAL_FOLLOW_UP_IDLE_DAYS = 30;
@@ -28,12 +30,12 @@ function wholeCalendarDaysBetween(fromKey: string, toKey: string): number {
 
 /**
  * 一覧の「要確認」警告の対象か。
- * 払いの終了時写真あり・撤去完了未登録・最終作業から30日以上・無視フラグなし をすべて満たすとき true。
+ * 払いで作業終了打刻あり・撤去完了未登録・最終作業から30日以上・無視フラグなし をすべて満たすとき true。
  */
 export function siteNeedsRemovalFollowUpWarning(site: Site): boolean {
   if (site.ignoreSiteListWarning) return false;
   if (site.scaffoldingRemovalCompletedAt?.trim()) return false;
-  if (!siteHasEndPhotoInWorkKind(site.id, "払い")) return false;
+  if (!siteHasHaraiWorkEnded(site.id)) return false;
   const lastLabor = getLatestLaborDateKeyAcrossKinds(site.id);
   if (!lastLabor) return false;
   const today = todayLocalDateKey();

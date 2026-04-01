@@ -4,6 +4,7 @@ export const PHOTO_CATEGORIES = [
   "休憩②",
   "休憩③",
   "終了時",
+  "記録",
 ] as const;
 
 export type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
@@ -14,6 +15,7 @@ export const PHOTO_CATEGORY_LABELS: Record<PhotoCategory, string> = {
   "休憩②": "休憩②",
   "休憩③": "休憩③",
   終了時: "終了時",
+  記録: "記録",
 };
 
 /** 日報・一覧での並び順 */
@@ -23,6 +25,7 @@ export const PHOTO_CATEGORY_ORDER: readonly PhotoCategory[] = [
   "休憩②",
   "休憩③",
   "終了時",
+  "記録",
 ] as const;
 
 export type SitePhoto = {

@@ -1,0 +1,82 @@
+import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
+import { getFirebaseApp, hasFirebaseMessagingConfig } from "./firebase";
+
+let started = false;
+
+/**
+ * アプリ起動時に 1 回だけ実行。通知の許可を求め、FCM トークンを取得する。
+ * バックグラウンド通知は public の firebase-messaging-sw.js が担当。
+ */
+export function initFirebaseCloudMessaging(): void {
+  if (started) return;
+  if (typeof window === "undefined") return;
+  if (!hasFirebaseMessagingConfig()) {
+    if (import.meta.env.DEV) {
+      console.info(
+        "[FCM] スキップ: VITE_FIREBASE_* / VITE_FIREBASE_VAPID_KEY が未設定です。"
+      );
+    }
+    return;
+  }
+
+  started = true;
+  void runFcmSetup();
+}
+
+async function runFcmSetup(): Promise<void> {
+  try {
+    if (!(await isSupported())) {
+      console.info("[FCM] この環境では Firebase Messaging に対応していません。");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.info("[FCM] 通知が許可されませんでした:", permission);
+      return;
+    }
+
+    const app = getFirebaseApp();
+    const messaging = getMessaging(app);
+
+    const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+    const swUrl = `${base}firebase-messaging-sw.js`;
+    const registration = await navigator.serviceWorker.register(swUrl, {
+      scope: base,
+    });
+    await navigator.serviceWorker.ready;
+
+    const token = await getToken(messaging, {
+      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: registration,
+    });
+
+    if (token) {
+      if (import.meta.env.DEV) {
+        console.info("[FCM] 登録トークンを取得しました（開発時のみ表示）");
+      }
+    } else {
+      console.warn("[FCM] トークンを取得できませんでした。");
+    }
+
+    onMessage(messaging, (payload) => {
+      const title =
+        payload.notification?.title ?? payload.data?.title ?? "お知らせ";
+      const body =
+        payload.notification?.body ?? payload.data?.body ?? undefined;
+      if (typeof title === "string" && title.length > 0) {
+        try {
+          new Notification(title, {
+            body,
+            icon: "/favicon.ico",
+            data: payload.data,
+          });
+        } catch {
+          /* 通知表示不可 */
+        }
+      }
+    });
+  } catch (e) {
+    console.warn("[FCM] 初期化に失敗しました:", e);
+  }
+}
