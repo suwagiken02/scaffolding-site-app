@@ -6,7 +6,7 @@ import {
   getExternalCompanyByKey,
   normalizeCompanyKey,
 } from "../lib/externalCompaniesStorage";
-import { getSiteById } from "../lib/siteStorage";
+import { getSiteById, normalizeEntranceDateKeys } from "../lib/siteStorage";
 import {
   siteHasAnyWorkRecordRows,
   siteHasHaraiWorkRecordRows,
@@ -69,6 +69,13 @@ export function ExternalSiteDetailPage() {
     site &&
     normalizeCompanyKey(site.externalCompanyKey ?? "") === normalizedKey;
 
+  const entranceDatesSorted = useMemo(() => {
+    if (!site) return [];
+    return [...normalizeEntranceDateKeys(site.entranceDateKeys)].sort((a, b) =>
+      b.localeCompare(a)
+    );
+  }, [site]);
+
   if (!companyKeyParam || !normalizedKey || !company) {
     return (
       <div className={portalStyles.page}>
@@ -98,9 +105,6 @@ export function ExternalSiteDetailPage() {
               <h1 className={portalStyles.title}>
                 {site.name || "（無題）"}
               </h1>
-              <p className={portalStyles.detailMeta}>
-                元請け様名：{site.clientName?.trim() || "—"}
-              </p>
               <p className={portalStyles.detailStatusRow}>
                 <span className={portalStyles.detailStatusLabel}>ステータス</span>
                 <span
@@ -112,6 +116,82 @@ export function ExternalSiteDetailPage() {
                 </span>
               </p>
             </header>
+
+            <section
+              className={portalStyles.portalBasicSection}
+              aria-labelledby="ext-portal-basic-info-title"
+            >
+              <h2
+                id="ext-portal-basic-info-title"
+                className={portalStyles.portalBasicTitle}
+              >
+                現場基本情報
+              </h2>
+              <dl className={portalStyles.portalDetailsGrid}>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>現場名</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {site.name?.trim() || "—"}
+                  </dd>
+                </div>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>元請け様名</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {site.clientName?.trim() || "—"}
+                  </dd>
+                </div>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>住所</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {site.address?.trim() || "—"}
+                  </dd>
+                </div>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>GoogleマップURL</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {site.googleMapUrl?.trim() ? (
+                      <a
+                        href={site.googleMapUrl.trim()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={portalStyles.portalMapLink}
+                      >
+                        地図を開く
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>入場日一覧</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {entranceDatesSorted.length === 0 ? (
+                      "—"
+                    ) : (
+                      <ul className={portalStyles.portalEntranceList}>
+                        {entranceDatesSorted.map((dk) => (
+                          <li key={dk}>{dk}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>現場種別</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {site.siteTypeName?.trim() || "—"}
+                  </dd>
+                </div>
+                <div className={portalStyles.portalRow}>
+                  <dt className={portalStyles.portalDt}>担当営業名</dt>
+                  <dd className={portalStyles.portalDd}>
+                    {site.salesName?.trim() || "—"}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
             <ExternalSiteReadOnlyWorkRecordList
               siteId={site.id}
               site={site}
