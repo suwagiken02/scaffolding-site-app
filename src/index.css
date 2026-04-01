@@ -1,8 +1,12 @@
 :root {
+  color-scheme: dark;
   --bg: #0f1419;
   --surface: #1a2332;
   --surface-hover: #243044;
   --border: #2d3a4d;
+  /** 入力欄・日付ピッカー等：ページ背景より明るく、境界をはっきりさせる */
+  --form-control-bg: #222e3f;
+  --form-control-border: #415571;
   --text: #e8edf4;
   --text-muted: #8b9bb0;
   --accent: #3d8bfd;

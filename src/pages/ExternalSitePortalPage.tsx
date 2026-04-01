@@ -362,7 +362,7 @@ export function ExternalSitePortalPage() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.pagePortal}`}>
       <header className={styles.head}>
         <div>
           <h1 className={styles.title}>現場登録（{company.companyName}）</h1>
@@ -863,7 +863,7 @@ function ExternalSiteForm({
 
   if (editingId && !existing) {
     return (
-      <div className={styles.page}>
+      <div className={`${styles.page} ${styles.pagePortal}`}>
         <p className={styles.muted}>この現場は見つかりませんでした。</p>
         <button type="button" className={styles.ghostBtn} onClick={onCancel}>
           一覧に戻る
@@ -993,7 +993,7 @@ function ExternalSiteForm({
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.pagePortal}`}>
       <div className={formStyles.breadcrumb}>
         <button type="button" className={styles.linkBtn} onClick={onCancel}>
           ← 一覧に戻る

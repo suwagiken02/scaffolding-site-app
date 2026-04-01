@@ -79,7 +79,7 @@ export function ExternalSiteDetailPage() {
 
   return (
     <ExternalPortalPinGate company={company} normalizedKey={normalizedKey}>
-      <div className={portalStyles.page}>
+      <div className={`${portalStyles.page} ${portalStyles.pagePortal}`}>
         {!siteId || !site || !belongs ? (
           <>
             <p className={portalStyles.muted}>この現場は見つかりませんでした。</p>
