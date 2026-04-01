@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import type { StaffMaster } from "../types/staffMaster";
+import type { StaffMaster, StaffPaidLeaveUsage } from "../types/staffMaster";
 import { ageFromBirthDate } from "../lib/ageFromBirthDate";
 import { buildLaborListRowsForPerson } from "../lib/laborListForPerson";
 import {
@@ -12,6 +12,12 @@ import {
   workMinutes,
 } from "../lib/attendanceStorage";
 import type { AttendanceRecord, AttendanceStore } from "../types/attendance";
+import {
+  birthdayLeaveRemaining,
+  buildPaidLeaveHistory,
+  computePaidLeaveBuckets,
+  nextPaidGrantInfo,
+} from "../lib/paidLeave";
 import {
   getStaffMasterById,
   updateStaffMaster,
@@ -158,6 +164,92 @@ export function StaffPersonalPage() {
   );
 
   const age = draft?.birthDate ? ageFromBirthDate(draft.birthDate) : null;
+
+  const [paidNewDate, setPaidNewDate] = useState("");
+  const [paidNewDays, setPaidNewDays] = useState("1");
+  const [birthNewDate, setBirthNewDate] = useState("");
+
+  const paidLeaveStats = useMemo(() => {
+    if (!draft?.hireDate?.trim()) return null;
+    return computePaidLeaveBuckets(draft.hireDate, draft.paidLeaveUsages ?? []);
+  }, [draft]);
+
+  const nextGrant = useMemo(() => {
+    if (!draft?.hireDate?.trim()) return null;
+    return nextPaidGrantInfo(draft.hireDate);
+  }, [draft]);
+
+  const birthdayRemain = useMemo(() => {
+    if (!draft?.birthDate?.trim() || !draft?.hireDate?.trim()) return null;
+    return birthdayLeaveRemaining(
+      draft.birthDate,
+      draft.hireDate,
+      draft.birthdayLeaveUsages ?? []
+    );
+  }, [draft]);
+
+  const paidHistory = useMemo(() => {
+    if (!draft?.hireDate?.trim()) return [];
+    return buildPaidLeaveHistory(draft.hireDate, draft.paidLeaveUsages ?? []);
+  }, [draft]);
+
+  function persistDraft(next: StaffMaster) {
+    if (!id) return;
+    updateStaffMaster(next);
+    const fresh = getStaffMasterById(id);
+    if (fresh) setDraft(cloneStaff(fresh));
+  }
+
+  function addPaidUsage() {
+    if (!draft) return;
+    const days = Math.max(0, Number(String(paidNewDays).replace(/[^\d.]/g, "")) || 0);
+    if (!paidNewDate || !/^\d{4}-\d{2}-\d{2}$/.test(paidNewDate) || days <= 0) {
+      window.alert("使用日と日数を正しく入力してください。");
+      return;
+    }
+    persistDraft({
+      ...draft,
+      paidLeaveUsages: [...(draft.paidLeaveUsages ?? []), { dateKey: paidNewDate, days }],
+    });
+    setPaidNewDate("");
+    setPaidNewDays("1");
+  }
+
+  function removePaidUsage(u: StaffPaidLeaveUsage) {
+    if (!draft) return;
+    const idx = draft.paidLeaveUsages.findIndex(
+      (x) => x.dateKey === u.dateKey && x.days === u.days
+    );
+    if (idx < 0) return;
+    persistDraft({
+      ...draft,
+      paidLeaveUsages: draft.paidLeaveUsages.filter((_, j) => j !== idx),
+    });
+  }
+
+  function addBirthdayUsage() {
+    if (!draft) return;
+    if (!birthNewDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthNewDate)) {
+      window.alert("使用日を入力してください。");
+      return;
+    }
+    persistDraft({
+      ...draft,
+      birthdayLeaveUsages: [
+        ...(draft.birthdayLeaveUsages ?? []),
+        { dateKey: birthNewDate, days: 1 },
+      ],
+    });
+    setBirthNewDate("");
+  }
+
+  function removeBirthdayUsage(index: number) {
+    if (!draft) return;
+    persistDraft({
+      ...draft,
+      birthdayLeaveUsages: draft.birthdayLeaveUsages.filter((_, j) => j !== index),
+    });
+  }
 
   function onSubmitProfile(e: FormEvent) {
     e.preventDefault();
@@ -564,6 +656,232 @@ export function StaffPersonalPage() {
           )}
         </div>
       </form>
+
+      <section className={styles.section} aria-label="有給・誕生日休暇">
+        <h2 className={styles.sectionTitle}>有給・誕生日休暇</h2>
+        {!draft.hireDate?.trim() ? (
+          <p className={styles.leaveHint}>
+            有給を表示するには、上記プロフィールの「雇入年月日（入社日）」を入力して保存してください。
+          </p>
+        ) : paidLeaveStats && !paidLeaveStats.hireValid ? (
+          <p className={styles.leaveHint}>入社日の形式が正しくありません。</p>
+        ) : (
+          <>
+            <div className={styles.leaveSummary}>
+              <div className={styles.leaveStat}>
+                <p className={styles.leaveStatLabel}>保有（現在使える有給）</p>
+                <p className={styles.leaveStatValue}>
+                  {paidLeaveStats ? `${paidLeaveStats.remainingTotal} 日` : "—"}
+                </p>
+              </div>
+              <div className={styles.leaveStat}>
+                <p className={styles.leaveStatLabel}>使用済み有給</p>
+                <p className={styles.leaveStatValue}>
+                  {paidLeaveStats ? `${paidLeaveStats.totalUsed} 日` : "—"}
+                </p>
+              </div>
+              <div className={styles.leaveStat}>
+                <p className={styles.leaveStatLabel}>残有給（期限内）</p>
+                <p className={styles.leaveStatValue}>
+                  {paidLeaveStats ? `${paidLeaveStats.remainingTotal} 日` : "—"}
+                </p>
+              </div>
+            </div>
+            {nextGrant && (
+              <p className={styles.leaveNext}>
+                次回付与の予定：{formatDateKeyJa(nextGrant.nextGrantKey)} ・{" "}
+                <strong>{nextGrant.nextDays} 日</strong>（入社日からの経過に基づく自動計算）
+              </p>
+            )}
+            {birthdayRemain !== null && draft.birthDate?.trim() && (
+              <p className={styles.leaveBirthday}>
+                誕生日休暇：残 {birthdayRemain} 日（誕生日の属する月に年1日付与。有給とは別管理）
+              </p>
+            )}
+
+            <h3 className={styles.sectionTitle} style={{ fontSize: "1rem", marginTop: "0.5rem" }}>
+              有給の使用を記録
+            </h3>
+            <p className={styles.leaveHint}>
+              取得した有給は日付と日数で登録します。保存先はスタッフマスターです。
+            </p>
+            <div className={styles.leaveAddRow}>
+              <label className={styles.field}>
+                <span className={styles.label}>使用日</span>
+                <input
+                  className={styles.input}
+                  type="date"
+                  value={paidNewDate}
+                  onChange={(e) => setPaidNewDate(e.target.value)}
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>日数</span>
+                <input
+                  className={styles.input}
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={paidNewDays}
+                  onChange={(e) => setPaidNewDays(e.target.value)}
+                />
+              </label>
+              <button type="button" className={styles.saveBtn} onClick={addPaidUsage}>
+                有給使用を追加
+              </button>
+            </div>
+            {paidLeaveStats && paidLeaveStats.sortedUsages.length > 0 && (
+              <div className={styles.leaveTableWrap}>
+                <table className={styles.leaveTable}>
+                  <thead>
+                    <tr>
+                      <th>使用日</th>
+                      <th>日数</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paidLeaveStats.sortedUsages.map((u, i) => (
+                      <tr key={`${u.dateKey}-${u.days}-${i}`}>
+                        <td>{formatDateKeyJa(u.dateKey)}</td>
+                        <td>{u.days} 日</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`${styles.btnSmall} ${styles.btnDanger}`}
+                            onClick={() => removePaidUsage(u)}
+                          >
+                            削除
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 className={styles.sectionTitle} style={{ fontSize: "1rem" }}>
+              付与単位の残日数（参考）
+            </h3>
+            <p className={styles.leaveHint}>
+              付与から2年で時効。古い付与から先に消化されます。
+            </p>
+            {paidLeaveStats && paidLeaveStats.buckets.length > 0 && (
+              <div className={styles.leaveTableWrap}>
+                <table className={styles.leaveTable}>
+                  <thead>
+                    <tr>
+                      <th>付与日</th>
+                      <th>付与日数</th>
+                      <th>失効日</th>
+                      <th>残日数</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paidLeaveStats.buckets.map((b) => (
+                      <tr key={b.grantKey}>
+                        <td>{formatDateKeyJa(b.grantKey)}</td>
+                        <td>{b.grantDays} 日</td>
+                        <td>{formatDateKeyJa(b.expireKey)}</td>
+                        <td>{b.remainingDays} 日</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 className={styles.sectionTitle} style={{ fontSize: "1rem" }}>
+              有給の履歴（付与・使用と残日数）
+            </h3>
+            {paidHistory.length === 0 ? (
+              <p className={styles.leaveHint}>まだ履歴がありません。</p>
+            ) : (
+              <div className={styles.leaveTableWrap}>
+                <table className={styles.leaveTable}>
+                  <thead>
+                    <tr>
+                      <th>日付</th>
+                      <th>内容</th>
+                      <th>付与日数 / 使用日数</th>
+                      <th>失効日</th>
+                      <th>残日数（その時点）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paidHistory.map((row, i) => (
+                      <tr key={`${row.kind}-${row.dateKey}-${i}`}>
+                        <td>{formatDateKeyJa(row.dateKey)}</td>
+                        <td>{row.kind === "grant" ? "付与" : "使用"}</td>
+                        <td>
+                          {row.kind === "grant"
+                            ? `${row.grantDays ?? 0} 日`
+                            : `${row.usageDays ?? 0} 日`}
+                        </td>
+                        <td>
+                          {row.kind === "grant" && row.expireKey
+                            ? formatDateKeyJa(row.expireKey)
+                            : "—"}
+                        </td>
+                        <td>{row.balanceAfter} 日</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 className={styles.sectionTitle} style={{ fontSize: "1rem" }}>
+              誕生日休暇の使用
+            </h3>
+            <div className={styles.leaveAddRow}>
+              <label className={styles.field}>
+                <span className={styles.label}>使用日</span>
+                <input
+                  className={styles.input}
+                  type="date"
+                  value={birthNewDate}
+                  onChange={(e) => setBirthNewDate(e.target.value)}
+                />
+              </label>
+              <button type="button" className={styles.saveBtn} onClick={addBirthdayUsage}>
+                誕生日休暇を1日使用として追加
+              </button>
+            </div>
+            {(draft.birthdayLeaveUsages ?? []).length > 0 && (
+              <div className={styles.leaveTableWrap}>
+                <table className={styles.leaveTable}>
+                  <thead>
+                    <tr>
+                      <th>使用日</th>
+                      <th>日数</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draft.birthdayLeaveUsages.map((u, i) => (
+                      <tr key={`${u.dateKey}-b-${i}`}>
+                        <td>{formatDateKeyJa(u.dateKey)}</td>
+                        <td>{u.days} 日</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`${styles.btnSmall} ${styles.btnDanger}`}
+                            onClick={() => removeBirthdayUsage(i)}
+                          >
+                            削除
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       <section className={styles.section} aria-label="勤怠一覧">
         <h2 className={styles.sectionTitle}>勤怠一覧</h2>

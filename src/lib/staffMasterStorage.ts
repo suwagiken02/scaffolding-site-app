@@ -1,7 +1,9 @@
 import type {
+  StaffBirthdayLeaveUsage,
   StaffEmergencyContact,
   StaffInsuranceProfile,
   StaffMaster,
+  StaffPaidLeaveUsage,
   StaffRole,
 } from "../types/staffMaster";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
@@ -66,6 +68,34 @@ function normalizeQualifications(x: unknown): string[] {
   return out;
 }
 
+function normalizePaidLeaveUsages(x: unknown): StaffPaidLeaveUsage[] {
+  if (!Array.isArray(x)) return [];
+  const out: StaffPaidLeaveUsage[] = [];
+  for (const r of x) {
+    if (typeof r !== "object" || r === null) continue;
+    const o = r as Record<string, unknown>;
+    const dateKey = typeof o.dateKey === "string" ? o.dateKey.trim() : "";
+    const days = typeof o.days === "number" && Number.isFinite(o.days) ? o.days : 0;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || days <= 0) continue;
+    out.push({ dateKey, days });
+  }
+  return out;
+}
+
+function normalizeBirthdayLeaveUsages(x: unknown): StaffBirthdayLeaveUsage[] {
+  if (!Array.isArray(x)) return [];
+  const out: StaffBirthdayLeaveUsage[] = [];
+  for (const r of x) {
+    if (typeof r !== "object" || r === null) continue;
+    const o = r as Record<string, unknown>;
+    const dateKey = typeof o.dateKey === "string" ? o.dateKey.trim() : "";
+    const days = typeof o.days === "number" && Number.isFinite(o.days) ? o.days : 1;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || days <= 0) continue;
+    out.push({ dateKey, days });
+  }
+  return out;
+}
+
 function normalizeRow(x: unknown): StaffMaster | null {
   if (typeof x !== "object" || x === null) return null;
   const o = x as Record<string, unknown>;
@@ -91,6 +121,8 @@ function normalizeRow(x: unknown): StaffMaster | null {
     kentaiBook: typeof o.kentaiBook === "boolean" ? o.kentaiBook : false,
     chutaiBook: typeof o.chutaiBook === "boolean" ? o.chutaiBook : false,
     qualifications: normalizeQualifications(o.qualifications),
+    paidLeaveUsages: normalizePaidLeaveUsages(o.paidLeaveUsages),
+    birthdayLeaveUsages: normalizeBirthdayLeaveUsages(o.birthdayLeaveUsages),
   };
 }
 
@@ -111,6 +143,8 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
     kentaiBook: Boolean(input.kentaiBook),
     chutaiBook: Boolean(input.chutaiBook),
     qualifications: normalizeQualifications(input.qualifications),
+    paidLeaveUsages: normalizePaidLeaveUsages(input.paidLeaveUsages),
+    birthdayLeaveUsages: normalizeBirthdayLeaveUsages(input.birthdayLeaveUsages),
   };
 }
 
@@ -127,6 +161,8 @@ function defaultStaffFields(): Omit<StaffMaster, "id" | "name" | "roles" | "atte
     kentaiBook: false,
     chutaiBook: false,
     qualifications: [],
+    paidLeaveUsages: [],
+    birthdayLeaveUsages: [],
   };
 }
 

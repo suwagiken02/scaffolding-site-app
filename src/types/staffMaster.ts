@@ -1,5 +1,8 @@
 export type StaffRole = "職長" | "子方" | "その他";
 
+export type StaffPaidLeaveUsage = { dateKey: string; days: number };
+export type StaffBirthdayLeaveUsage = { dateKey: string; days: number };
+
 export type StaffEmergencyContact = {
   name: string;
   relationship: string;
@@ -40,4 +43,8 @@ export type StaffMaster = {
   chutaiBook: boolean;
   /** 資格・免許（複数） */
   qualifications: string[];
+  /** 有給の使用記録 */
+  paidLeaveUsages: StaffPaidLeaveUsage[];
+  /** 誕生日休暇の使用記録 */
+  birthdayLeaveUsages: StaffBirthdayLeaveUsage[];
 };

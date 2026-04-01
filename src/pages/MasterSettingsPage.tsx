@@ -118,6 +118,8 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
       kentaiBook: false,
       chutaiBook: false,
       qualifications: [],
+      paidLeaveUsages: [],
+      birthdayLeaveUsages: [],
     });
     setName("");
     setRoles(new Set());
