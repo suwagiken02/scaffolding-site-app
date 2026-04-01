@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import type { Site } from "../types/site";
 import type { ExternalCompany } from "../types/externalCompany";
 import {
@@ -25,6 +25,7 @@ import {
   startDateFromEntranceDateKeys,
   updateSite,
 } from "../lib/siteStorage";
+import { externalPortalAuthStorageKey } from "../lib/externalPortalAuth";
 import {
   siteHasAnyWorkRecordRows,
   siteHasHaraiWorkRecordRows,
@@ -35,8 +36,6 @@ import formStyles from "./SiteFormPage.module.css";
 import pinStyles from "./LeaveRequestsPage.module.css";
 import siteDetailStyles from "./SiteDetailPage.module.css";
 import styles from "./ExternalSitePortalPage.module.css";
-
-const OFFICE_AUTH_PREFIX = "externalPortalAuth:";
 
 function newSiteId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -60,8 +59,79 @@ function statusBadgeClass(
   return styles.stEnded;
 }
 
-function authStorageKey(companyKey: string): string {
-  return `${OFFICE_AUTH_PREFIX}${companyKey}`;
+type ExternalSiteListSort =
+  | "entranceDesc"
+  | "entranceAsc"
+  | "name"
+  | "status";
+
+const STATUS_SORT_ORDER: Record<
+  ReturnType<typeof computeSiteStatus>,
+  number
+> = {
+  組立前: 0,
+  設置中: 1,
+  解体中: 2,
+  終了: 3,
+};
+
+/** 複数入場日があるときは最新日を代表とする。未設定時は開始日・登録日で代替。 */
+function representativeEntranceDateKey(site: Site): string {
+  const keys = normalizeEntranceDateKeys(site.entranceDateKeys);
+  if (keys.length > 0) {
+    return keys.reduce((a, b) => (a >= b ? a : b));
+  }
+  const sd = site.startDate?.trim();
+  if (sd) return sd;
+  const c = site.createdAt?.trim();
+  if (c) {
+    const d = c.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  }
+  return "";
+}
+
+function tieBreakNameId(a: Site, b: Site): number {
+  const n = a.name.localeCompare(b.name, "ja", { sensitivity: "base" });
+  if (n !== 0) return n;
+  return a.id.localeCompare(b.id);
+}
+
+function compareExternalSites(
+  a: Site,
+  b: Site,
+  sort: ExternalSiteListSort
+): number {
+  switch (sort) {
+    case "entranceDesc": {
+      const ka = representativeEntranceDateKey(a);
+      const kb = representativeEntranceDateKey(b);
+      if (!ka && !kb) return tieBreakNameId(a, b);
+      if (!ka) return 1;
+      if (!kb) return -1;
+      const c = kb.localeCompare(ka);
+      return c !== 0 ? c : tieBreakNameId(a, b);
+    }
+    case "entranceAsc": {
+      const ka = representativeEntranceDateKey(a);
+      const kb = representativeEntranceDateKey(b);
+      if (!ka && !kb) return tieBreakNameId(a, b);
+      if (!ka) return 1;
+      if (!kb) return -1;
+      const c = ka.localeCompare(kb);
+      return c !== 0 ? c : tieBreakNameId(a, b);
+    }
+    case "name":
+      return tieBreakNameId(a, b);
+    case "status": {
+      const c =
+        STATUS_SORT_ORDER[computeSiteStatus(a)] -
+        STATUS_SORT_ORDER[computeSiteStatus(b)];
+      return c !== 0 ? c : tieBreakNameId(a, b);
+    }
+    default:
+      return tieBreakNameId(a, b);
+  }
 }
 
 export function ExternalSitePortalPage() {
@@ -86,7 +156,7 @@ export function ExternalSitePortalPage() {
   const [authed, setAuthed] = useState(() => {
     if (!normalizedKey) return false;
     try {
-      return sessionStorage.getItem(authStorageKey(normalizedKey)) === "1";
+      return sessionStorage.getItem(externalPortalAuthStorageKey(normalizedKey)) === "1";
     } catch {
       return false;
     }
@@ -101,6 +171,7 @@ export function ExternalSitePortalPage() {
   const [mode, setMode] = useState<"list" | "form">("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [listTab, setListTab] = useState<"sites" | "masters">("sites");
+  const [listSort, setListSort] = useState<ExternalSiteListSort>("entranceDesc");
   const [masterRevision, setMasterRevision] = useState(0);
 
   const [deletePinSiteId, setDeletePinSiteId] = useState<string | null>(null);
@@ -137,7 +208,7 @@ export function ExternalSitePortalPage() {
   useEffect(() => {
     if (!normalizedKey) return;
     try {
-      setAuthed(sessionStorage.getItem(authStorageKey(normalizedKey)) === "1");
+      setAuthed(sessionStorage.getItem(externalPortalAuthStorageKey(normalizedKey)) === "1");
     } catch {
       setAuthed(false);
     }
@@ -146,11 +217,8 @@ export function ExternalSitePortalPage() {
   const siteTypeMasters = useMemo(() => loadSiteTypeMasters(), [revision]);
 
   const sortedSites = useMemo(
-    () =>
-      [...sites].sort((a, b) =>
-        a.name.localeCompare(b.name, "ja", { sensitivity: "base" })
-      ),
-    [sites]
+    () => [...sites].sort((a, b) => compareExternalSites(a, b, listSort)),
+    [sites, listSort]
   );
 
   if (!companyKeyParam || !normalizedKey || !company) {
@@ -226,7 +294,10 @@ export function ExternalSitePortalPage() {
                           return;
                         }
                         try {
-                          sessionStorage.setItem(authStorageKey(normalizedKey), "1");
+                          sessionStorage.setItem(
+                            externalPortalAuthStorageKey(normalizedKey),
+                            "1"
+                          );
                         } catch {
                           // ignore
                         }
@@ -302,7 +373,9 @@ export function ExternalSitePortalPage() {
             className={styles.ghostBtn}
             onClick={() => {
               try {
-                sessionStorage.removeItem(authStorageKey(normalizedKey));
+                sessionStorage.removeItem(
+                  externalPortalAuthStorageKey(normalizedKey)
+                );
               } catch {
                 // ignore
               }
@@ -344,20 +417,46 @@ export function ExternalSitePortalPage() {
       ) : sites.length === 0 ? (
         <p className={styles.empty}>まだ現場が登録されていません。</p>
       ) : (
-        <ul className={styles.list}>
+        <>
+          <div className={styles.sortRow}>
+            <label className={styles.sortLabel} htmlFor="ext-site-list-sort">
+              並び替え
+            </label>
+            <select
+              id="ext-site-list-sort"
+              className={formStyles.input}
+              value={listSort}
+              onChange={(e) =>
+                setListSort(e.target.value as ExternalSiteListSort)
+              }
+              aria-label="一覧の並び替え"
+            >
+              <option value="entranceDesc">入場日が新しい順</option>
+              <option value="entranceAsc">入場日が古い順</option>
+              <option value="name">現場名順（あいうえお順）</option>
+              <option value="status">ステータス順</option>
+            </select>
+          </div>
+          <ul className={styles.list}>
           {sortedSites.map((s) => {
             const st = computeSiteStatus(s);
             return (
               <li key={s.id} className={styles.card}>
-                <div className={styles.cardMain}>
-                  <span className={styles.siteName}>{s.name || "（無題）"}</span>
-                  <span className={styles.siteClient}>
-                    {s.clientName?.trim() || "—"}
+                <Link
+                  className={styles.cardLink}
+                  to={`/external/${normalizedKey}/site/${s.id}`}
+                  aria-label={`${s.name || "（無題）"}の詳細`}
+                >
+                  <div className={styles.cardMain}>
+                    <span className={styles.siteName}>{s.name || "（無題）"}</span>
+                    <span className={styles.siteClient}>
+                      {s.clientName?.trim() || "—"}
+                    </span>
+                  </div>
+                  <span className={`${styles.statusBadge} ${statusBadgeClass(st)}`}>
+                    {st}
                   </span>
-                </div>
-                <span className={`${styles.statusBadge} ${statusBadgeClass(st)}`}>
-                  {st}
-                </span>
+                </Link>
                 <div className={styles.cardActions}>
                   <button
                     type="button"
@@ -385,6 +484,7 @@ export function ExternalSitePortalPage() {
             );
           })}
         </ul>
+        </>
       )}
 
       {deletePinSiteId !== null && (

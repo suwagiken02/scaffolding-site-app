@@ -21,6 +21,31 @@
   color: var(--text-muted);
 }
 
+.detailHead {
+  margin-bottom: 1.25rem;
+}
+
+.detailMeta {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.detailStatusRow {
+  margin: 0.85rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.detailStatusLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
 .head {
   display: flex;
   flex-direction: column;
@@ -80,6 +105,26 @@
   text-decoration: underline;
 }
 
+.sortRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.sortLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.sortRow select {
+  flex: 1 1 14rem;
+  min-width: 0;
+  max-width: 24rem;
+}
+
 .empty {
   margin: 0;
   color: var(--text-muted);
@@ -100,10 +145,33 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem 1rem;
-  padding: 0.85rem 1rem;
+  padding: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cardLink {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  min-width: 0;
+  padding: 0.85rem 0 0.85rem 1rem;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cardLink:hover {
+  background: var(--surface-hover);
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .cardMain {
@@ -163,6 +231,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
+  padding: 0.5rem 1rem 0.5rem 0.5rem;
+  margin-left: auto;
 }
 
 .editBtn {
