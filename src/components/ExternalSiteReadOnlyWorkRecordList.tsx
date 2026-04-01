@@ -157,6 +157,7 @@ export function ExternalSiteReadOnlyWorkRecordList({
             const isOpen = expanded.has(dateKey);
             const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
             const members = memberLabel(workKind, dateKey);
+            const labor = loadDailyLaborMap(siteId, workKind)[dateKey];
 
             return (
               <li key={key} className={accStyles.accItem}>
@@ -185,7 +186,25 @@ export function ExternalSiteReadOnlyWorkRecordList({
                   <div className={accStyles.accPanel}>
                     <section className={accStyles.block} aria-label="写真一覧">
                       <h3 className={accStyles.blockTitle}>作業写真</h3>
-                      {photos.length === 0 ? (
+                      {workKind === "常用作業" ? (
+                        <p className={accStyles.muted}>
+                          常用作業では写真は使用しません。
+                          {labor?.joyoWorkStartIso && (
+                            <>
+                              {" "}
+                              開始：
+                              {formatUploadedAt(labor.joyoWorkStartIso)}
+                            </>
+                          )}
+                          {labor?.joyoWorkEndIso && (
+                            <>
+                              {" "}
+                              終了：
+                              {formatUploadedAt(labor.joyoWorkEndIso)}
+                            </>
+                          )}
+                        </p>
+                      ) : photos.length === 0 ? (
                         <p className={accStyles.muted}>
                           この日の写真はありません。
                         </p>

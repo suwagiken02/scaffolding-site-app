@@ -12,6 +12,7 @@ import {
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { WORK_KINDS, type WorkKind } from "../types/workKind";
 import { LaborSummaryBar } from "../components/LaborSummaryBar";
+import { SiteJoyoWorkSection } from "../components/SiteJoyoWorkSection";
 import { SitePhotosSection } from "../components/SitePhotosSection";
 import { SiteWorkStartModal } from "../components/SiteWorkStartModal";
 import { SiteNotificationRecipientsPanel } from "../components/SiteNotificationRecipientsPanel";
@@ -441,21 +442,54 @@ export function SiteDetailPage() {
             onStarted={(next) => {
               setWorkStartMessage(null);
               setWorkKind(next);
+              setTodayUploadKind(next);
             }}
           />
         )}
 
-        <SitePhotosSection
-          siteId={safeSite.id}
-          site={safeSite}
-          workKind={photoSectionWorkKind}
-          todayDateKey={todayKey}
-          onStorageChange={bumpFile}
-          beforeAddPhotos={beforeAddPhotos}
-          registerAddPhotosTrigger={(fn) => {
-            photoAddTriggerRef.current = fn;
-          }}
-        />
+        {todayWorkKinds.length > 1 && (
+          <div
+            className={styles.workKindTabs}
+            role="group"
+            aria-label="本日登録済みの作業種別の切り替え"
+          >
+            {todayWorkKinds.map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={
+                  todayUploadKind === k
+                    ? styles.workKindTabActive
+                    : styles.workKindTab
+                }
+                onClick={() => setTodayUploadKind(k)}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {photoSectionWorkKind === "常用作業" ? (
+          <SiteJoyoWorkSection
+            siteId={safeSite.id}
+            revision={fileRevision}
+            todayDateKey={todayKey}
+            onStorageChange={bumpFile}
+          />
+        ) : (
+          <SitePhotosSection
+            siteId={safeSite.id}
+            site={safeSite}
+            workKind={photoSectionWorkKind}
+            todayDateKey={todayKey}
+            onStorageChange={bumpFile}
+            beforeAddPhotos={beforeAddPhotos}
+            registerAddPhotosTrigger={(fn) => {
+              photoAddTriggerRef.current = fn;
+            }}
+          />
+        )}
 
         {photoAddMessage && (
           <p className={styles.workStartMessage} role="status">
@@ -553,7 +587,8 @@ export function SiteDetailPage() {
               const kumi = sumFor("組み");
               const harai = sumFor("払い");
               const sonota = sumFor("その他");
-              const grand = kumi + harai + sonota;
+              const joyo = sumFor("常用作業");
+              const grand = kumi + harai + sonota + joyo;
               return (
                 <div className={styles.trafficGrid}>
                   <div className={styles.trafficItem}>
@@ -572,6 +607,12 @@ export function SiteDetailPage() {
                     <span className={styles.trafficLabel}>その他の交通費合計</span>
                     <span className={styles.trafficAmount}>
                       {formatYen(sonota)}
+                    </span>
+                  </div>
+                  <div className={styles.trafficItem}>
+                    <span className={styles.trafficLabel}>常用作業の交通費合計</span>
+                    <span className={styles.trafficAmount}>
+                      {formatYen(joyo)}
                     </span>
                   </div>
                   <div className={`${styles.trafficItem} ${styles.trafficTotal}`}>

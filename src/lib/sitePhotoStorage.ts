@@ -4,6 +4,10 @@ import { PHOTO_CATEGORIES } from "../types/sitePhoto";
 import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
 import { isoToLocalDateKey } from "./dateUtils";
+import {
+  joyoLaborCompletedOnDate,
+  joyoLaborInProgressOnDate,
+} from "./siteDailyLaborStorage";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
 const KEY_V1 = "scaffolding-site-photos-v1";
@@ -27,7 +31,7 @@ export type SitePhotoStoreV2 = Record<
 type PhotoMapV1 = Record<string, SitePhoto[]>;
 
 function emptySiteBucket(): Record<WorkKind, Record<string, SitePhoto[]>> {
-  return { 組み: {}, 払い: {}, その他: {} };
+  return { 組み: {}, 払い: {}, その他: {}, 常用作業: {} };
 }
 
 function readRawV1(): unknown {
@@ -122,7 +126,8 @@ function migrateV1ToV2(data: unknown): SitePhotoStoreV2 {
     if (
       Object.keys(bucket["組み"]).length > 0 ||
       Object.keys(bucket["払い"]).length > 0 ||
-      Object.keys(bucket["その他"]).length > 0
+      Object.keys(bucket["その他"]).length > 0 ||
+      Object.keys(bucket["常用作業"]).length > 0
     ) {
       out[siteId] = bucket;
     }
@@ -298,7 +303,9 @@ export function getTodayMapPinKind(
   todayKey: string
 ): TodayMapPinKind {
   if (siteHasEndPhotoOnDate(siteId, todayKey)) return "finished";
+  if (joyoLaborCompletedOnDate(siteId, todayKey)) return "finished";
   if (siteHasEntryPhotoOnDate(siteId, todayKey)) return "in_progress";
+  if (joyoLaborInProgressOnDate(siteId, todayKey)) return "in_progress";
   return "not_started";
 }
 

@@ -56,6 +56,20 @@ function formatIsoMaybe(iso: string | null): string {
   return formatUploadedAt(iso);
 }
 
+function mainMemberTimesForWorkRecord(
+  workKind: WorkKind,
+  photos: SitePhoto[],
+  labor: SiteDailyLaborRecord | undefined
+): { entryIso: string | null; endIso: string | null } {
+  if (workKind === "常用作業" && labor) {
+    return {
+      entryIso: labor.joyoWorkStartIso ?? null,
+      endIso: labor.joyoWorkEndIso ?? null,
+    };
+  }
+  return mainMemberWorkTimesFromPhotos(photos);
+}
+
 function joinList(items: string[]): string {
   if (items.length === 0) return "—";
   return items.join("、");
@@ -132,7 +146,7 @@ export function SiteWorkDateAccordions({
           const labor = laborByDate[dateKey];
           const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
           const { entryIso: mainEntryIso, endIso: mainEndIso } =
-            mainMemberWorkTimesFromPhotos(photos);
+            mainMemberTimesForWorkRecord(workKind, photos, labor);
           const manLabel = labor ? formatManDay(labor.finalManDays) : "—";
 
           const recordMemberNames =
@@ -212,6 +226,15 @@ export function SiteWorkDateAccordions({
                             <dt>最終人工</dt>
                             <dd>{formatManDay(labor.finalManDays)}人工</dd>
                           </div>
+                          {workKind === "常用作業" &&
+                            labor.joyoManDaysPerPerson != null && (
+                              <div className={styles.laborRow}>
+                                <dt>常用（1人あたり人工）</dt>
+                                <dd>
+                                  {formatManDay(labor.joyoManDaysPerPerson)}人工
+                                </dd>
+                              </div>
+                            )}
                           <div className={styles.laborRow}>
                             <dt>手伝い班</dt>
                             <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
@@ -251,7 +274,11 @@ export function SiteWorkDateAccordions({
 
                   <section className={styles.block} aria-label="写真一覧">
                     <h3 className={styles.blockTitle}>写真</h3>
-                    {photos.length === 0 ? (
+                    {workKind === "常用作業" ? (
+                      <p className={styles.muted}>
+                        常用作業では写真は使用しません。現場ページの打刻で開始・終了を記録します。
+                      </p>
+                    ) : photos.length === 0 ? (
                       <p className={styles.muted}>この日の写真はありません。</p>
                     ) : (
                       <ul className={photoStyles.photoGrid}>

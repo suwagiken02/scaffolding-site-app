@@ -27,4 +27,10 @@ export type SiteDailyLaborRecord = {
   /** HH:mm（24時間表記）、手伝いなしのときは null */
   helpStartTime: string | null;
   helpEndTime: string | null;
+
+  /** 常用作業のみ：打刻した作業開始・終了（ISO 8601） */
+  joyoWorkStartIso?: string | null;
+  joyoWorkEndIso?: string | null;
+  /** 常用作業のみ：時間帯から算出した 1 人あたり人工（0.5 または 1） */
+  joyoManDaysPerPerson?: number | null;
 };

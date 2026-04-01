@@ -33,6 +33,10 @@ export function LaborSummaryBar({ siteId, revision }: Props) {
         <span className={styles.label}>その他人工</span>
         <span className={styles.value}>{fmt(s.sonota)} 人工</span>
       </div>
+      <div className={styles.item}>
+        <span className={styles.label}>常用作業人工</span>
+        <span className={styles.value}>{fmt(s.joyo)} 人工</span>
+      </div>
       <div className={`${styles.item} ${styles.total}`}>
         <span className={styles.label}>総人工</span>
         <span className={styles.value}>{fmt(s.total)} 人工</span>

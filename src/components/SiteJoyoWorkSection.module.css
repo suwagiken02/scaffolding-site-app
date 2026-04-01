@@ -1,0 +1,103 @@
+.section {
+  margin-top: 2rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.sectionHead {
+  margin-bottom: 1rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.lead {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.times {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.times dl {
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.times dl:first-of-type {
+  margin-top: 0;
+}
+
+.times dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.times dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.btnStart,
+.btnEnd {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.btnStart {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btnStart:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btnEnd {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btnEnd:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.btnStart:disabled,
+.btnEnd:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}

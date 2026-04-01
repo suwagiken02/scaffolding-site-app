@@ -82,6 +82,28 @@ function normalizeRecord(x: unknown): SiteDailyLaborRecord | null {
         ? o.helpEndTime
         : null;
 
+  const joyoWorkStartIso =
+    o.joyoWorkStartIso === null || o.joyoWorkStartIso === undefined
+      ? null
+      : typeof o.joyoWorkStartIso === "string"
+        ? o.joyoWorkStartIso
+        : null;
+
+  const joyoWorkEndIso =
+    o.joyoWorkEndIso === null || o.joyoWorkEndIso === undefined
+      ? null
+      : typeof o.joyoWorkEndIso === "string"
+        ? o.joyoWorkEndIso
+        : null;
+
+  const joyoManDaysPerPerson =
+    o.joyoManDaysPerPerson === null || o.joyoManDaysPerPerson === undefined
+      ? null
+      : typeof o.joyoManDaysPerPerson === "number" &&
+          Number.isFinite(o.joyoManDaysPerPerson)
+        ? o.joyoManDaysPerPerson
+        : null;
+
   const employmentKind =
     o.employmentKind === "請負" || o.employmentKind === "社員"
       ? o.employmentKind
@@ -111,6 +133,9 @@ function normalizeRecord(x: unknown): SiteDailyLaborRecord | null {
     helpMemberNames,
     helpStartTime,
     helpEndTime,
+    joyoWorkStartIso,
+    joyoWorkEndIso,
+    joyoManDaysPerPerson,
   };
 }
 
@@ -274,10 +299,30 @@ export type SiteLaborSummary = {
   kake: number;
   harai: number;
   sonota: number;
+  /** 常用作業の合計 */
+  joyo: number;
   total: number;
 };
 
 /** 全作業種別の日付キーのうち最も新しいもの（作業記録が無ければ null） */
+/** 常用作業で終了打刻まで済んでいるか（地図ピン等） */
+export function joyoLaborCompletedOnDate(
+  siteId: string,
+  dateKey: string
+): boolean {
+  const r = loadDailyLaborMap(siteId, "常用作業")[dateKey];
+  return Boolean(r?.joyoWorkEndIso);
+}
+
+/** 常用作業で開始済み・未終了か */
+export function joyoLaborInProgressOnDate(
+  siteId: string,
+  dateKey: string
+): boolean {
+  const r = loadDailyLaborMap(siteId, "常用作業")[dateKey];
+  return Boolean(r?.joyoWorkStartIso && !r?.joyoWorkEndIso);
+}
+
 export function getLatestLaborDateKeyAcrossKinds(siteId: string): string | null {
   let best = "";
   for (const k of WORK_KINDS) {
@@ -295,6 +340,7 @@ export function getSiteLaborSummary(siteId: string): SiteLaborSummary {
   let kake = 0;
   let harai = 0;
   let sonota = 0;
+  let joyo = 0;
   if (site) {
     for (const r of Object.values(site["組み"] ?? {})) {
       if (typeof r.finalManDays === "number") kake += r.finalManDays;
@@ -305,15 +351,20 @@ export function getSiteLaborSummary(siteId: string): SiteLaborSummary {
     for (const r of Object.values(site["その他"] ?? {})) {
       if (typeof r.finalManDays === "number") sonota += r.finalManDays;
     }
+    for (const r of Object.values(site["常用作業"] ?? {})) {
+      if (typeof r.finalManDays === "number") joyo += r.finalManDays;
+    }
   }
   const round1 = (n: number) => Math.round(n * 10) / 10;
   kake = round1(kake);
   harai = round1(harai);
   sonota = round1(sonota);
+  joyo = round1(joyo);
   return {
     kake,
     harai,
     sonota,
-    total: round1(kake + harai + sonota),
+    joyo,
+    total: round1(kake + harai + sonota + joyo),
   };
 }

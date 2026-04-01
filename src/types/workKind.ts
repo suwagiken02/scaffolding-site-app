@@ -1,4 +1,4 @@
-export const WORK_KINDS = ["組み", "払い", "その他"] as const;
+export const WORK_KINDS = ["組み", "払い", "その他", "常用作業"] as const;
 
 export type WorkKind = (typeof WORK_KINDS)[number];
 

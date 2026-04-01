@@ -78,6 +78,20 @@ function formatIsoMaybe(iso: string | null): string {
   return formatUploadedAt(iso);
 }
 
+function mainMemberTimesForWorkRecord(
+  workKind: WorkKind,
+  photos: SitePhoto[],
+  labor: SiteDailyLaborRecord | undefined
+): { entryIso: string | null; endIso: string | null } {
+  if (workKind === "常用作業" && labor) {
+    return {
+      entryIso: labor.joyoWorkStartIso ?? null,
+      endIso: labor.joyoWorkEndIso ?? null,
+    };
+  }
+  return mainMemberWorkTimesFromPhotos(photos);
+}
+
 export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Props) {
   const today = useMemo(() => todayLocalDateKey(), []);
   const [filter, setFilter] = useState<Filter>("all");
@@ -203,7 +217,7 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
             const labor = loadDailyLaborMap(siteId, workKind)[dateKey];
             const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
             const { entryIso: mainEntryIso, endIso: mainEndIso } =
-              mainMemberWorkTimesFromPhotos(photos);
+              mainMemberTimesForWorkRecord(workKind, photos, labor);
             const manLabel = labor ? formatManDay(labor.finalManDays) : "—";
 
             const recordMemberNames =
@@ -309,6 +323,15 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                               <dt>最終人工</dt>
                               <dd>{formatManDay(labor.finalManDays)}人工</dd>
                             </div>
+                            {workKind === "常用作業" &&
+                              labor.joyoManDaysPerPerson != null && (
+                                <div className={accStyles.laborRow}>
+                                  <dt>常用（1人あたり人工）</dt>
+                                  <dd>
+                                    {formatManDay(labor.joyoManDaysPerPerson)}人工
+                                  </dd>
+                                </div>
+                              )}
                             <div className={accStyles.laborRow}>
                               <dt>手伝い班</dt>
                               <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
@@ -350,7 +373,11 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
 
                     <section className={accStyles.block} aria-label="写真一覧">
                       <h3 className={accStyles.blockTitle}>写真</h3>
-                      {photos.length === 0 ? (
+                      {workKind === "常用作業" ? (
+                        <p className={accStyles.muted}>
+                          常用作業では写真は使用しません。現場ページの打刻で開始・終了を記録します。
+                        </p>
+                      ) : photos.length === 0 ? (
                         <p className={accStyles.muted}>この日の写真はありません。</p>
                       ) : (
                         <ul className={photoStyles.photoGrid}>
