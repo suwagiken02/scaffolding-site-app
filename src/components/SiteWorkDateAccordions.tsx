@@ -3,7 +3,6 @@ import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import { type SitePhoto, sitePhotoDisplaySrc } from "../types/sitePhoto";
-import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   loadPhotosForSiteWorkDate,
   mainMemberWorkTimesFromPhotos,
@@ -89,20 +88,15 @@ export function SiteWorkDateAccordions({
   revision,
   onInvalidate,
 }: Props) {
-  const today = todayLocalDateKey();
-  const [expanded, setExpanded] = useState(() => new Set<string>([today]));
+  const [expanded, setExpanded] = useState(() => new Set<string>());
   const [laborConfirm, setLaborConfirm] = useState<SiteDailyLaborRecord | null>(
     null
   );
 
+  /** 作業種別タブ切り替え時はすべて閉じた状態から */
   useEffect(() => {
-    setExpanded((prev) => new Set([...prev, todayLocalDateKey()]));
+    setExpanded(new Set());
   }, [workKind]);
-
-  useEffect(() => {
-    // 記録作成（開始）直後に今日の行をデフォルト展開に戻す
-    setExpanded((prev) => new Set([...prev, todayLocalDateKey()]));
-  }, [revision]);
 
   const dateKeys = useMemo(() => {
     const pk = listPhotoDateKeysForSiteWork(siteId, workKind);
