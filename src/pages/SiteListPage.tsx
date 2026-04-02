@@ -243,23 +243,43 @@ export function SiteListPage() {
           ) : (
             <>
               <div className={styles.listToolbar}>
-                <label className={styles.toolbarField}>
-                  <span className={styles.toolbarLabel}>並び替え</span>
-                  <select
-                    className={styles.sortSelect}
-                    value={sortBy}
-                    onChange={(e) =>
-                      setSortBy(e.target.value as SortOption)
-                    }
-                    aria-label="一覧の並び替え"
-                  >
-                    {SORT_CHOICES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className={styles.toolbarSortStatusGroup}>
+                  <label className={styles.toolbarField}>
+                    <span className={styles.toolbarLabel}>並び替え</span>
+                    <select
+                      className={styles.sortSelect}
+                      value={sortBy}
+                      onChange={(e) =>
+                        setSortBy(e.target.value as SortOption)
+                      }
+                      aria-label="一覧の並び替え"
+                    >
+                      {SORT_CHOICES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={styles.toolbarField}>
+                    <span className={styles.toolbarLabel}>ステータス</span>
+                    <select
+                      className={styles.sortSelect}
+                      value={statusFilter}
+                      onChange={(e) =>
+                        setStatusFilter(e.target.value as StatusFilter)
+                      }
+                      aria-label="ステータスで絞り込み"
+                    >
+                      <option value="all">すべて</option>
+                      <option value="入場前">入場前</option>
+                      <option value="組立中">組立中</option>
+                      <option value="設置中">設置中</option>
+                      <option value="解体中">解体中</option>
+                      <option value="撤去済">撤去済</option>
+                    </select>
+                  </label>
+                </div>
                 <label className={styles.toolbarFieldGrow}>
                   <span className={styles.toolbarLabel}>検索</span>
                   <input
@@ -288,40 +308,6 @@ export function SiteListPage() {
                     ))}
                   </select>
                 </label>
-                <div className={styles.toolbarField}>
-                  <span className={styles.toolbarLabel}>ステータス</span>
-                  <div
-                    className={styles.statusFilters}
-                    role="radiogroup"
-                    aria-label="ステータスで絞り込み"
-                  >
-                    {(
-                      [
-                        { value: "all", label: "すべて" },
-                        { value: "入場前", label: "入場前" },
-                        { value: "組立中", label: "組立中" },
-                        { value: "設置中", label: "設置中" },
-                        { value: "解体中", label: "解体中" },
-                        { value: "撤去済", label: "撤去済" },
-                      ] as const
-                    ).map((x) => (
-                      <button
-                        key={x.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={statusFilter === x.value}
-                        className={
-                          statusFilter === x.value
-                            ? styles.statusFilterBtnActive
-                            : styles.statusFilterBtn
-                        }
-                        onClick={() => setStatusFilter(x.value)}
-                      >
-                        {x.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               {listForDisplay.length === 0 ? (

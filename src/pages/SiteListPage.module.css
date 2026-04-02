@@ -109,49 +109,31 @@
   min-width: min(100%, 12rem);
 }
 
+/** 並び替え・ステータスを横並び（狭い画面では縦積み） */
+.toolbarSortStatusGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem 1.25rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.toolbarSortStatusGroup > .toolbarField {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.toolbarSortStatusGroup .sortSelect {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
 .toolbarLabel {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted);
-}
-
-.statusFilters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
-}
-
-.statusFilterBtn,
-.statusFilterBtnActive {
-  appearance: none;
-  font-family: inherit;
-  font-size: 0.86rem;
-  font-weight: 700;
-  padding: 0.45rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.statusFilterBtn:hover {
-  color: var(--text);
-  background: var(--surface-hover);
-}
-
-.statusFilterBtnActive {
-  color: #fff;
-  background: var(--accent);
-  border-color: var(--accent);
-  cursor: default;
-}
-
-.statusFilterBtnActive:hover {
-  color: #fff;
-  background: var(--accent-hover);
 }
 
 .sortSelect {
@@ -168,6 +150,21 @@
 .sortSelect:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+@media (max-width: 520px) {
+  .toolbarSortStatusGroup {
+    flex-direction: column;
+    align-items: stretch;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .toolbarSortStatusGroup > .toolbarField {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 .searchInput {
