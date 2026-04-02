@@ -117,6 +117,43 @@
   font-weight: 900;
 }
 
+.dateHeader {
+  margin: 0 0 1.25rem;
+}
+
+.dateHeaderTitle {
+  margin: 0 0 0.5rem;
+  font-size: 2.1rem;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.dateReloadBtn {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 900;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  border: 2px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.dateReloadBtn:hover {
+  filter: brightness(1.05);
+}
+
+.dateReloadBtn:active {
+  transform: translateY(1px);
+}
+
 .lead {
   margin: 0 0 1.25rem;
   color: var(--text-muted);

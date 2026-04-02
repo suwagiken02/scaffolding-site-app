@@ -96,8 +96,24 @@ function normalizeHHmmOrNull(raw: string): string | null {
   return `${pad2(hh)}:${pad2(mm)}`;
 }
 
+function formatTodayJp(dateKey: string): string {
+  const parts = dateKey.split("-");
+  if (parts.length !== 3) return `${dateKey}の打刻`;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return `${dateKey}の打刻`;
+  }
+  const dt = new Date(y, m - 1, d);
+  const wday = ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
+  return `${y}年${m}月${d}日（${wday}）の打刻`;
+}
+
 export function AttendancePage() {
-  const [todayKey, setTodayKey] = useState(() => todayLocalDateKey());
+  /** ページ読み込み時の日付（日付またぎでずれたらリロードで再取得） */
+  const [todayKey] = useState(() => todayLocalDateKey());
+  const [dateNeedsReload, setDateNeedsReload] = useState(false);
   const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -162,22 +178,21 @@ export function AttendancePage() {
   deleteConfirmRef.current = deleteConfirm;
   deletePinOpenRef.current = deletePinOpen;
 
-  /** 日付が変わったら表示用キーを更新（サーバー上の「本日」判定と一致させる） */
+  /** 表示中の日付と実際の「今日」がずれたら「更新する」表示（1分ごと・フォーカス時も確認） */
   useEffect(() => {
-    function syncTodayKey() {
-      const next = todayLocalDateKey();
-      setTodayKey((prev) => (prev === next ? prev : next));
+    function checkStale() {
+      setDateNeedsReload(todayLocalDateKey() !== todayKey);
     }
-    syncTodayKey();
-    const intervalId = window.setInterval(syncTodayKey, TODAY_ROLLOVER_CHECK_MS);
-    document.addEventListener("visibilitychange", syncTodayKey);
-    window.addEventListener("focus", syncTodayKey);
+    checkStale();
+    const intervalId = window.setInterval(checkStale, TODAY_ROLLOVER_CHECK_MS);
+    document.addEventListener("visibilitychange", checkStale);
+    window.addEventListener("focus", checkStale);
     return () => {
       window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", syncTodayKey);
-      window.removeEventListener("focus", syncTodayKey);
+      document.removeEventListener("visibilitychange", checkStale);
+      window.removeEventListener("focus", checkStale);
     };
-  }, []);
+  }, [todayKey]);
 
   useEffect(() => {
     setConfirm(null);
@@ -405,8 +420,18 @@ export function AttendancePage() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>打刻</h1>
-      <p className={styles.lead}>本日（{todayKey.replaceAll("-", "/")}）の出勤・退勤を打刻します。</p>
+      <header className={styles.dateHeader}>
+        <h1 className={styles.dateHeaderTitle}>{formatTodayJp(todayKey)}</h1>
+        {dateNeedsReload && (
+          <button
+            type="button"
+            className={styles.dateReloadBtn}
+            onClick={() => window.location.reload()}
+          >
+            更新する
+          </button>
+        )}
+      </header>
 
       {attLoadError && (
         <p className={styles.empty} role="alert">
@@ -431,7 +456,7 @@ export function AttendancePage() {
                 type="button"
                 className={styles.personBtn}
                 onClick={() => {
-                  const dk = todayLocalDateKey();
+                  const dk = todayKey;
                   const rec = getAttendanceRecord(attStore, name, dk);
                   setConfirm({ personName: name, kind: nextPunchKind(rec) });
                 }}
@@ -618,7 +643,7 @@ export function AttendancePage() {
                     void (async () => {
                       punchBusyRef.current = true;
                       try {
-                        const dateKey = todayLocalDateKey();
+                        const dateKey = todayKey;
                         const res = await punchAttendance(
                           personName,
                           dateKey,
@@ -825,7 +850,7 @@ export function AttendancePage() {
                   void (async () => {
                     punchBusyRef.current = true;
                     try {
-                      const dateKey = todayLocalDateKey();
+                      const dateKey = todayKey;
                       const res = await punchAttendance(
                         personName,
                         dateKey,
