@@ -162,6 +162,31 @@ export async function readNotificationRecipientFcmTokens(dataDir) {
 }
 
 /**
+ * スタッフマスターに保存された fcmToken をすべて（isAdmin 問わず）
+ * @param {string} dataDir
+ * @returns {Promise<string[]>}
+ */
+export async function readAllStaffFcmTokensFromStaffMaster(dataDir) {
+  const p = join(dataDir, STAFF_MASTER_FILE);
+  try {
+    if (!existsSync(p)) return [];
+    const raw = await readFile(p, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const tokens = [];
+    for (const row of parsed) {
+      if (!row || typeof row !== "object") continue;
+      const ft = row.fcmToken;
+      if (typeof ft === "string" && ft.trim().length > 0) tokens.push(ft.trim());
+    }
+    return [...new Set(tokens)];
+  } catch (e) {
+    console.error("[server] readAllStaffFcmTokensFromStaffMaster", e);
+    return [];
+  }
+}
+
+/**
  * スタッフマスターで isAdmin: true かつ fcmToken がある端末へ（管理者向け）
  * @param {string} dataDir
  * @returns {Promise<string[]>}
@@ -226,6 +251,7 @@ export async function sendFcmToTokens(tokens, title, body) {
 
 /**
  * 登録済みの全トークンへ（全スタッフ）
+ * fcm-tokens.json と master-staff-v1.json の fcmToken をマージし、重複は1回だけ送信
  * @param {string} dataDir
  * @param {string} title
  * @param {string} body
@@ -233,7 +259,9 @@ export async function sendFcmToTokens(tokens, title, body) {
 export async function notifyAllStaff(dataDir, title, body) {
   if (!appsReady()) return;
   const store = await readFcmTokensStore(dataDir);
-  const tokens = collectAllTokensFromStore(store);
+  const fromTokenFile = collectAllTokensFromStore(store);
+  const fromStaffMaster = await readAllStaffFcmTokensFromStaffMaster(dataDir);
+  const tokens = [...new Set([...fromTokenFile, ...fromStaffMaster])];
   if (tokens.length === 0) {
     console.warn("[server] FCM notifyAllStaff: no tokens");
     return;
