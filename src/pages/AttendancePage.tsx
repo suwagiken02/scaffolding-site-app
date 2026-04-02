@@ -18,8 +18,6 @@ const PIN_DEFAULT = "1234";
 const AUTH_KEY = "attendancePinAuthed";
 /** タブレット常時表示向け：打刻画面の定期リフレッシュ間隔 */
 const ATTENDANCE_AUTO_RELOAD_MS = 60 * 60 * 1000;
-/** 日付またぎ検知（本日の表示・サーバー再取得用） */
-const TODAY_ROLLOVER_CHECK_MS = 60 * 1000;
 
 type ConfirmState = {
   personName: string;
@@ -113,7 +111,6 @@ function formatTodayJp(dateKey: string): string {
 export function AttendancePage() {
   /** ページ読み込み時の日付（日付またぎでずれたらリロードで再取得） */
   const [todayKey] = useState(() => todayLocalDateKey());
-  const [dateNeedsReload, setDateNeedsReload] = useState(false);
   const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -177,22 +174,6 @@ export function AttendancePage() {
   doneMessageRef.current = doneMessage;
   deleteConfirmRef.current = deleteConfirm;
   deletePinOpenRef.current = deletePinOpen;
-
-  /** 表示中の日付と実際の「今日」がずれたら「更新する」表示（1分ごと・フォーカス時も確認） */
-  useEffect(() => {
-    function checkStale() {
-      setDateNeedsReload(todayLocalDateKey() !== todayKey);
-    }
-    checkStale();
-    const intervalId = window.setInterval(checkStale, TODAY_ROLLOVER_CHECK_MS);
-    document.addEventListener("visibilitychange", checkStale);
-    window.addEventListener("focus", checkStale);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", checkStale);
-      window.removeEventListener("focus", checkStale);
-    };
-  }, [todayKey]);
 
   useEffect(() => {
     setConfirm(null);
@@ -422,15 +403,13 @@ export function AttendancePage() {
     <div className={styles.page}>
       <header className={styles.dateHeader}>
         <h1 className={styles.dateHeaderTitle}>{formatTodayJp(todayKey)}</h1>
-        {dateNeedsReload && (
-          <button
-            type="button"
-            className={styles.dateReloadBtn}
-            onClick={() => window.location.reload()}
-          >
-            更新する
-          </button>
-        )}
+        <button
+          type="button"
+          className={styles.dateReloadBtn}
+          onClick={() => window.location.reload()}
+        >
+          更新する
+        </button>
       </header>
 
       {attLoadError && (
