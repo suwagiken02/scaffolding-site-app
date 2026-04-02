@@ -294,18 +294,16 @@ export function KouseiPage() {
                           : siteListStyles.statusEnded;
                 return (
                   <li key={site.id} className={siteListStyles.cardItem}>
-                    <div className={siteListStyles.cardRow}>
-                      <Link
-                        to={`/sites/${site.id}`}
-                        className={siteListStyles.cardRowLink}
-                      >
-                        <span className={siteListStyles.siteName}>
-                          {site.name || "（現場名未設定）"}
-                        </span>
-                        <span className={siteListStyles.siteClient}>
-                          {site.clientName?.trim() || "—"}
-                        </span>
-                      </Link>
+                    <Link
+                      to={`/sites/${site.id}`}
+                      className={siteListStyles.cardRow}
+                    >
+                      <span className={siteListStyles.siteName}>
+                        {site.name || "（現場名未設定）"}
+                      </span>
+                      <span className={siteListStyles.siteClient}>
+                        {site.clientName?.trim() || "—"}
+                      </span>
                       <div className={siteListStyles.cardRowRight}>
                         <span
                           className={`${siteListStyles.statusBadge} ${badgeClass}`}
@@ -314,7 +312,7 @@ export function KouseiPage() {
                           {status}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   </li>
                 );
               })}

@@ -216,32 +216,21 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.7rem 0.95rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: inherit;
+  text-decoration: none;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .cardRow:hover {
   border-color: var(--accent);
   background: var(--surface-hover);
-}
-
-.cardRowLink {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  gap: 0.5rem 0.65rem;
-  color: inherit;
-  text-decoration: none;
-}
-
-.cardRowLink:hover {
   color: inherit;
   text-decoration: none;
 }
@@ -281,12 +270,8 @@
 
 @media (max-width: 520px) {
   .cardRow {
-    gap: 0.45rem;
-    padding: 0.5rem 0.6rem;
-  }
-
-  .cardRowLink {
     gap: 0.4rem 0.45rem;
+    padding: 0.5rem 0.6rem;
   }
 
   .siteName {

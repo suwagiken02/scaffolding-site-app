@@ -389,18 +389,16 @@ export function SiteListPage() {
                           : styles.statusEnded;
                 return (
                   <li key={site.id} className={styles.cardItem}>
-                    <div className={styles.cardRow}>
-                      <Link
-                        to={`/sites/${site.id}`}
-                        className={styles.cardRowLink}
-                      >
-                        <span className={styles.siteName}>
-                          {site.name || "（現場名未設定）"}
-                        </span>
-                        <span className={styles.siteClient}>
-                          {site.clientName?.trim() || "—"}
-                        </span>
-                      </Link>
+                    <Link
+                      to={`/sites/${site.id}`}
+                      className={styles.cardRow}
+                    >
+                      <span className={styles.siteName}>
+                        {site.name || "（現場名未設定）"}
+                      </span>
+                      <span className={styles.siteClient}>
+                        {site.clientName?.trim() || "—"}
+                      </span>
                       <div className={styles.cardRowRight}>
                         {needsWarn && (
                           <span
@@ -430,7 +428,7 @@ export function SiteListPage() {
                           {status}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   </li>
                 );
               })}
