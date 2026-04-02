@@ -9,6 +9,141 @@
   border-bottom: 1px solid var(--border);
 }
 
+.headerTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.headerTitleRow .title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.detailStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: clamp(0.65rem, 2vw, 0.82rem);
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.detailStatusPre {
+  background: rgba(14, 165, 233, 0.15);
+  color: #0369a1;
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+.detailStatusAssembly {
+  background: rgba(139, 92, 246, 0.16);
+  color: #5b21b6;
+  border-color: rgba(139, 92, 246, 0.38);
+}
+
+.detailStatusActive {
+  background: rgba(34, 197, 94, 0.15);
+  color: #166534;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.detailStatusDismantle {
+  background: rgba(249, 115, 22, 0.18);
+  color: #9a3412;
+  border-color: rgba(249, 115, 22, 0.38);
+}
+
+.detailStatusEnded {
+  background: rgba(148, 163, 184, 0.25);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.statusChangeBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.statusChangeBtn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.statusSelectLead {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.statusOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+}
+
+.statusOptionBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.statusOptionBtn:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.statusSelectFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  justify-content: flex-start;
+}
+
+.statusRevertBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.statusRevertBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .tabs {
   display: flex;
   gap: 0;

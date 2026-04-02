@@ -47,6 +47,13 @@ export type Site = {
   externalCompanyKey?: string;
   /** 外部登録元の会社表示名 */
   externalCompanyName?: string;
+  /** 一覧ステータスの手動上書き。未設定時は自動判定 */
+  manualDisplayStatus?:
+    | "入場前"
+    | "組立中"
+    | "設置中"
+    | "解体中"
+    | "撤去済";
 };
 
 /** 旧形式（移行用） */

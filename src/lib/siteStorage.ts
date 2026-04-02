@@ -160,6 +160,15 @@ function normalizeSite(x: unknown): Site | null {
         : "";
     const externalCompanyName =
       typeof o.externalCompanyName === "string" ? o.externalCompanyName.trim() : "";
+    const manualRaw = o.manualDisplayStatus;
+    const manualDisplayStatus =
+      manualRaw === "入場前" ||
+      manualRaw === "組立中" ||
+      manualRaw === "設置中" ||
+      manualRaw === "解体中" ||
+      manualRaw === "撤去済"
+        ? manualRaw
+        : undefined;
     return {
       id: o.id as string,
       name: o.name as string,
@@ -185,6 +194,7 @@ function normalizeSite(x: unknown): Site | null {
         : {}),
       ...(externalCompanyKey ? { externalCompanyKey } : {}),
       ...(externalCompanyName ? { externalCompanyName } : {}),
+      ...(manualDisplayStatus ? { manualDisplayStatus } : {}),
     };
   }
   return migrateLegacyRow(o);

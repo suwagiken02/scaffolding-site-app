@@ -262,6 +262,9 @@ export function SiteEditorForm({
         : initialSite?.ignoreSiteListWarning === true
           ? true
           : undefined,
+      ...(initialSite?.manualDisplayStatus
+        ? { manualDisplayStatus: initialSite.manualDisplayStatus }
+        : {}),
     };
 
     onSubmit(site);

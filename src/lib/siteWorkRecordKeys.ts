@@ -20,6 +20,16 @@ export function siteHasAnyWorkRecordRows(siteId: string): boolean {
   return WORK_KINDS.some((k) => dateKeysForSiteWorkKind(siteId, k).length > 0);
 }
 
+/** 指定日にいずれかの作業種別で作業記録（労務または写真）があるか */
+export function siteHasAnyWorkRecordOnDate(
+  siteId: string,
+  dateKey: string
+): boolean {
+  return WORK_KINDS.some((k) =>
+    dateKeysForSiteWorkKind(siteId, k).includes(dateKey)
+  );
+}
+
 /** 払いの作業記録が1件以上あるか（現場ステータス「設置中」判定用） */
 export function siteHasHaraiWorkRecordRows(siteId: string): boolean {
   return dateKeysForSiteWorkKind(siteId, "払い").length > 0;

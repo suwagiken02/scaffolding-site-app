@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Site } from "../types/site";
-import { loadSites } from "../lib/siteStorage";
+import { loadSites, normalizeEntranceDateKeys } from "../lib/siteStorage";
 import { SiteMapView } from "../components/SiteMapView";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
-import { computeSiteDisplayStatus } from "../lib/siteStatus";
+import { getEffectiveSiteDisplayStatus } from "../lib/siteStatus";
+import { siteHasAnyWorkRecordOnDate } from "../lib/siteWorkRecordKeys";
+import { todayLocalDateKey, tomorrowLocalDateKey } from "../lib/dateUtils";
 import { siteNeedsRemovalFollowUpWarning } from "../lib/siteRemovalFollowUpWarning";
 import { WORK_KINDS } from "../types/workKind";
 import { loadContractorMasters } from "../lib/contractorMasterStorage";
 import styles from "./SiteListPage.module.css";
 
-type Tab = "list" | "map";
+/** 今日・明日・一覧はリスト表示、地図はマップ */
+type MainTab = "today" | "tomorrow" | "full" | "map";
 
 type SortOption =
   | "start_desc"
@@ -93,12 +96,26 @@ type SiteStatus =
 type StatusFilter = "all" | SiteStatus;
 
 function computeSiteStatus(site: Site): SiteStatus {
-  return computeSiteDisplayStatus(site);
+  return getEffectiveSiteDisplayStatus(site);
+}
+
+function siteMatchesTodayTab(site: Site, todayKey: string): boolean {
+  if (normalizeEntranceDateKeys(site.entranceDateKeys).includes(todayKey)) {
+    return true;
+  }
+  return siteHasAnyWorkRecordOnDate(site.id, todayKey);
+}
+
+function siteMatchesTomorrowTab(site: Site, tomorrowKey: string): boolean {
+  if (normalizeEntranceDateKeys(site.entranceDateKeys).includes(tomorrowKey)) {
+    return true;
+  }
+  return siteHasAnyWorkRecordOnDate(site.id, tomorrowKey);
 }
 
 export function SiteListPage() {
   const [sites, setSites] = useState<Site[]>([]);
-  const [tab, setTab] = useState<Tab>("list");
+  const [mainTab, setMainTab] = useState<MainTab>("today");
   const [sortBy, setSortBy] = useState<SortOption>("start_desc");
   const [searchText, setSearchText] = useState("");
   const [workRevision, setWorkRevision] = useState(0);
@@ -154,8 +171,16 @@ export function SiteListPage() {
   }, [sites, contractors, workRevision]);
 
   const listForDisplay = useMemo(() => {
+    const todayKey = todayLocalDateKey();
+    const tomorrowKey = tomorrowLocalDateKey();
+    let scopeSites = sites;
+    if (mainTab === "today") {
+      scopeSites = sites.filter((s) => siteMatchesTodayTab(s, todayKey));
+    } else if (mainTab === "tomorrow") {
+      scopeSites = sites.filter((s) => siteMatchesTomorrowTab(s, tomorrowKey));
+    }
     const q = searchText.trim().toLowerCase();
-    const filtered = sites.filter((s) => siteMatchesSearch(s, q));
+    const filtered = scopeSites.filter((s) => siteMatchesSearch(s, q));
     const statusFiltered =
       statusFilter === "all"
         ? filtered
@@ -183,6 +208,7 @@ export function SiteListPage() {
     ];
   }, [
     sites,
+    mainTab,
     searchText,
     sortBy,
     statusFilter,
@@ -204,11 +230,33 @@ export function SiteListPage() {
         <button
           type="button"
           role="tab"
-          id="tab-list"
-          aria-selected={tab === "list"}
+          id="tab-today"
+          aria-selected={mainTab === "today"}
           aria-controls="panel-list"
-          className={tab === "list" ? styles.tabActive : styles.tab}
-          onClick={() => setTab("list")}
+          className={mainTab === "today" ? styles.tabActive : styles.tab}
+          onClick={() => setMainTab("today")}
+        >
+          今日
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-tomorrow"
+          aria-selected={mainTab === "tomorrow"}
+          aria-controls="panel-list"
+          className={mainTab === "tomorrow" ? styles.tabActive : styles.tab}
+          onClick={() => setMainTab("tomorrow")}
+        >
+          明日
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-full"
+          aria-selected={mainTab === "full"}
+          aria-controls="panel-list"
+          className={mainTab === "full" ? styles.tabActive : styles.tab}
+          onClick={() => setMainTab("full")}
         >
           一覧
         </button>
@@ -216,20 +264,26 @@ export function SiteListPage() {
           type="button"
           role="tab"
           id="tab-map"
-          aria-selected={tab === "map"}
+          aria-selected={mainTab === "map"}
           aria-controls="panel-map"
-          className={tab === "map" ? styles.tabActive : styles.tab}
-          onClick={() => setTab("map")}
+          className={mainTab === "map" ? styles.tabActive : styles.tab}
+          onClick={() => setMainTab("map")}
         >
           地図
         </button>
       </div>
 
-      {tab === "list" && (
+      {mainTab !== "map" && (
         <div
           id="panel-list"
           role="tabpanel"
-          aria-labelledby="tab-list"
+          aria-labelledby={
+            mainTab === "today"
+              ? "tab-today"
+              : mainTab === "tomorrow"
+                ? "tab-tomorrow"
+                : "tab-full"
+          }
         >
           {sites.length === 0 ? (
             <div className={styles.empty}>
@@ -312,7 +366,11 @@ export function SiteListPage() {
 
               {listForDisplay.length === 0 ? (
                 <p className={styles.noHits} role="status">
-                  該当する現場が見つかりません
+                  {mainTab === "today"
+                    ? "今日の入場または本日の作業記録がある現場はありません"
+                    : mainTab === "tomorrow"
+                      ? "明日の入場または明日の作業記録がある現場はありません"
+                      : "該当する現場が見つかりません"}
                 </p>
               ) : (
             <ul className={styles.list}>
@@ -383,7 +441,7 @@ export function SiteListPage() {
         </div>
       )}
 
-      {tab === "map" && (
+      {mainTab === "map" && (
         <div
           id="panel-map"
           role="tabpanel"

@@ -16,3 +16,10 @@ export function isoToLocalDateKey(iso: string): string {
 export function todayLocalDateKey(): string {
   return formatLocalDateKey(new Date());
 }
+
+/** 明日の日付キー（ローカル） */
+export function tomorrowLocalDateKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return formatLocalDateKey(d);
+}

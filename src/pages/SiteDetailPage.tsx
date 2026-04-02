@@ -26,6 +26,10 @@ import {
   resolveTrafficCostByAddress,
 } from "../lib/trafficCostStorage";
 import { purgeSiteData } from "../lib/purgeSiteData";
+import {
+  getEffectiveSiteDisplayStatus,
+  SITE_DISPLAY_STATUS_OPTIONS,
+} from "../lib/siteStatus";
 import styles from "./SiteDetailPage.module.css";
 
 const PIN_DELETE_SITE = "1234";
@@ -91,6 +95,12 @@ export function SiteDetailPage() {
   const [deleteSitePinError, setDeleteSitePinError] = useState<string | null>(
     null
   );
+  const [statusChangePinOpen, setStatusChangePinOpen] = useState(false);
+  const [statusSelectOpen, setStatusSelectOpen] = useState(false);
+  const [statusChangePin, setStatusChangePin] = useState("");
+  const [statusChangePinError, setStatusChangePinError] = useState<
+    string | null
+  >(null);
   const [memoAddOpen, setMemoAddOpen] = useState(false);
   const [memoDraft, setMemoDraft] = useState("");
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
@@ -142,6 +152,10 @@ export function SiteDetailPage() {
     setDeleteSiteConfirmOpen(false);
     setDeleteSitePin("");
     setDeleteSitePinError(null);
+    setStatusChangePinOpen(false);
+    setStatusSelectOpen(false);
+    setStatusChangePin("");
+    setStatusChangePinError(null);
   }, [siteId]);
 
   useEffect(() => {
@@ -149,6 +163,12 @@ export function SiteDetailPage() {
     setDeleteSitePin("");
     setDeleteSitePinError(null);
   }, [deleteSitePinOpen]);
+
+  useEffect(() => {
+    if (!statusChangePinOpen) return;
+    setStatusChangePin("");
+    setStatusChangePinError(null);
+  }, [statusChangePinOpen]);
 
   useEffect(() => {
     if (!deleteSitePinOpen && !deleteSiteConfirmOpen) return;
@@ -165,6 +185,22 @@ export function SiteDetailPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deleteSitePinOpen, deleteSiteConfirmOpen]);
+
+  useEffect(() => {
+    if (!statusChangePinOpen && !statusSelectOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (statusChangePinOpen) {
+        setStatusChangePinOpen(false);
+        setStatusChangePin("");
+        setStatusChangePinError(null);
+      } else {
+        setStatusSelectOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [statusChangePinOpen, statusSelectOpen]);
 
   useEffect(() => {
     if (!siteId) return;
@@ -194,6 +230,7 @@ export function SiteDetailPage() {
     const empty: Site = {
       id: baseId,
       name: "",
+      siteCode: "",
       clientName: "",
       address: "",
       googleMapUrl: "",
@@ -212,6 +249,7 @@ export function SiteDetailPage() {
       externalUnconfirmed: undefined,
       externalCompanyKey: "",
       externalCompanyName: "",
+      manualDisplayStatus: undefined,
     };
 
     if (!site) return empty;
@@ -260,6 +298,18 @@ export function SiteDetailPage() {
         typeof s?.externalCompanyKey === "string" ? s.externalCompanyKey : "",
       externalCompanyName:
         typeof s?.externalCompanyName === "string" ? s.externalCompanyName : "",
+      siteCode:
+        typeof s?.siteCode === "string" && s.siteCode.trim()
+          ? s.siteCode.trim()
+          : "",
+      manualDisplayStatus:
+        s?.manualDisplayStatus === "入場前" ||
+        s?.manualDisplayStatus === "組立中" ||
+        s?.manualDisplayStatus === "設置中" ||
+        s?.manualDisplayStatus === "解体中" ||
+        s?.manualDisplayStatus === "撤去済"
+          ? s.manualDisplayStatus
+          : undefined,
     };
   }, [site, siteId]);
 
@@ -373,7 +423,43 @@ export function SiteDetailPage() {
       </div>
 
       <header className={styles.header}>
-        <h1 className={styles.title}>{safeSite.name || "（現場名未設定）"}</h1>
+        <div className={styles.headerTitleRow}>
+          <h1 className={styles.title}>{safeSite.name || "（現場名未設定）"}</h1>
+          {(() => {
+            const displayStatus = getEffectiveSiteDisplayStatus(safeSite);
+            const badgeClass =
+              displayStatus === "入場前"
+                ? styles.detailStatusPre
+                : displayStatus === "組立中"
+                  ? styles.detailStatusAssembly
+                  : displayStatus === "設置中"
+                    ? styles.detailStatusActive
+                    : displayStatus === "解体中"
+                      ? styles.detailStatusDismantle
+                      : styles.detailStatusEnded;
+            return (
+              <>
+                <span
+                  className={`${styles.detailStatusBadge} ${badgeClass}`}
+                  aria-label={`ステータス: ${displayStatus}`}
+                >
+                  {displayStatus}
+                </span>
+                <button
+                  type="button"
+                  className={styles.statusChangeBtn}
+                  onClick={() => {
+                    setStatusChangePinError(null);
+                    setStatusChangePin("");
+                    setStatusChangePinOpen(true);
+                  }}
+                >
+                  変更
+                </button>
+              </>
+            );
+          })()}
+        </div>
         <p className={styles.headerClient}>
           {safeSite.clientName?.trim() || "—"}
         </p>
@@ -1134,6 +1220,194 @@ export function SiteDetailPage() {
                 }}
               >
                 削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusChangePinOpen && (
+        <div
+          className={styles.deletePinBackdrop}
+          role="presentation"
+          onClick={() => {
+            setStatusChangePinOpen(false);
+            setStatusChangePin("");
+            setStatusChangePinError(null);
+          }}
+        >
+          <div
+            className={styles.deletePinCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-detail-status-pin-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="site-detail-status-pin-title"
+              className={styles.deletePinTitle}
+            >
+              PINコード
+            </h2>
+            <p className={styles.deletePinLead}>
+              ステータスを変更するには4桁のPINを入力してください。
+            </p>
+            <div className={styles.deletePinDots} aria-label="入力状況">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <span
+                  key={j}
+                  className={
+                    statusChangePin.length > j
+                      ? styles.deletePinDotOn
+                      : styles.deletePinDotOff
+                  }
+                />
+              ))}
+            </div>
+            {statusChangePinError && (
+              <p className={styles.deletePinError} role="alert">
+                {statusChangePinError}
+              </p>
+            )}
+            <div className={styles.deleteKeypad} role="group" aria-label="テンキー">
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "enter",
+                "0",
+                "back",
+              ].map((k) => {
+                const isEnter = k === "enter";
+                const isBack = k === "back";
+                const label = isEnter ? "確定" : isBack ? "⌫" : k;
+                const disabled = isEnter ? statusChangePin.length !== 4 : false;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    className={
+                      isEnter ? styles.deleteEnterBtn : styles.deleteKeyBtn
+                    }
+                    disabled={disabled}
+                    onClick={() => {
+                      setStatusChangePinError(null);
+                      if (isEnter) {
+                        if (statusChangePin.length !== 4) return;
+                        if (statusChangePin !== PIN_DELETE_SITE) {
+                          setStatusChangePinError("PINが違います");
+                          setStatusChangePin("");
+                          return;
+                        }
+                        setStatusChangePinOpen(false);
+                        setStatusChangePin("");
+                        setStatusSelectOpen(true);
+                        return;
+                      }
+                      if (isBack) {
+                        setStatusChangePin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      setStatusChangePin((p) =>
+                        p.length >= 4 ? p : `${p}${k}`
+                      );
+                    }}
+                    aria-label={
+                      isEnter ? "確定" : isBack ? "1文字削除" : `数字${k}`
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={styles.deletePinFooter}>
+              <button
+                type="button"
+                className={styles.deletePinCancelBtn}
+                onClick={() => {
+                  setStatusChangePinOpen(false);
+                  setStatusChangePin("");
+                  setStatusChangePinError(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusSelectOpen && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setStatusSelectOpen(false)}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-detail-status-select-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="site-detail-status-select-title"
+              className={styles.modalTitle}
+            >
+              ステータスを変更
+            </h2>
+            <p className={styles.statusSelectLead}>
+              一覧に表示するステータスを選びます。手動で選んだ内容は自動判定より優先されます。
+            </p>
+            <div
+              className={styles.statusOptionGrid}
+              role="group"
+              aria-label="ステータス"
+            >
+              {SITE_DISPLAY_STATUS_OPTIONS.map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  className={styles.statusOptionBtn}
+                  onClick={() => {
+                    const cur = getSiteById(safeSite.id);
+                    if (!cur) return;
+                    updateSite({ ...cur, manualDisplayStatus: st });
+                    refreshSiteFromStorage();
+                    setStatusSelectOpen(false);
+                  }}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+            <div className={styles.statusSelectFooter}>
+              <button
+                type="button"
+                className={styles.statusRevertBtn}
+                onClick={() => {
+                  const cur = getSiteById(safeSite.id);
+                  if (!cur) return;
+                  updateSite({ ...cur, manualDisplayStatus: undefined });
+                  refreshSiteFromStorage();
+                  setStatusSelectOpen(false);
+                }}
+              >
+                自動判定に戻す
+              </button>
+              <button
+                type="button"
+                className={styles.modalCancel}
+                onClick={() => setStatusSelectOpen(false)}
+              >
+                閉じる
               </button>
             </div>
           </div>
