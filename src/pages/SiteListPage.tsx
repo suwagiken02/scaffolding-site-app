@@ -106,11 +106,11 @@ function siteMatchesTodayTab(site: Site, todayKey: string): boolean {
   return siteHasAnyWorkRecordOnDate(site.id, todayKey);
 }
 
+/** 明日タブ：入場日に「明日」が含まれる現場のみ */
 function siteMatchesTomorrowTab(site: Site, tomorrowKey: string): boolean {
-  if (normalizeEntranceDateKeys(site.entranceDateKeys).includes(tomorrowKey)) {
-    return true;
-  }
-  return siteHasAnyWorkRecordOnDate(site.id, tomorrowKey);
+  return normalizeEntranceDateKeys(site.entranceDateKeys).includes(
+    tomorrowKey
+  );
 }
 
 export function SiteListPage() {
@@ -369,7 +369,7 @@ export function SiteListPage() {
                   {mainTab === "today"
                     ? "今日の入場または本日の作業記録がある現場はありません"
                     : mainTab === "tomorrow"
-                      ? "明日の入場または明日の作業記録がある現場はありません"
+                      ? "明日の入場日が登録されている現場はありません"
                       : "該当する現場が見つかりません"}
                 </p>
               ) : (
