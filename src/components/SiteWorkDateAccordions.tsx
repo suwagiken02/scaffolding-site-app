@@ -134,7 +134,7 @@ export function SiteWorkDateAccordions({
     return (
       <p className={styles.empty}>
         この作業種別ではまだ作業記録が登録されていません。
-        今日の作業を開始するボタンから、本日分の記録を作成してください。
+        「＋作業内容を登録する」から、本日分の記録を作成してください。
       </p>
     );
   }

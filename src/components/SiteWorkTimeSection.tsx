@@ -113,7 +113,7 @@ export function SiteWorkTimeSection({
             作業の打刻（{workKind}）
           </h2>
           <p className={styles.empty}>
-            本日の作業記録がありません。「＋作業を開始する」から登録してください。
+            本日の作業記録がありません。「＋作業内容を登録する」から登録してください。
           </p>
         </div>
       </section>

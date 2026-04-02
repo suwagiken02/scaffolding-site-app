@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Site, SiteMemo } from "../types/site";
 import {
@@ -106,6 +107,11 @@ export function SiteDetailPage() {
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [editingMemoText, setEditingMemoText] = useState("");
   const photoAddTriggerRef = useRef<(() => void) | null>(null);
+  /** 作業選択モーダル確定後の再実行ではゲートを通さずファイル選択を開く */
+  const photoGateBypassRef = useRef(false);
+  const registerPhotoAddTrigger = useCallback((fn: () => void) => {
+    photoAddTriggerRef.current = fn;
+  }, []);
   const basicInfoSectionRef = useRef<HTMLElement | null>(null);
 
   const todayKey = useMemo(() => todayLocalDateKey(), []);
@@ -363,6 +369,10 @@ export function SiteDetailPage() {
 
   const beforeAddPhotos = useCallback(() => {
     setPhotoAddMessage(null);
+    if (photoGateBypassRef.current) {
+      photoGateBypassRef.current = false;
+      return true;
+    }
     if (todayWorkKinds.length === 0) {
       // 人工未登録でも今日の日付へ写真を追加できる（作業種別は workKind）
       return true;
@@ -522,7 +532,7 @@ export function SiteDetailPage() {
               setWorkStartOpen(true);
             }}
           >
-            ＋作業を開始する
+            ＋作業内容を登録する
           </button>
           {workStartMessage && (
             <p className={styles.workStartMessage} role="status">
@@ -584,9 +594,7 @@ export function SiteDetailPage() {
           todayDateKey={todayKey}
           onStorageChange={bumpFile}
           beforeAddPhotos={beforeAddPhotos}
-          registerAddPhotosTrigger={(fn) => {
-            photoAddTriggerRef.current = fn;
-          }}
+          registerAddPhotosTrigger={registerPhotoAddTrigger}
         />
 
         {helpLaborModal && (
@@ -653,9 +661,13 @@ export function SiteDetailPage() {
                   type="button"
                   className={styles.modalConfirm}
                   onClick={() => {
-                    setTodayUploadKind(photoTargetKind);
+                    // 先に作業種別を確定させないと、SitePhotosSection の workKind が古いままアップロードされる
+                    flushSync(() => {
+                      setTodayUploadKind(photoTargetKind);
+                    });
+                    photoGateBypassRef.current = true;
                     setPhotoTargetOpen(false);
-                    // ここはユーザー操作なので、ここで直接「写真を追加」を再実行する
+                    // 再実行時は beforeAddPhotos がモーダルを開き直さないようバイパスする
                     photoAddTriggerRef.current?.();
                   }}
                 >

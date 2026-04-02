@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SitePhoto } from "../types/sitePhoto";
 import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
@@ -156,7 +163,8 @@ export function SitePhotosSection({
     fileInputRef.current?.click();
   }, [beforeAddPhotos, isAdding]);
 
-  useEffect(() => {
+  // flushSync 直後に親が photoAddTrigger を呼ぶため、同一コミット内で最新ハンドラを登録する
+  useLayoutEffect(() => {
     registerAddPhotosTrigger?.(handleAddPhotosClick);
   }, [registerAddPhotosTrigger, handleAddPhotosClick]);
 
