@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm install && cd server && npm install && cd .. && npm run build:app",
-    "build:app": "vite build",
+    "build:app": "node scripts/generate-sw.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "npm run start --prefix server"
