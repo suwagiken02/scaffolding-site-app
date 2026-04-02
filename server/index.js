@@ -7,7 +7,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { copyFile, readFile, unlink, writeFile } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { basename, dirname, join } from "node:path";
@@ -69,7 +69,16 @@ try {
 } catch {
   // ignore
 }
+
+const BACKUP_DIR = join(DATA_DIR, "backups");
+try {
+  mkdirSync(BACKUP_DIR, { recursive: true });
+} catch {
+  // ignore
+}
+
 console.log("[server] data dir:", DATA_DIR);
+console.log("[server] backup dir:", BACKUP_DIR);
 console.log(
   "[server] R2 photo upload:",
   process.env.R2_BUCKET_NAME?.trim() && process.env.R2_PUBLIC_BASE_URL?.trim()
@@ -1301,6 +1310,103 @@ if (hasDist) {
   });
 }
 
+/** ローカル日付 YYYY-MM-DD（サーバーのタイムゾーン。JST にしたい場合は TZ=Asia/Tokyo） */
+function formatLocalDateKey(d) {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+/** 次のローカル午前3時までのミリ秒 */
+function msUntilNextLocal3AM() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(3, 0, 0, 0);
+  if (next.getTime() <= now.getTime()) {
+    next.setDate(next.getDate() + 1);
+  }
+  return next.getTime() - now.getTime();
+}
+
+const BACKUP_DATE_SUFFIX_RE = /_(\d{4}-\d{2}-\d{2})\.json$/i;
+
+async function pruneOldBackups() {
+  let removed = 0;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const oldestKeep = new Date(todayStart);
+  oldestKeep.setDate(oldestKeep.getDate() - 7);
+
+  const entries = await readdir(BACKUP_DIR, { withFileTypes: true });
+  for (const ent of entries) {
+    if (!ent.isFile() || !ent.name.toLowerCase().endsWith(".json")) continue;
+    const m = BACKUP_DATE_SUFFIX_RE.exec(ent.name);
+    if (!m) continue;
+    const fileDay = new Date(`${m[1]}T00:00:00`);
+    if (Number.isNaN(fileDay.getTime())) continue;
+    if (fileDay < oldestKeep) {
+      try {
+        await unlink(join(BACKUP_DIR, ent.name));
+        removed += 1;
+      } catch (e) {
+        console.error("[server] backup prune unlink:", ent.name, e);
+      }
+    }
+  }
+  if (removed > 0) {
+    console.log("[server] backup prune: removed", removed, "file(s) older than 7 days");
+  }
+}
+
+async function runDailyBackup() {
+  const dateStr = formatLocalDateKey(new Date());
+  let copied = 0;
+  const entries = await readdir(DATA_DIR, { withFileTypes: true });
+  for (const ent of entries) {
+    if (!ent.isFile()) continue;
+    const name = ent.name;
+    if (!name.toLowerCase().endsWith(".json")) continue;
+    const src = join(DATA_DIR, name);
+    const stem = name.replace(/\.json$/i, "");
+    const destName = `${stem}_${dateStr}.json`;
+    const dest = join(BACKUP_DIR, destName);
+    try {
+      await copyFile(src, dest);
+      copied += 1;
+    } catch (e) {
+      console.error("[server] backup copy failed:", name, e);
+    }
+  }
+  await pruneOldBackups();
+  console.log("[server] daily backup:", dateStr, "copied", copied, "json file(s)");
+}
+
+let backupScheduleTimer = null;
+
+function scheduleDailyBackup() {
+  if (backupScheduleTimer != null) {
+    clearTimeout(backupScheduleTimer);
+    backupScheduleTimer = null;
+  }
+  const delay = msUntilNextLocal3AM();
+  console.log(
+    "[server] next JSON backup scheduled in",
+    Math.round(delay / 60000),
+    "min (local 03:00)"
+  );
+  backupScheduleTimer = setTimeout(async () => {
+    backupScheduleTimer = null;
+    try {
+      await runDailyBackup();
+    } catch (e) {
+      console.error("[server] daily backup failed:", e);
+    }
+    scheduleDailyBackup();
+  }, delay);
+}
+
 app.listen(PORT, () => {
   console.log(`メールAPI server listening on http://localhost:${PORT}`);
+  scheduleDailyBackup();
 });
