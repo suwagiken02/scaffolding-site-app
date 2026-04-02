@@ -31,12 +31,15 @@ import {
   removeContractorMaster,
   updateContractorMaster,
 } from "../lib/contractorMasterStorage";
-import type { StaffMaster, StaffRole } from "../types/staffMaster";
+import {
+  STAFF_JOB_ROLE_OPTIONS,
+  type StaffJobRole,
+  type StaffMaster,
+} from "../types/staffMaster";
 import {
   addStaffMaster,
   loadStaffMasters,
   removeStaffMaster,
-  staffHasRole,
   updateStaffMaster,
 } from "../lib/staffMasterStorage";
 import type { TrafficCostSetting } from "../types/trafficCostSetting";
@@ -89,26 +92,18 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "externalCompany", label: "外部会社" },
 ];
 
-const STAFF_ROLE_OPTIONS: StaffRole[] = ["職長", "子方", "その他"];
-
 function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   const list = loadStaffMasters();
   const [name, setName] = useState("");
-  const [roles, setRoles] = useState<Set<StaffRole>>(new Set());
-  const [attendanceEnabled, setAttendanceEnabled] = useState(true);
+  const [role, setRole] = useState<StaffJobRole>("内勤");
   const [personalPin, setPersonalPin] = useState("");
+  const [pinVisibleNew, setPinVisibleNew] = useState(false);
+  const [pinVisibleById, setPinVisibleById] = useState<Record<string, boolean>>(
+    {}
+  );
   const [personalCode, setPersonalCode] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  function toggleRole(r: StaffRole) {
-    setRoles((prev) => {
-      const next = new Set(prev);
-      if (next.has(r)) next.delete(r);
-      else next.add(r);
-      return next;
-    });
-  }
 
   function onAdd(e: FormEvent) {
     e.preventDefault();
@@ -120,8 +115,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
     }
     addStaffMaster({
       name: n,
-      roles: [...roles],
-      attendanceEnabled,
+      role,
       personalPin: personalPin.replace(/\D/g, "").slice(0, 4),
       personalCode: personalCode.replace(/\D/g, "").slice(0, 6),
       birthDate: "",
@@ -139,9 +133,9 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
       email: newEmail.trim(),
     });
     setName("");
-    setRoles(new Set());
-    setAttendanceEnabled(true);
+    setRole("内勤");
     setPersonalPin("");
+    setPinVisibleNew(false);
     setPersonalCode("");
     setNewEmail("");
     onRefresh();
@@ -156,7 +150,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>スタッフマスター</h2>
       <p className={styles.panelDesc}>
-        スタッフの「役割」と「打刻対象」をまとめて管理します。職長名・子方名の選択肢や打刻ページの表示に反映されます。
+        スタッフの役割を登録します。打刻ページの表示は役割で自動判定されます（職長・子方・内勤）。作業開始の職長・子方の候補にも使います。
       </p>
 
       <form className={styles.form} onSubmit={onAdd} noValidate>
@@ -178,56 +172,52 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
             />
           </label>
 
-          <div className={styles.field}>
-            <span className={styles.label}>役割（複数可）</span>
-            <div className={styles.checkboxRow} role="group" aria-label="役割">
-              {STAFF_ROLE_OPTIONS.map((r) => (
-                <label key={r} className={styles.checkboxItem}>
-                  <input
-                    type="checkbox"
-                    checked={roles.has(r)}
-                    onChange={() => toggleRole(r)}
-                  />
-                  <span>{r}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
           <label className={styles.field}>
-            <span className={styles.label}>打刻対象</span>
-            <div className={styles.toggleRow}>
-              <input
-                type="checkbox"
-                checked={attendanceEnabled}
-                onChange={(e) => setAttendanceEnabled(e.target.checked)}
-                aria-label="打刻対象"
-              />
-              <span className={styles.toggleHint}>
-                {attendanceEnabled ? "ON" : "OFF"}
-              </span>
-            </div>
+            <span className={styles.label}>役割</span>
+            <select
+              className={styles.input}
+              value={role}
+              onChange={(e) => setRole(e.target.value as StaffJobRole)}
+              aria-label="役割"
+            >
+              {STAFF_JOB_ROLE_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
           </label>
 
-          <label className={styles.field}>
+          <div className={styles.field}>
             <span className={styles.label}>個人PIN（4桁）</span>
-            <input
-              className={styles.input}
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={4}
-              value={personalPin}
-              onChange={(e) =>
-                setPersonalPin(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
-              placeholder="例：1234"
-              aria-label="個人PIN"
-            />
+            <div className={styles.staffPinFieldRow}>
+              <input
+                className={styles.input}
+                type={pinVisibleNew ? "text" : "password"}
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                value={personalPin}
+                onChange={(e) =>
+                  setPersonalPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="例：1234"
+                aria-label="個人PIN"
+              />
+              <button
+                type="button"
+                className={styles.pinRevealBtn}
+                onClick={() => setPinVisibleNew((v) => !v)}
+                aria-label={pinVisibleNew ? "PINを隠す" : "PINを表示"}
+                title={pinVisibleNew ? "隠す" : "表示"}
+              >
+                {pinVisibleNew ? "隠す" : "👁"}
+              </button>
+            </div>
             <span className={styles.fieldHint}>
               スタッフ一覧から個人ページを開くときに使います。
             </span>
-          </label>
+          </div>
 
           <label className={styles.field}>
             <span className={styles.label}>個人コード（6桁）</span>
@@ -293,51 +283,64 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                   />
                 </div>
                 <div className={styles.staffRowMid}>
-                  <div className={styles.checkboxRow} role="group" aria-label="役割">
-                    {STAFF_ROLE_OPTIONS.map((role) => (
-                      <label key={role} className={styles.checkboxItem}>
-                        <input
-                          type="checkbox"
-                          checked={staffHasRole(r, role)}
-                          onChange={() => {
-                            const nextRoles = new Set(r.roles);
-                            if (nextRoles.has(role)) nextRoles.delete(role);
-                            else nextRoles.add(role);
-                            setRow({ ...r, roles: [...nextRoles] });
-                          }}
-                        />
-                        <span>{role}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <label className={styles.toggleRow}>
-                    <input
-                      type="checkbox"
-                      checked={r.attendanceEnabled}
-                      onChange={(e) =>
-                        setRow({ ...r, attendanceEnabled: e.target.checked })
-                      }
-                    />
-                    <span className={styles.toggleHint}>打刻対象</span>
-                  </label>
-                  <label className={styles.staffPinRow}>
-                    <span className={styles.label}>個人PIN（4桁）</span>
-                    <input
+                  <label className={styles.staffRoleSelect}>
+                    <span className={styles.label}>役割</span>
+                    <select
                       className={styles.input}
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      maxLength={4}
-                      value={r.personalPin}
+                      value={r.role}
                       onChange={(e) =>
                         setRow({
                           ...r,
-                          personalPin: e.target.value.replace(/\D/g, "").slice(0, 4),
+                          role: e.target.value as StaffJobRole,
                         })
                       }
-                      aria-label="個人PIN"
-                    />
+                      aria-label="役割"
+                    >
+                      {STAFF_JOB_ROLE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
                   </label>
+                  <div className={styles.staffPinRow}>
+                    <span className={styles.label}>個人PIN（4桁）</span>
+                    <div className={styles.staffPinFieldRow}>
+                      <input
+                        className={styles.input}
+                        type={pinVisibleById[r.id] ? "text" : "password"}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={4}
+                        value={r.personalPin}
+                        onChange={(e) =>
+                          setRow({
+                            ...r,
+                            personalPin: e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 4),
+                          })
+                        }
+                        aria-label="個人PIN"
+                      />
+                      <button
+                        type="button"
+                        className={styles.pinRevealBtn}
+                        onClick={() =>
+                          setPinVisibleById((prev) => ({
+                            ...prev,
+                            [r.id]: !prev[r.id],
+                          }))
+                        }
+                        aria-label={
+                          pinVisibleById[r.id] ? "PINを隠す" : "PINを表示"
+                        }
+                        title={pinVisibleById[r.id] ? "隠す" : "表示"}
+                      >
+                        {pinVisibleById[r.id] ? "隠す" : "👁"}
+                      </button>
+                    </div>
+                  </div>
                   <label className={styles.staffPinRow}>
                     <span className={styles.label}>個人コード（6桁）</span>
                     <input

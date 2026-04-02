@@ -2,9 +2,9 @@ import type {
   StaffBirthdayLeaveUsage,
   StaffEmergencyContact,
   StaffInsuranceProfile,
+  StaffJobRole,
   StaffMaster,
   StaffPaidLeaveUsage,
-  StaffRole,
 } from "../types/staffMaster";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
@@ -17,13 +17,40 @@ function newId(): string {
   return `staff-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function normalizeRoles(input: unknown): StaffRole[] {
+/** 旧データの roles 配列 */
+type LegacyStaffRole = "職長" | "子方" | "その他";
+
+function normalizeLegacyRoles(input: unknown): LegacyStaffRole[] {
   if (!Array.isArray(input)) return [];
-  const out: StaffRole[] = [];
+  const out: LegacyStaffRole[] = [];
   for (const r of input) {
     if (r === "職長" || r === "子方" || r === "その他") out.push(r);
   }
   return [...new Set(out)];
+}
+
+/**
+ * 単一 role または旧 roles[]・attendanceEnabled から StaffJobRole を決定。
+ * - 既存「職長」「子方」はそのまま
+ * - 「その他」→「内勤」
+ * - attendanceEnabled は参照しない
+ */
+function migrateToJobRole(o: Record<string, unknown>): StaffJobRole {
+  const r = o.role;
+  if (
+    r === "職長" ||
+    r === "子方" ||
+    r === "内勤" ||
+    r === "協力業者" ||
+    r === "役員"
+  ) {
+    return r;
+  }
+  const legacy = normalizeLegacyRoles(o.roles);
+  if (legacy.includes("職長")) return "職長";
+  if (legacy.includes("子方")) return "子方";
+  if (legacy.includes("その他")) return "内勤";
+  return "内勤";
 }
 
 function normalizePin4(raw: unknown): string {
@@ -108,15 +135,12 @@ function normalizeRow(x: unknown): StaffMaster | null {
   const name = typeof o.name === "string" ? o.name.trim() : "";
   if (!id || !name) return null;
   const email = typeof o.email === "string" ? o.email.trim() : "";
-  const roles = normalizeRoles(o.roles);
-  const attendanceEnabled =
-    typeof o.attendanceEnabled === "boolean" ? o.attendanceEnabled : false;
+  const role = migrateToJobRole(o);
   return {
     id,
     name,
     email,
-    roles,
-    attendanceEnabled,
+    role,
     personalPin: normalizePin4(o.personalPin),
     personalCode: normalizePersonalCode6(o.personalCode),
     birthDate: typeof o.birthDate === "string" ? o.birthDate.trim() : "",
@@ -135,12 +159,12 @@ function normalizeRow(x: unknown): StaffMaster | null {
 }
 
 function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
+  const raw = input as unknown as Record<string, unknown>;
   return {
     id: input.id.trim(),
     name: input.name.trim(),
     email: typeof input.email === "string" ? input.email.trim() : "",
-    roles: normalizeRoles(input.roles),
-    attendanceEnabled: Boolean(input.attendanceEnabled),
+    role: migrateToJobRole({ ...raw, role: input.role }),
     personalPin: normalizePin4(input.personalPin),
     personalCode: normalizePersonalCode6(input.personalCode),
     birthDate: input.birthDate.trim(),
@@ -158,7 +182,7 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
   };
 }
 
-function defaultStaffFields(): Omit<StaffMaster, "id" | "name" | "roles" | "attendanceEnabled"> {
+function defaultStaffFields(): Omit<StaffMaster, "id" | "name" | "role"> {
   return {
     personalPin: "",
     personalCode: "",
@@ -218,8 +242,7 @@ export function addStaffMaster(input: Omit<StaffMaster, "id">): StaffMaster {
     ...input,
     id,
     name,
-    roles: normalizeRoles(input.roles),
-    attendanceEnabled: Boolean(input.attendanceEnabled),
+    role: migrateToJobRole({ role: input.role }),
   };
   const next = normalizeStaffMasterComplete(merged);
   if (!next.name) return next;
@@ -238,8 +261,4 @@ export function updateStaffMaster(next: StaffMaster): void {
 
 export function removeStaffMaster(id: string): void {
   save(loadStaffMasters().filter((r) => r.id !== id));
-}
-
-export function staffHasRole(staff: StaffMaster, role: StaffRole): boolean {
-  return staff.roles.includes(role);
 }

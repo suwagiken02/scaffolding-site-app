@@ -2,7 +2,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import type { LeaveRequest } from "../types/leaveRequest";
 import type { PayslipRecord } from "../types/payslip";
-import type { StaffMaster, StaffPaidLeaveUsage } from "../types/staffMaster";
+import {
+  staffPaidLeaveHoursPerDay,
+  type StaffMaster,
+  type StaffPaidLeaveUsage,
+} from "../types/staffMaster";
 import { fetchPayslipsForStaff } from "../lib/payslipsApi";
 import { createLeaveRequest, fetchLeaveRequests } from "../lib/leaveRequestsApi";
 import { registerCurrentFcmTokenToServer } from "../lib/fcmInit";
@@ -60,6 +64,18 @@ function formatDateKeyJa(dateKey: string): string {
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(
     new Date(y, m - 1, d)
   );
+}
+
+function paidLeaveDaysOnDate(
+  usages: StaffPaidLeaveUsage[] | undefined,
+  dateKey: string
+): number {
+  if (!usages?.length) return 0;
+  let sum = 0;
+  for (const u of usages) {
+    if (u.dateKey === dateKey) sum += u.days;
+  }
+  return sum;
 }
 
 function cloneStaff(s: StaffMaster): StaffMaster {
@@ -312,19 +328,31 @@ export function StaffPersonalPage() {
     return map;
   }, [attendanceRows]);
 
-  const attendanceTotalMinutes = useMemo(() => {
-    let total = 0;
-    for (const r of attendanceRows) {
-      const m = workMinutes(r);
-      if (m !== null) total += m;
-    }
-    return total;
-  }, [attendanceRows]);
-
   const listRows = useMemo(
     () => buildLaborListRowsForPerson(personName, year, month, jaCollator),
     [personName, year, month]
   );
+
+  const attendanceTotalMinutes = useMemo(() => {
+    if (!draft) return 0;
+    const hours = staffPaidLeaveHoursPerDay(draft.role);
+    const perDayMin = hours * 60;
+    const usages = draft.paidLeaveUsages ?? [];
+    let total = 0;
+    for (const row of listRows) {
+      const paidDays = paidLeaveDaysOnDate(usages, row.dateKey);
+      if (paidDays > 0) {
+        total += paidDays * perDayMin;
+      } else {
+        const att = attendanceByDate.get(row.dateKey);
+        if (att) {
+          const m = workMinutes(att);
+          if (m !== null) total += m;
+        }
+      }
+    }
+    return Math.round(total);
+  }, [draft, listRows, attendanceByDate]);
 
   const age = draft?.birthDate ? ageFromBirthDate(draft.birthDate) : null;
 
@@ -1250,11 +1278,34 @@ export function StaffPersonalPage() {
               </thead>
               <tbody>
                 {listRows.map((row, i) => {
+                  const paidDays = draft
+                    ? paidLeaveDaysOnDate(draft.paidLeaveUsages, row.dateKey)
+                    : 0;
+                  const isPaidLeave = paidDays > 0 && draft !== null;
                   const att = attendanceByDate.get(row.dateKey) ?? null;
-                  const inAt = att ? formatTimeJa(att.inAt) : "—";
-                  const outAt = att ? formatTimeJa(att.outAt) : "—";
-                  const dur = att ? formatDurationHm(workMinutes(att)) : "—";
-                  const late = att ? isCheckInLate(att) : false;
+                  const inAt = isPaidLeave
+                    ? "有給"
+                    : att
+                      ? formatTimeJa(att.inAt)
+                      : "—";
+                  const outAt = isPaidLeave
+                    ? "—"
+                    : att
+                      ? formatTimeJa(att.outAt)
+                      : "—";
+                  const dur =
+                    isPaidLeave && draft
+                      ? formatDurationHm(
+                          paidDays * staffPaidLeaveHoursPerDay(draft.role) * 60
+                        )
+                      : att
+                        ? formatDurationHm(workMinutes(att))
+                        : "—";
+                  const late = isPaidLeave
+                    ? false
+                    : att
+                      ? isCheckInLate(att)
+                      : false;
 
                   const editBtn = (
                     <button

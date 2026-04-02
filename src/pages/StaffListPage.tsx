@@ -10,7 +10,7 @@ const jaCollator = new Intl.Collator("ja");
 function staffJobTypeLabel(s: StaffMaster): string {
   const j = s.jobType.trim();
   if (j) return j;
-  if (s.roles.length) return s.roles.join("・");
+  if (s.role) return s.role;
   return "—";
 }
 

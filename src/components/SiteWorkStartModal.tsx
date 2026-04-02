@@ -7,6 +7,10 @@ import {
   saveDailyLaborRecord,
 } from "../lib/siteDailyLaborStorage";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
+import {
+  staffMatchesForemanPicker,
+  staffMatchesKogataPicker,
+} from "../types/staffMaster";
 import { loadContractorMasters } from "../lib/contractorMasterStorage";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import styles from "./SiteWorkStartModal.module.css";
@@ -36,11 +40,11 @@ export function SiteWorkStartModal({
   const staff = useMemo(() => loadStaffMasters(), []);
   const contractors = useMemo(() => loadContractorMasters(), []);
   const foremanMasters = useMemo(
-    () => staff.filter((s) => s.roles.includes("職長")),
+    () => staff.filter((s) => staffMatchesForemanPicker(s.role)),
     [staff]
   );
   const kogataMasters = useMemo(
-    () => staff.filter((s) => s.roles.includes("子方")),
+    () => staff.filter((s) => staffMatchesKogataPicker(s.role)),
     [staff]
   );
 

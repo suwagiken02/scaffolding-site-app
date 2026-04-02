@@ -13,6 +13,7 @@ import {
 } from "../lib/manDayCalculations";
 import { loadDailyLaborMap, saveDailyLaborRecord } from "../lib/siteDailyLaborStorage";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
+import { staffMatchesKogataPicker } from "../types/staffMaster";
 import styles from "./HelpTeamLaborModal.module.css";
 
 const TIME_OPTIONS: string[] = (() => {
@@ -97,7 +98,8 @@ export function HelpTeamLaborModal({
 }: Props) {
   const titleId = useId();
   const kogataList = useMemo(
-    () => loadStaffMasters().filter((s) => s.roles.includes("子方")),
+    () =>
+      loadStaffMasters().filter((s) => staffMatchesKogataPicker(s.role)),
     []
   );
 

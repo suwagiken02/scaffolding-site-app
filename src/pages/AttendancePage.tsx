@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
+import { staffIsAttendanceEligible } from "../types/staffMaster";
 import {
   deleteAttendanceForPersonDate,
   formatTimeJa,
@@ -103,16 +104,18 @@ export function AttendancePage() {
     const load = () => {
       const all = loadStaffMasters();
       const list = all
-        .filter((s) => s.attendanceEnabled)
+        .filter((s) => staffIsAttendanceEligible(s.role))
         .map((s) => ({ id: s.id, name: s.name }));
       setStaff(list);
     };
     load();
     window.addEventListener("storage", load);
     window.addEventListener("focus", load);
+    window.addEventListener("staffMasterSaved", load);
     return () => {
       window.removeEventListener("storage", load);
       window.removeEventListener("focus", load);
+      window.removeEventListener("staffMasterSaved", load);
     };
   }, []);
 

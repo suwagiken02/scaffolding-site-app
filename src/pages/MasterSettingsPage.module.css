@@ -260,6 +260,51 @@
   max-width: 6.5rem;
 }
 
+.staffRoleSelect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 8rem;
+}
+
+.staffPinFieldRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+.staffPinFieldRow .input {
+  flex: 1;
+  min-width: 0;
+  max-width: 7rem;
+}
+
+.pinRevealBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pinRevealBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.pinRevealBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
