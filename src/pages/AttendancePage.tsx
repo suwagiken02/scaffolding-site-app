@@ -10,7 +10,6 @@ import {
   punchAttendance,
 } from "../lib/attendanceStorage";
 import type { AttendanceStore } from "../types/attendance";
-import { notifyAttendancePunchFcm } from "../lib/fcmNotifyApi";
 import styles from "./AttendancePage.module.css";
 
 const jaCollator = new Intl.Collator("ja");
@@ -627,9 +626,6 @@ export function AttendancePage() {
                         if (res.kind === "out") setDoneMessage(`退勤：${t}`);
                         else if (res.kind === "in") setDoneMessage(`出勤：${t}`);
                         else setDoneMessage(`本日は打刻済みです`);
-                        if (res.kind === "in" || res.kind === "out") {
-                          notifyAttendancePunchFcm(personName, res.kind, nowIso);
-                        }
                       } catch (e) {
                         window.alert(
                           e instanceof Error ? e.message : "打刻の保存に失敗しました"
@@ -837,9 +833,6 @@ export function AttendancePage() {
                       if (res.kind === "in") setDoneMessage(`出勤：${t}`);
                       else if (res.kind === "out") setDoneMessage(`退勤：${t}`);
                       else setDoneMessage(`本日は打刻済みです`);
-                      if (res.kind === "in" || res.kind === "out") {
-                        notifyAttendancePunchFcm(personName, res.kind, nowIso);
-                      }
                     } catch (e) {
                       window.alert(
                         e instanceof Error ? e.message : "打刻の保存に失敗しました"

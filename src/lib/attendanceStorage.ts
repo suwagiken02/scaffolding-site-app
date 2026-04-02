@@ -4,6 +4,7 @@ import {
   postAttendanceDelete,
   postAttendanceUpsert,
 } from "./attendanceApi";
+import { notifyAttendancePunchFcm } from "./fcmNotifyApi";
 
 function dispatchSaved() {
   window.dispatchEvent(new CustomEvent("attendanceSaved"));
@@ -153,6 +154,7 @@ export async function punchAttendance(
   if (kind === "in") {
     const next: AttendanceRecord = { ...current, meetingTime, inAt: nowIso };
     await saveAttendanceForPersonDate(personName, next);
+    notifyAttendancePunchFcm(personName, "in", nowIso);
     return { kind, record: next };
   }
   if (kind === "out") {
@@ -162,6 +164,7 @@ export async function punchAttendance(
       outAt: nowIso,
     };
     await saveAttendanceForPersonDate(personName, next);
+    notifyAttendancePunchFcm(personName, "out", nowIso);
     return { kind, record: next };
   }
   return { kind, record: current };
