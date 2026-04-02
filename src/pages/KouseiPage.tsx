@@ -6,6 +6,12 @@ import {
   loadKouseiMonthList,
 } from "../lib/kouseiListStorage";
 import { loadKouseiAmount, saveKouseiAmount } from "../lib/kouseiAmountStorage";
+import {
+  fetchKouseiBillingRecords,
+  kouseiBillingRowKey,
+  putKouseiBillingUpdate,
+  type KouseiBillingRecord,
+} from "../lib/kouseiBillingStorage";
 import { sendEmailApi } from "../lib/sendEmailApi";
 import { getSiteById, loadSites, normalizeEntranceDateKeys } from "../lib/siteStorage";
 import type { Site } from "../types/site";
@@ -20,8 +26,14 @@ function formatYen(n: number): string {
   return `${Math.round(n).toLocaleString()}円`;
 }
 
-/** 今日 | 明日 | 一覧 | 地図 | 金額 — デフォルトは「今日」 */
-type MainTab = "today" | "tomorrow" | "full" | "map" | "amount";
+/** 今日 | 明日 | 一覧 | 地図 | 請求確認 | 金額 — デフォルトは「今日」 */
+type MainTab =
+  | "today"
+  | "tomorrow"
+  | "full"
+  | "map"
+  | "billing"
+  | "amount";
 
 function kouseiSites(sites: Site[]): Site[] {
   return sites.filter((s) => s.companyKind === "KOUSEI");
@@ -51,6 +63,15 @@ export function KouseiPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>("today");
 
+  const [billingRecords, setBillingRecords] = useState<KouseiBillingRecord[]>(
+    []
+  );
+  const [billingMonth, setBillingMonth] = useState("");
+  const [billingDraft, setBillingDraft] = useState<Record<string, string>>({});
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingMessage, setBillingMessage] = useState<string | null>(null);
+  const [billingSaving, setBillingSaving] = useState(false);
+
   const reloadSites = useCallback(() => {
     setSites(loadSites());
   }, []);
@@ -70,6 +91,49 @@ export function KouseiPage() {
       window.removeEventListener("siteDailyLaborSaved", onSaved);
     };
   }, [reloadSites]);
+
+  const loadBillingRecords = useCallback(async () => {
+    try {
+      setBillingError(null);
+      const list = await fetchKouseiBillingRecords();
+      list.sort((a, b) => b.month.localeCompare(a.month));
+      setBillingRecords(list);
+      setBillingMonth((prev) => {
+        if (prev && list.some((r) => r.month === prev)) return prev;
+        return list[0]?.month ?? "";
+      });
+    } catch (e) {
+      setBillingError(
+        e instanceof Error ? e.message : "請求データの取得に失敗しました"
+      );
+      setBillingRecords([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed || mainTab !== "billing") return;
+    void loadBillingRecords();
+  }, [authed, mainTab, loadBillingRecords]);
+
+  const billingSelected = useMemo(
+    () => billingRecords.find((r) => r.month === billingMonth) ?? null,
+    [billingRecords, billingMonth]
+  );
+
+  useEffect(() => {
+    if (!billingSelected) {
+      setBillingDraft({});
+      return;
+    }
+    const next: Record<string, string> = {};
+    for (const r of billingSelected.rows) {
+      const k = kouseiBillingRowKey(r);
+      const v = billingSelected.amounts[k];
+      next[k] =
+        v !== undefined && Number.isFinite(v) ? String(Math.round(v)) : "";
+    }
+    setBillingDraft(next);
+  }, [billingSelected?.id, billingSelected?.sentAt]);
 
   const months = useMemo(() => listKouseiConfirmedMonths(), []);
   const [month, setMonth] = useState(months[0] ?? "");
@@ -98,6 +162,84 @@ export function KouseiPage() {
     }
     return [];
   }, [sites, mainTab, todayKey, tomorrowKey]);
+
+  const kouseiPin = (profile.kouseiPin ?? "").trim();
+
+  const billingAllAmountsFilled = useMemo(() => {
+    if (!billingSelected) return false;
+    return billingSelected.rows.every((r) => {
+      const k = kouseiBillingRowKey(r);
+      const raw = (billingDraft[k] ?? "").trim();
+      const n = Number(raw);
+      return raw !== "" && Number.isFinite(n) && n >= 0;
+    });
+  }, [billingSelected, billingDraft]);
+
+  function buildBillingAmountsPayload(): Record<string, number> {
+    const out: Record<string, number> = {};
+    if (!billingSelected) return out;
+    for (const r of billingSelected.rows) {
+      const k = kouseiBillingRowKey(r);
+      const raw = (billingDraft[k] ?? "").trim();
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) out[k] = n;
+    }
+    return out;
+  }
+
+  async function onBillingSaveAmounts() {
+    if (!billingSelected || !kouseiPin) {
+      setBillingError("マスター設定で KOUSEI の PIN を設定してください。");
+      return;
+    }
+    setBillingError(null);
+    setBillingMessage(null);
+    setBillingSaving(true);
+    try {
+      const updated = await putKouseiBillingUpdate(billingSelected.id, {
+        amounts: buildBillingAmountsPayload(),
+        approve: false,
+        pin: kouseiPin,
+      });
+      setBillingRecords((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
+      setBillingMessage("金額を保存しました。");
+    } catch (e) {
+      setBillingError(e instanceof Error ? e.message : "保存に失敗しました");
+    } finally {
+      setBillingSaving(false);
+    }
+  }
+
+  async function onBillingApprove() {
+    if (!billingSelected || !kouseiPin) {
+      setBillingError("マスター設定で KOUSEI の PIN を設定してください。");
+      return;
+    }
+    if (!billingAllAmountsFilled) {
+      setBillingError("すべての行に金額を入力してください。");
+      return;
+    }
+    setBillingError(null);
+    setBillingMessage(null);
+    setBillingSaving(true);
+    try {
+      const updated = await putKouseiBillingUpdate(billingSelected.id, {
+        amounts: buildBillingAmountsPayload(),
+        approve: true,
+        pin: kouseiPin,
+      });
+      setBillingRecords((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
+      setBillingMessage("了承しました。");
+    } catch (e) {
+      setBillingError(e instanceof Error ? e.message : "了承の更新に失敗しました");
+    } finally {
+      setBillingSaving(false);
+    }
+  }
 
   function onAuth(e: FormEvent) {
     e.preventDefault();
@@ -254,6 +396,19 @@ export function KouseiPage() {
         <button
           type="button"
           role="tab"
+          aria-selected={mainTab === "billing"}
+          className={
+            mainTab === "billing"
+              ? siteListStyles.tabActive
+              : siteListStyles.tab
+          }
+          onClick={() => setMainTab("billing")}
+        >
+          請求確認
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={mainTab === "amount"}
           className={
             mainTab === "amount"
@@ -324,6 +479,136 @@ export function KouseiPage() {
       {mainTab === "map" && (
         <div className={styles.panel}>
           <SiteMapView sites={sites} companyKindFilter="KOUSEI" />
+        </div>
+      )}
+
+      {mainTab === "billing" && (
+        <div className={styles.panel}>
+          {billingRecords.length === 0 ? (
+            <p className={styles.muted}>
+              事務側から確定送信された請求データはまだありません。
+            </p>
+          ) : (
+            <>
+              <div className={styles.fieldRow}>
+                <label className={styles.field}>
+                  <span className={styles.label}>対象月</span>
+                  <select
+                    className={styles.select}
+                    value={billingMonth}
+                    onChange={(e) => setBillingMonth(e.target.value)}
+                  >
+                    {billingRecords.map((r) => (
+                      <option key={r.id} value={r.month}>
+                        {r.month}
+                        {r.status === "approved" ? "（了承済み）" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {billingSelected?.status === "sent" && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.btn}
+                      disabled={billingSaving}
+                      onClick={() => void onBillingSaveAmounts()}
+                    >
+                      {billingSaving ? "保存中…" : "金額を保存"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btn}
+                      disabled={billingSaving || !billingAllAmountsFilled}
+                      onClick={() => void onBillingApprove()}
+                    >
+                      {billingSaving ? "処理中…" : "了承する"}
+                    </button>
+                  </>
+                )}
+              </div>
+              {billingSelected && (
+                <p className={styles.muted}>
+                  状態:{" "}
+                  {billingSelected.status === "approved"
+                    ? "了承済み"
+                    : "送信済み（未了承）"}
+                  {billingSelected.approvedAt
+                    ? ` / ${billingSelected.approvedAt}`
+                    : ""}
+                </p>
+              )}
+              {billingError && <p className={styles.danger}>{billingError}</p>}
+              {billingMessage && (
+                <p className={styles.muted}>{billingMessage}</p>
+              )}
+              {billingSelected && billingSelected.rows.length === 0 ? (
+                <p className={styles.muted}>作業行がありません。</p>
+              ) : (
+                billingSelected && (
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>現場コード</th>
+                        <th>日付</th>
+                        <th>現場名</th>
+                        <th>元請け名</th>
+                        <th>作業種別</th>
+                        <th>人数</th>
+                        <th>金額（円）</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billingSelected.rows.map((r) => {
+                        const k = kouseiBillingRowKey(r);
+                        const site = getSiteById(r.siteId);
+                        const code = (r.siteCode ?? site?.siteCode ?? "").trim();
+                        const client = (
+                          r.clientName ??
+                          site?.clientName ??
+                          ""
+                        ).trim();
+                        const value = billingDraft[k] ?? "";
+                        const readOnly = billingSelected.status === "approved";
+                        return (
+                          <tr key={k}>
+                            <td>{code || "—"}</td>
+                            <td>{r.dateKey}</td>
+                            <td>{r.siteName}</td>
+                            <td>{client || "—"}</td>
+                            <td>{r.workKind}</td>
+                            <td>{r.peopleCount}</td>
+                            <td>
+                              {readOnly ? (
+                                value !== ""
+                                  ? `${Number(value).toLocaleString()}円`
+                                  : "—"
+                              ) : (
+                                <input
+                                  className={styles.amountInput}
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={value}
+                                  onChange={(e) =>
+                                    setBillingDraft((p) => ({
+                                      ...p,
+                                      [k]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="0"
+                                />
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )
+              )}
+            </>
+          )}
         </div>
       )}
 

@@ -169,6 +169,23 @@ export function ExternalSitePortalPage() {
     setCompany(getExternalCompanyByKey(normalizedKey));
   }, [normalizedKey]);
 
+  /** 外部会社用 PWA: ホーム画面追加時の起動 URL を /external/ にする。 */
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>(
+      'link[rel="manifest"]'
+    );
+    if (!link) return;
+    const prevHref = link.getAttribute("href");
+    link.setAttribute("href", "/manifest-external.json");
+    return () => {
+      if (prevHref !== null) {
+        link.setAttribute("href", prevHref);
+      } else {
+        link.setAttribute("href", "/manifest.json");
+      }
+    };
+  }, []);
+
   const [authed, setAuthed] = useState(() => {
     if (!normalizedKey) return false;
     try {

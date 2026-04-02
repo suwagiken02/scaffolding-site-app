@@ -15,6 +15,11 @@ import {
   saveKouseiMonthList,
   type KouseiRow,
 } from "../lib/kouseiListStorage";
+import {
+  fetchKouseiBillingRecords,
+  postKouseiBillingSend,
+  type KouseiBillingRecord,
+} from "../lib/kouseiBillingStorage";
 import styles from "./ContractorAdminPage.module.css";
 
 const UNDO_MS = 30_000;
@@ -86,6 +91,11 @@ export function KouseiAdminPage() {
   const undoTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
+  const [billingRecords, setBillingRecords] = useState<KouseiBillingRecord[]>(
+    []
+  );
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingSending, setBillingSending] = useState(false);
 
   const monthState = useMemo(
     () => loadKouseiMonthList(month),
@@ -116,6 +126,24 @@ export function KouseiAdminPage() {
     clearUndoTimers();
     setUndoEntries([]);
   }, [month, clearUndoTimers]);
+
+  const loadBillingRecords = useCallback(async () => {
+    try {
+      setBillingError(null);
+      const list = await fetchKouseiBillingRecords();
+      setBillingRecords(list);
+    } catch (e) {
+      setBillingError(
+        e instanceof Error ? e.message : "請求データの取得に失敗しました"
+      );
+      setBillingRecords([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed) return;
+    void loadBillingRecords();
+  }, [authed, loadBillingRecords]);
 
   function bumpStorage() {
     setStorageTick((t) => t + 1);
@@ -176,6 +204,29 @@ export function KouseiAdminPage() {
   }
 
   const visibleUndo = undoEntries.filter((e) => Date.now() < e.expiresAt);
+
+  const billingForMonth = billingRecords.find((r) => r.month === month);
+
+  async function handleBillingSend() {
+    if (rows.length === 0) return;
+    const ok = window.confirm(
+      "表示中の作業一覧をKOUSEI側の請求確認用データとしてサーバーに送信します。よろしいですか？"
+    );
+    if (!ok) return;
+    setBillingSending(true);
+    setMessage(null);
+    try {
+      await postKouseiBillingSend(month, rows, "1234");
+      await loadBillingRecords();
+      setMessage("確定送信しました。");
+    } catch (e) {
+      setMessage(
+        e instanceof Error ? e.message : "確定送信に失敗しました。"
+      );
+    } finally {
+      setBillingSending(false);
+    }
+  }
 
   if (!authed) {
     return (
@@ -247,7 +298,27 @@ export function KouseiAdminPage() {
           >
             確定して送信
           </button>
+          <button
+            type="button"
+            className={styles.btn}
+            disabled={
+              rows.length === 0 ||
+              billingSending ||
+              billingForMonth?.status === "approved"
+            }
+            onClick={() => void handleBillingSend()}
+          >
+            {billingSending ? "送信中…" : "確定送信"}
+          </button>
+          {billingForMonth?.status === "sent" && (
+            <span className={styles.billingBadge}>送信済み</span>
+          )}
+          {billingForMonth?.status === "approved" && (
+            <span className={styles.billingBadge}>了承済み</span>
+          )}
         </div>
+
+        {billingError && <p className={styles.danger}>{billingError}</p>}
 
         <p className={styles.muted}>
           状態: {monthState.confirmed ? "確定済み" : "未確定"}
