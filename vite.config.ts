@@ -82,4 +82,13 @@ export default defineConfig(({ mode }) => ({
       "/api": { target: "http://localhost:3001", changeOrigin: true },
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        /** 外部会社向け PWA エントリ（manifest-external.json） */
+        external: resolve(__dirname, "external.html"),
+      },
+    },
+  },
 }));

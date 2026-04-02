@@ -1485,7 +1485,8 @@ export function MasterSettingsPage() {
 }
 
 function buildExternalPortalUrl(companyKey: string): string {
-  const path = `external/${normalizeCompanyKey(companyKey)}`;
+  const k = normalizeCompanyKey(companyKey);
+  const path = `external.html?key=${encodeURIComponent(k)}`;
   return new URL(path, `${window.location.origin}${import.meta.env.BASE_URL}`).href;
 }
 
@@ -1567,8 +1568,8 @@ function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>外部会社マスター</h2>
       <p className={styles.panelDesc}>
-        外部会社向けの現場登録ページ（パス{" "}
-        <code>/external/URLキー</code>）で使う会社名・URLキー・PINを登録します。
+        外部会社向けの現場登録ページ（URL{" "}
+        <code>/external.html?key=URLキー</code>）で使う会社名・URLキー・PINを登録します。
       </p>
 
       <form className={styles.form} onSubmit={onAdd} noValidate>
@@ -1603,7 +1604,7 @@ function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
               spellCheck={false}
             />
             <span className={styles.fieldHint}>
-              登録時のURL例：…/external/
+              登録時のURL例：…/external.html?key=
               {companyKeyRaw ? normalizeCompanyKey(companyKeyRaw) || "（キー）" : "（キー）"}
             </span>
           </label>
