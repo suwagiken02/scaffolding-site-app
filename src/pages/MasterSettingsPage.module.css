@@ -242,6 +242,16 @@
   align-items: flex-end;
 }
 
+.staffAdminNotify {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
 .fieldHint {
   margin: 0;
   font-size: 0.78rem;

@@ -1,10 +1,11 @@
-import type {
-  StaffBirthdayLeaveUsage,
-  StaffEmergencyContact,
-  StaffInsuranceProfile,
-  StaffJobRole,
-  StaffMaster,
-  StaffPaidLeaveUsage,
+import {
+  staffCanReceiveAdminNotify,
+  type StaffBirthdayLeaveUsage,
+  type StaffEmergencyContact,
+  type StaffInsuranceProfile,
+  type StaffJobRole,
+  type StaffMaster,
+  type StaffPaidLeaveUsage,
 } from "../types/staffMaster";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
@@ -136,11 +137,21 @@ function normalizeRow(x: unknown): StaffMaster | null {
   if (!id || !name) return null;
   const email = typeof o.email === "string" ? o.email.trim() : "";
   const role = migrateToJobRole(o);
+  const canAdmin = staffCanReceiveAdminNotify(role);
+  const isAdmin = canAdmin && o.isAdmin === true;
+  const fcmTok =
+    isAdmin &&
+    typeof o.fcmToken === "string" &&
+    o.fcmToken.trim().length > 0
+      ? o.fcmToken.trim()
+      : undefined;
   return {
     id,
     name,
     email,
     role,
+    ...(isAdmin ? { isAdmin: true } : {}),
+    ...(fcmTok ? { fcmToken: fcmTok } : {}),
     personalPin: normalizePin4(o.personalPin),
     personalCode: normalizePersonalCode6(o.personalCode),
     birthDate: typeof o.birthDate === "string" ? o.birthDate.trim() : "",
@@ -160,11 +171,22 @@ function normalizeRow(x: unknown): StaffMaster | null {
 
 function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
   const raw = input as unknown as Record<string, unknown>;
+  const roleResolved = migrateToJobRole({ ...raw, role: input.role });
+  const canAdmin = staffCanReceiveAdminNotify(roleResolved);
+  const isAdmin = canAdmin && input.isAdmin === true;
+  const fcmTok =
+    isAdmin &&
+    typeof input.fcmToken === "string" &&
+    input.fcmToken.trim().length > 0
+      ? input.fcmToken.trim()
+      : undefined;
   return {
     id: input.id.trim(),
     name: input.name.trim(),
     email: typeof input.email === "string" ? input.email.trim() : "",
-    role: migrateToJobRole({ ...raw, role: input.role }),
+    role: roleResolved,
+    ...(isAdmin ? { isAdmin: true } : {}),
+    ...(fcmTok ? { fcmToken: fcmTok } : {}),
     personalPin: normalizePin4(input.personalPin),
     personalCode: normalizePersonalCode6(input.personalCode),
     birthDate: input.birthDate.trim(),
@@ -184,6 +206,7 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
 
 function defaultStaffFields(): Omit<StaffMaster, "id" | "name" | "role"> {
   return {
+    isAdmin: false,
     personalPin: "",
     personalCode: "",
     email: "",

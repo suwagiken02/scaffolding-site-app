@@ -39,6 +39,11 @@ export function staffMatchesKogataPicker(role: StaffJobRole): boolean {
   );
 }
 
+/** 管理者向けプッシュ（休暇申請・外部現場登録等）の設定を出せる役割 */
+export function staffCanReceiveAdminNotify(role: StaffJobRole): boolean {
+  return role === "役員" || role === "内勤";
+}
+
 export type StaffPaidLeaveUsage = { dateKey: string; days: number };
 export type StaffBirthdayLeaveUsage = { dateKey: string; days: number };
 
@@ -62,6 +67,10 @@ export type StaffMaster = {
   email: string;
   /** 役割（5種のいずれか1つ） */
   role: StaffJobRole;
+  /** 役員・内勤のみ：管理者向けプッシュ通知を受け取る */
+  isAdmin?: boolean;
+  /** 管理者向け FCM（この端末で登録したトークン）。isAdmin 時のみ有効 */
+  fcmToken?: string;
   /** 個人ページ用 4 桁 PIN（事務員がマスターで設定） */
   personalPin: string;
   /** 給与明細PDFの紐付け用 6 桁（数字のみ、事務員がマスターで設定） */

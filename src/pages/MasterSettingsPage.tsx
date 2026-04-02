@@ -33,6 +33,7 @@ import {
 } from "../lib/contractorMasterStorage";
 import {
   STAFF_JOB_ROLE_OPTIONS,
+  staffCanReceiveAdminNotify,
   type StaffJobRole,
   type StaffMaster,
 } from "../types/staffMaster";
@@ -174,6 +175,9 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   );
   const [personalCode, setPersonalCode] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [staffFcmBusyId, setStaffFcmBusyId] = useState<string | null>(null);
+  const [staffFcmMessage, setStaffFcmMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function onAdd(e: FormEvent) {
@@ -187,6 +191,9 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
     addStaffMaster({
       name: n,
       role,
+      ...(staffCanReceiveAdminNotify(role) && newIsAdmin
+        ? { isAdmin: true }
+        : {}),
       personalPin: personalPin.replace(/\D/g, "").slice(0, 4),
       personalCode: personalCode.replace(/\D/g, "").slice(0, 6),
       birthDate: "",
@@ -205,6 +212,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
     });
     setName("");
     setRole("内勤");
+    setNewIsAdmin(false);
     setPersonalPin("");
     setPinVisibleNew(false);
     setPersonalCode("");
@@ -215,6 +223,32 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   function setRow(next: StaffMaster) {
     updateStaffMaster(next);
     onRefresh();
+  }
+
+  async function handleStaffAdminFcm(s: StaffMaster) {
+    if (!hasFirebaseMessagingConfig()) {
+      setStaffFcmMessage(
+        "Firebase（VITE_FIREBASE_*）が未設定のため登録できません。"
+      );
+      return;
+    }
+    setStaffFcmBusyId(s.id);
+    setStaffFcmMessage(null);
+    try {
+      const token = await getCurrentFcmDeviceToken();
+      if (!token) {
+        setStaffFcmMessage(
+          "トークンを取得できませんでした（通知の許可・HTTPS を確認してください）。"
+        );
+        return;
+      }
+      setRow({ ...s, fcmToken: token });
+      setStaffFcmMessage(
+        `${s.name.trim()} の端末にプッシュ通知用トークンを保存しました。`
+      );
+    } finally {
+      setStaffFcmBusyId(null);
+    }
   }
 
   return (
@@ -248,7 +282,11 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
             <select
               className={styles.input}
               value={role}
-              onChange={(e) => setRole(e.target.value as StaffJobRole)}
+              onChange={(e) => {
+                const v = e.target.value as StaffJobRole;
+                setRole(v);
+                if (!staffCanReceiveAdminNotify(v)) setNewIsAdmin(false);
+              }}
               aria-label="役割"
             >
               {STAFF_JOB_ROLE_OPTIONS.map((r) => (
@@ -322,11 +360,35 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
             />
           </label>
 
+          {staffCanReceiveAdminNotify(role) && (
+            <label className={styles.field}>
+              <span className={styles.label}>管理者通知</span>
+              <div className={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={newIsAdmin}
+                  onChange={(e) => setNewIsAdmin(e.target.checked)}
+                  aria-label="管理者通知を受け取る"
+                />
+                <span className={styles.toggleHint}>管理者通知を受け取る</span>
+              </div>
+              <span className={styles.fieldHint}>
+                登録後、一覧で「この端末でプッシュ通知を登録」から FCM を紐付けます。
+              </span>
+            </label>
+          )}
+
           <button type="submit" className={styles.submit}>
             追加
           </button>
         </div>
       </form>
+
+      {staffFcmMessage && (
+        <p className={styles.panelDesc} role="status">
+          {staffFcmMessage}
+        </p>
+      )}
 
       <h3 className={styles.subTitle}>登録一覧</h3>
       {list.length === 0 ? (
@@ -359,12 +421,17 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                     <select
                       className={styles.input}
                       value={r.role}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const nextRole = e.target.value as StaffJobRole;
+                        const can = staffCanReceiveAdminNotify(nextRole);
                         setRow({
                           ...r,
-                          role: e.target.value as StaffJobRole,
-                        })
-                      }
+                          role: nextRole,
+                          ...(!can
+                            ? { isAdmin: false, fcmToken: undefined }
+                            : {}),
+                        });
+                      }}
                       aria-label="役割"
                     >
                       {STAFF_JOB_ROLE_OPTIONS.map((opt) => (
@@ -431,6 +498,54 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                     />
                   </label>
                 </div>
+                {staffCanReceiveAdminNotify(r.role) && (
+                  <div className={styles.staffAdminNotify}>
+                    <label className={styles.toggleRow}>
+                      <input
+                        type="checkbox"
+                        checked={r.isAdmin === true}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setRow({
+                            ...r,
+                            isAdmin: on,
+                            ...(!on ? { fcmToken: undefined } : {}),
+                          });
+                        }}
+                        aria-label="管理者通知を受け取る"
+                      />
+                      <span className={styles.toggleHint}>
+                        管理者通知を受け取る
+                      </span>
+                    </label>
+                    {r.isAdmin && (
+                      <div className={styles.notifyFcmRow}>
+                        <button
+                          type="button"
+                          className={styles.notifyFcmBtn}
+                          disabled={staffFcmBusyId === r.id}
+                          onClick={() => void handleStaffAdminFcm(r)}
+                        >
+                          {staffFcmBusyId === r.id
+                            ? "取得中…"
+                            : "この端末でプッシュ通知を登録"}
+                        </button>
+                        {r.fcmToken ? (
+                          <span
+                            className={styles.notifyFcmToken}
+                            title={r.fcmToken}
+                          >
+                            FCM: {r.fcmToken.slice(0, 24)}…
+                          </span>
+                        ) : (
+                          <span className={styles.notifyFcmToken}>
+                            プッシュ未登録（上のボタンで登録）
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -746,7 +861,7 @@ function NotificationPanel() {
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>通知先</h2>
       <p className={styles.panelDesc}>
-        メール通知の宛先と、休暇申請・外部現場登録などの管理者向けプッシュ通知先を登録します。各現場の「通知先」タブではメール宛先を選べます。
+        現場ごとのメール通知の宛先を登録します。休暇申請・外部現場登録の管理者向けプッシュ通知は、スタッフマスターで役割が「役員」または「内勤」かつ「管理者通知を受け取る」にした人の FCM トークンへ送ります。
       </p>
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>

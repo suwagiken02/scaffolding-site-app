@@ -12,6 +12,8 @@ function appsReady() {
 
 /** 通知先マスター（localStorage 同期）のファイル名 */
 const NOTIFICATION_RECIPIENTS_FILE = "notification-recipients-master-v1.json";
+/** スタッフマスター（isAdmin + fcmToken） */
+const STAFF_MASTER_FILE = "master-staff-v1.json";
 
 export function initFirebaseAdminIfPossible() {
   if (appsReady()) return true;
@@ -159,6 +161,32 @@ export async function readNotificationRecipientFcmTokens(dataDir) {
   }
 }
 
+/**
+ * スタッフマスターで isAdmin: true かつ fcmToken がある端末へ（管理者向け）
+ * @param {string} dataDir
+ * @returns {Promise<string[]>}
+ */
+export async function readAdminStaffFcmTokensFromStaffMaster(dataDir) {
+  const p = join(dataDir, STAFF_MASTER_FILE);
+  try {
+    if (!existsSync(p)) return [];
+    const raw = await readFile(p, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const tokens = [];
+    for (const row of parsed) {
+      if (!row || typeof row !== "object") continue;
+      if (row.isAdmin !== true) continue;
+      const ft = row.fcmToken;
+      if (typeof ft === "string" && ft.trim().length > 0) tokens.push(ft.trim());
+    }
+    return [...new Set(tokens)];
+  } catch (e) {
+    console.error("[server] readAdminStaffFcmTokensFromStaffMaster", e);
+    return [];
+  }
+}
+
 const BATCH = 500;
 
 /**
@@ -234,17 +262,17 @@ export async function notifyStaffByNames(staffNames, dataDir, title, body) {
 }
 
 /**
- * 通知先マスターの FCM トークンへ（管理者）
+ * スタッフマスター（isAdmin + 端末登録 fcmToken）へ管理者向け通知
  * @param {string} dataDir
  * @param {string} title
  * @param {string} body
  */
 export async function notifyAdminRecipients(dataDir, title, body) {
   if (!appsReady()) return;
-  const tokens = await readNotificationRecipientFcmTokens(dataDir);
+  const tokens = await readAdminStaffFcmTokensFromStaffMaster(dataDir);
   if (tokens.length === 0) {
     console.warn(
-      "[server] FCM notifyAdminRecipients: no fcmToken in notification-recipients-master-v1"
+      "[server] FCM notifyAdminRecipients: no admin staff fcmToken in master-staff-v1"
     );
     return;
   }
