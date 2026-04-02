@@ -1,4 +1,11 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { loadSites } from "../lib/siteStorage";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
 import { WORK_KINDS } from "../types/workKind";
@@ -7,6 +14,7 @@ import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   fetchKouseiBillingRecords,
   postKouseiBillingSend,
+  putKouseiBillingUpdate,
   kouseiBillingRowKey,
   type KouseiBillingRecord,
   type KouseiBillingRow,
@@ -85,6 +93,37 @@ function buildBillingRowsForMonth(month: string, todayKey: string): KouseiBillin
   });
 }
 
+/** 同月の最新レコードから金額・メモのみを初期値に反映 */
+function useIsDesktopMin768(): boolean {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setOk(mq.matches);
+    const on = () => setOk(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return ok;
+}
+
+function mergeLatestAmountMemo(
+  base: KouseiBillingRow[],
+  latest?: KouseiBillingRecord
+): KouseiBillingRow[] {
+  if (!latest) return base;
+  const map = new Map(latest.rows.map((r) => [kouseiBillingRowKey(r), r]));
+  return base.map((row) => {
+    const k = kouseiBillingRowKey(row);
+    const prev = map.get(k);
+    if (!prev) return row;
+    return {
+      ...row,
+      amount: prev.amount,
+      memo: prev.memo,
+    };
+  });
+}
+
 export function KouseiAdminPage() {
   const [pin, setPin] = useState("");
   const [authed, setAuthed] = useState(false);
@@ -96,14 +135,12 @@ export function KouseiAdminPage() {
   );
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingSending, setBillingSending] = useState(false);
+  const [savingPut, setSavingPut] = useState(false);
 
-  const [draftRows, setDraftRows] = useState<KouseiBillingRow[]>(() =>
-    buildBillingRowsForMonth(toMonthValue(todayKey), todayKey)
-  );
+  const [draftRows, setDraftRows] = useState<KouseiBillingRow[]>([]);
 
-  useEffect(() => {
-    setDraftRows(buildBillingRowsForMonth(month, todayKey));
-  }, [month, todayKey]);
+  const amountInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const isDesktop = useIsDesktopMin768();
 
   const loadBillingRecords = useCallback(async () => {
     try {
@@ -123,7 +160,34 @@ export function KouseiAdminPage() {
     void loadBillingRecords();
   }, [authed, loadBillingRecords]);
 
+  const latestForMonth = useMemo(() => {
+    const list = billingRecords.filter((r) => r.month === month);
+    if (list.length === 0) return undefined;
+    return [...list].sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
+  }, [billingRecords, month]);
+
+  const latestRowsSig = useMemo(
+    () => (latestForMonth ? JSON.stringify(latestForMonth.rows) : ""),
+    [latestForMonth]
+  );
+
+  useEffect(() => {
+    const base = buildBillingRowsForMonth(month, todayKey);
+    setDraftRows(mergeLatestAmountMemo(base, latestForMonth));
+  }, [month, todayKey, latestForMonth?.id, latestRowsSig]);
+
   const rangeEndLabel = monthRangeEnd(month, todayKey);
+
+  function updateRow(
+    rowKey: string,
+    patch: Partial<Pick<KouseiBillingRow, "amount" | "memo">>
+  ) {
+    setDraftRows((prev) =>
+      prev.map((row) =>
+        kouseiBillingRowKey(row) === rowKey ? { ...row, ...patch } : row
+      )
+    );
+  }
 
   function toggleChecked(r: KouseiBillingRow, checked: boolean) {
     const k = kouseiBillingRowKey(r);
@@ -132,6 +196,44 @@ export function KouseiAdminPage() {
         kouseiBillingRowKey(row) === k ? { ...row, checked } : row
       )
     );
+  }
+
+  function focusAmountInput(rowKey: string) {
+    amountInputRefs.current[rowKey]?.focus();
+  }
+
+  async function handleSavePut() {
+    if (!latestForMonth) {
+      setMessage(
+        "保存するには、同じ月に送信済みのレコードが必要です（先に確定送信するか、既存レコードを参照してください）。"
+      );
+      return;
+    }
+    setSavingPut(true);
+    setMessage(null);
+    try {
+      const draftByKey = new Map(
+        draftRows.map((r) => [kouseiBillingRowKey(r), r])
+      );
+      const mergedRows = latestForMonth.rows.map((row) => {
+        const k = kouseiBillingRowKey(row);
+        const d = draftByKey.get(k);
+        if (!d) return row;
+        return {
+          ...row,
+          amount: d.amount,
+          memo: d.memo,
+          checked: d.checked,
+        };
+      });
+      await putKouseiBillingUpdate(latestForMonth.id, { rows: mergedRows });
+      await loadBillingRecords();
+      setMessage("保存しました（メールは送信していません）。");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "保存に失敗しました。");
+    } finally {
+      setSavingPut(false);
+    }
   }
 
   async function handleSend() {
@@ -154,8 +256,6 @@ export function KouseiAdminPage() {
       const payload = checkedRows.map((r) => ({
         ...r,
         checked: true,
-        amount: null,
-        memo: "",
       }));
       await postKouseiBillingSend({
         month,
@@ -183,6 +283,7 @@ export function KouseiAdminPage() {
   }
 
   const sendCountThisMonth = billingRecords.filter((r) => r.month === month).length;
+  const canSavePut = Boolean(latestForMonth);
 
   if (!authed) {
     return (
@@ -235,6 +336,19 @@ export function KouseiAdminPage() {
           </label>
           <button
             type="button"
+            className={styles.btnSecondary}
+            disabled={savingPut || !canSavePut}
+            title={
+              !canSavePut
+                ? "同じ月に送信済みのレコードがないため保存できません"
+                : undefined
+            }
+            onClick={() => void handleSavePut()}
+          >
+            {savingPut ? "保存中…" : "保存"}
+          </button>
+          <button
+            type="button"
             className={styles.btn}
             disabled={billingSending || draftRows.length === 0}
             onClick={() => void handleSend()}
@@ -255,43 +369,188 @@ export function KouseiAdminPage() {
           （月初から現在までの作業記録）
         </p>
         <p className={styles.muted}>
-          初期チェック: KOUSEI・自社（緑）= ON、自社（白）= OFF。変更してから送信してください。
+          初期チェック: KOUSEI・自社（緑）= ON、自社（白）= OFF。金額・メモは同月の最新送信を反映します。「保存」はサーバーに反映するだけでメールは送りません。
         </p>
 
         {draftRows.length === 0 ? (
           <p className={styles.muted}>該当する作業記録がありません。</p>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>送信</th>
-                <th>日付</th>
-                <th>現場名</th>
-                <th>元請け名</th>
-                <th>作業種別</th>
-                <th>人数</th>
-              </tr>
-            </thead>
-            <tbody>
-              {draftRows.map((r) => (
-                <tr key={kouseiBillingRowKey(r)}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={r.checked}
-                      onChange={(e) => toggleChecked(r, e.target.checked)}
-                      aria-label="送信に含める"
-                    />
-                  </td>
-                  <td>{r.dateKey}</td>
-                  <td>{r.siteName}</td>
-                  <td>{r.clientName || "—"}</td>
-                  <td>{r.workKind}</td>
-                  <td>{r.peopleCount}</td>
+        ) : isDesktop ? (
+          <div className={styles.kouseiAdminTableWrap}>
+            <table className={`${styles.table} ${styles.kouseiAdminTable}`}>
+              <thead>
+                <tr>
+                  <th>送信</th>
+                  <th>日付</th>
+                  <th>現場名</th>
+                  <th>元請け名</th>
+                  <th>作業種別</th>
+                  <th>人数</th>
+                  <th>金額</th>
+                  <th>メモ</th>
+                  <th>編集</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {draftRows.map((r) => {
+                  const rk = kouseiBillingRowKey(r);
+                  return (
+                    <tr key={rk}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={r.checked}
+                          onChange={(e) =>
+                            toggleChecked(r, e.target.checked)
+                          }
+                          aria-label="送信に含める"
+                        />
+                      </td>
+                      <td>{r.dateKey}</td>
+                      <td>{r.siteName}</td>
+                      <td>{r.clientName || "—"}</td>
+                      <td>{r.workKind}</td>
+                      <td>{r.peopleCount}</td>
+                      <td>
+                        <input
+                          ref={(el) => {
+                            amountInputRefs.current[rk] = el;
+                          }}
+                          className={styles.amountInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={
+                            r.amount === null || r.amount === undefined
+                              ? ""
+                              : String(r.amount)
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value.trim();
+                            updateRow(rk, {
+                              amount: v === "" ? null : Number(v),
+                            });
+                          }}
+                          placeholder="0"
+                        />
+                      </td>
+                      <td className={styles.cellMemo}>
+                        <input
+                          className={styles.input}
+                          type="text"
+                          value={r.memo}
+                          onChange={(e) =>
+                            updateRow(rk, { memo: e.target.value })
+                          }
+                          placeholder="メモ"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => focusAmountInput(rk)}
+                        >
+                          編集
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div>
+            {draftRows.map((r) => {
+              const rk = kouseiBillingRowKey(r);
+              return (
+                <div key={rk} className={styles.kouseiAdminCard}>
+                  <div className={styles.kouseiAdminCardHead}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={r.checked}
+                        onChange={(e) =>
+                          toggleChecked(r, e.target.checked)
+                        }
+                      />
+                      <span>送信</span>
+                    </label>
+                    <span>{r.dateKey}</span>
+                  </div>
+                  <div className={styles.kouseiAdminCardGrid}>
+                    <div className={styles.kouseiAdminCardFull}>
+                      <span style={{ fontWeight: 800 }}>{r.siteName}</span>
+                    </div>
+                    <div>
+                      <span className={styles.label}>元請け</span>
+                      {r.clientName || "—"}
+                    </div>
+                    <div>
+                      <span className={styles.label}>作業</span>
+                      {r.workKind}
+                    </div>
+                    <div>
+                      <span className={styles.label}>人数</span>
+                      {r.peopleCount}
+                    </div>
+                    <div>
+                      <span className={styles.label}>金額（円）</span>
+                      <input
+                        ref={(el) => {
+                          amountInputRefs.current[rk] = el;
+                        }}
+                        className={styles.amountInput}
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={
+                          r.amount === null || r.amount === undefined
+                            ? ""
+                            : String(r.amount)
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          updateRow(rk, {
+                            amount: v === "" ? null : Number(v),
+                          });
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <span className={styles.label}>メモ</span>
+                      <input
+                        className={styles.input}
+                        type="text"
+                        value={r.memo}
+                        onChange={(e) =>
+                          updateRow(rk, { memo: e.target.value })
+                        }
+                        placeholder="メモ"
+                      />
+                    </div>
+                    <div className={styles.kouseiAdminCardFull}>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        style={{ width: "100%" }}
+                        onClick={() => focusAmountInput(rk)}
+                      >
+                        金額欄にフォーカス
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {message && <p className={styles.muted}>{message}</p>}

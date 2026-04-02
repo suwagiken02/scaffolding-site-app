@@ -210,4 +210,96 @@
   vertical-align: middle;
 }
 
+.btnSecondary {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 1.05rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.btnSecondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.kouseiAdminTableWrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-left: -0.25rem;
+  margin-right: -0.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.kouseiAdminTable {
+  min-width: 920px;
+}
+
+.kouseiAdminTable th,
+.kouseiAdminTable td {
+  white-space: nowrap;
+}
+
+.kouseiAdminTable .cellMemo {
+  white-space: normal;
+  min-width: 7rem;
+  max-width: 12rem;
+}
+
+.kouseiAdminCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.65rem;
+  background: var(--bg);
+}
+
+.kouseiAdminCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.kouseiAdminCardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.88rem;
+}
+
+.kouseiAdminCardGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.kouseiAdminCardGrid .input,
+.kouseiAdminCardGrid .amountInput {
+  min-width: 0;
+  width: 100%;
+}
+
+.kouseiAdminCardFull {
+  grid-column: 1 / -1;
+}
+
 
