@@ -87,6 +87,7 @@ export function SiteEditorForm({
   const [salesSelectId, setSalesSelectId] = useState("");
   const [siteTypeSelectId, setSiteTypeSelectId] = useState("");
   const [companyKind, setCompanyKind] = useState<CompanyKind>("自社");
+  const [alwaysShowOnMap, setAlwaysShowOnMap] = useState(false);
   const [ignoreSiteListWarning, setIgnoreSiteListWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [siteMemos, setSiteMemos] = useState<SiteMemo[]>([]);
@@ -94,6 +95,7 @@ export function SiteEditorForm({
   useEffect(() => {
     if (!initialSite) {
       setSiteMemos([]);
+      setAlwaysShowOnMap(false);
       return;
     }
 
@@ -117,6 +119,7 @@ export function SiteEditorForm({
     const tid = st.find((x) => x.name === initialSite.siteTypeName)?.id ?? "";
     setSiteTypeSelectId(tid);
     setCompanyKind(initialSite.companyKind);
+    setAlwaysShowOnMap(initialSite.alwaysShowOnMap === true);
     setIgnoreSiteListWarning(initialSite.ignoreSiteListWarning === true);
     setSiteMemos(normalizeSiteMemos(initialSite.siteMemos));
   }, [initialSite]);
@@ -265,6 +268,7 @@ export function SiteEditorForm({
       ...(initialSite?.manualDisplayStatus
         ? { manualDisplayStatus: initialSite.manualDisplayStatus }
         : {}),
+      ...(alwaysShowOnMap ? { alwaysShowOnMap: true } : {}),
     };
 
     onSubmit(site);
@@ -356,6 +360,23 @@ export function SiteEditorForm({
           />
           <p className={styles.hint}>
             GoogleマップでURLを取得する方法：GoogleマップでコピーしたURLをそのまま貼り付けてください。
+          </p>
+        </label>
+
+        <label className={`${formStyles.field} ${styles.checkboxField}`}>
+          <span className={formStyles.label}>マップ表示</span>
+          <span className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={alwaysShowOnMap}
+              onChange={(e) => setAlwaysShowOnMap(e.target.checked)}
+              aria-label="マップに常時表示する"
+            />
+            <span>マップに常時表示する</span>
+          </span>
+          <p className={styles.hint}>
+            チェックを入れると、地図の「本日の作業」「足場設置中」のどちらのタブでもピンが表示されます（上記
+            GoogleマップURLの登録が必要です）。
           </p>
         </label>
 

@@ -195,6 +195,7 @@ function normalizeSite(x: unknown): Site | null {
       ...(externalCompanyKey ? { externalCompanyKey } : {}),
       ...(externalCompanyName ? { externalCompanyName } : {}),
       ...(manualDisplayStatus ? { manualDisplayStatus } : {}),
+      ...(o.alwaysShowOnMap === true ? { alwaysShowOnMap: true } : {}),
     };
   }
   return migrateLegacyRow(o);

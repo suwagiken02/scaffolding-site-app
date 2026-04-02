@@ -41,6 +41,9 @@ const KEY_ATTENDANCE_STAFF = "attendance-staff-v1";
 
 const DEFAULT_SITE_TYPES = ["新築", "改修", "塗装", "解体", "設備", "土木"];
 
+/** 既存マスターにも不足時のみ追記（会社・資材置き場） */
+const EXTRA_SITE_TYPE_NAMES = ["会社", "資材置き場"];
+
 function ensureSiteTypeDefaults(): void {
   const list = readList(KEY_SITE_TYPE);
   if (list.length > 0) return;
@@ -48,6 +51,20 @@ function ensureSiteTypeDefaults(): void {
     KEY_SITE_TYPE,
     DEFAULT_SITE_TYPES.map((name) => ({ id: newId(), name }))
   );
+}
+
+function ensureSiteTypeKouseiExtras(): void {
+  ensureSiteTypeDefaults();
+  const list = readList(KEY_SITE_TYPE);
+  const names = new Set(list.map((x) => x.name.trim()));
+  let changed = false;
+  for (const name of EXTRA_SITE_TYPE_NAMES) {
+    if (names.has(name)) continue;
+    list.push({ id: newId(), name });
+    names.add(name);
+    changed = true;
+  }
+  if (changed) writeList(KEY_SITE_TYPE, list);
 }
 
 export function loadClientMasters(): MasterItem[] {
@@ -160,6 +177,7 @@ export function removeSalesMaster(id: string): void {
 
 export function loadSiteTypeMasters(): MasterItem[] {
   ensureSiteTypeDefaults();
+  ensureSiteTypeKouseiExtras();
   return readList(KEY_SITE_TYPE);
 }
 export function addSiteTypeMaster(name: string): MasterItem {

@@ -54,6 +54,8 @@ export type Site = {
     | "設置中"
     | "解体中"
     | "撤去済";
+  /** true のとき、マップの各タブに常にピン表示（GoogleマップURL必須） */
+  alwaysShowOnMap?: boolean;
 };
 
 /** 旧形式（移行用） */
