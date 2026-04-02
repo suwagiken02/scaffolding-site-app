@@ -1,4 +1,21 @@
-export type CompanyKind = "自社" | "KOUSEI";
+export type CompanyKind = "自社" | "自社_green" | "KOUSEI";
+
+/** 保存値を画面表示ラベルに（既存「自社」は自社（白）） */
+export function companyKindLabel(k: CompanyKind): string {
+  switch (k) {
+    case "KOUSEI":
+      return "KOUSEI";
+    case "自社_green":
+      return "自社（緑）";
+    case "自社":
+      return "自社（白）";
+  }
+}
+
+/** 一覧・現場ファイルで現場名を緑表示するか */
+export function isCompanyKindGreenSiteName(k: CompanyKind): boolean {
+  return k === "自社_green";
+}
 
 /** 現場メモ（複数可） */
 export type SiteMemo = {
@@ -35,7 +52,7 @@ export type Site = {
   vehicleLabels: string[];
   /** 現場種別 */
   siteTypeName: string;
-  /** 自社 or KOUSEI */
+  /** KOUSEI / 自社（白） / 自社（緑） — 値は KOUSEI・自社・自社_green */
   companyKind: CompanyKind;
   /** 現場メモ */
   siteMemos: SiteMemo[];

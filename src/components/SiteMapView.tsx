@@ -9,7 +9,7 @@ import {
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Site } from "../types/site";
+import { isCompanyKindGreenSiteName, type Site } from "../types/site";
 import { normalizeEntranceDateKeys } from "../lib/siteStorage";
 import {
   resolveGoogleMapsUrlForPin,
@@ -439,7 +439,15 @@ export function SiteMapView({
                     to={href}
                     className={styles.popupBalloon}
                   >
-                    <div className={styles.popupTitle}>{m.site.name}</div>
+                    <div
+                      className={
+                        isCompanyKindGreenSiteName(m.site.companyKind)
+                          ? `${styles.popupTitle} ${styles.popupTitleGreen}`
+                          : styles.popupTitle
+                      }
+                    >
+                      {m.site.name}
+                    </div>
                     <div className={styles.popupStatus}>{status}</div>
                     <div className={styles.popupHint}>タップして現場を開く</div>
                   </Link>

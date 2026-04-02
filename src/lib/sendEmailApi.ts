@@ -1,4 +1,4 @@
-import type { Site } from "../types/site";
+import { companyKindLabel, type Site } from "../types/site";
 import type { PhotoCategory } from "../types/sitePhoto";
 import { loadRecipients } from "./notificationRecipientStorage";
 import { getSelectedRecipientIds } from "./siteNotificationRecipientStorage";
@@ -37,7 +37,7 @@ export function buildNotificationBody(site: Site, uploadedAtIso: string): string
     `子方名: ${joinLines(site.kogataNames)}`,
     `車両: ${joinLines(site.vehicleLabels)}`,
     `現場種別: ${site.siteTypeName || "—"}`,
-    `区分: ${site.companyKind}`,
+    `区分: ${companyKindLabel(site.companyKind)}`,
     `日時: ${formatMailDateTime(uploadedAtIso)}`,
   ];
   return lines.join("\n");

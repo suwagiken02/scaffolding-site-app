@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Site } from "../types/site";
+import { isCompanyKindGreenSiteName, type Site } from "../types/site";
 import { loadSites, normalizeEntranceDateKeys } from "../lib/siteStorage";
 import { SiteMapView } from "../components/SiteMapView";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
@@ -393,7 +393,13 @@ export function SiteListPage() {
                       to={`/sites/${site.id}`}
                       className={styles.cardRow}
                     >
-                      <span className={styles.siteName}>
+                      <span
+                        className={
+                          isCompanyKindGreenSiteName(site.companyKind)
+                            ? `${styles.siteName} ${styles.siteNameGreen}`
+                            : styles.siteName
+                        }
+                      >
                         {site.name || "（現場名未設定）"}
                       </span>
                       <span className={styles.siteClient}>

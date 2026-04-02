@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { Site, SiteMemo } from "../types/site";
+import {
+  companyKindLabel,
+  isCompanyKindGreenSiteName,
+  type Site,
+  type SiteMemo,
+} from "../types/site";
 import {
   getSiteById,
   newSiteMemoId,
@@ -74,9 +79,12 @@ export function SiteDetailPage() {
   const [site, setSite] = useState<Site | null | undefined>(undefined);
   const [workKind, setWorkKind] = useState<WorkKind>("組み");
   const [fileRevision, setFileRevision] = useState(0);
-  const [removalConfirmOpen, setRemovalConfirmOpen] = useState(false);
-  const [removalConfirmAcknowledged, setRemovalConfirmAcknowledged] =
-    useState(false);
+  const [removalPinOpen, setRemovalPinOpen] = useState(false);
+  const [removalPinMode, setRemovalPinMode] = useState<"complete" | "undo">(
+    "complete"
+  );
+  const [removalPin, setRemovalPin] = useState("");
+  const [removalPinError, setRemovalPinError] = useState<string | null>(null);
   const [workStartOpen, setWorkStartOpen] = useState(false);
   const [workStartMessage, setWorkStartMessage] = useState<string | null>(null);
   const [todayUploadKind, setTodayUploadKind] = useState<WorkKind>("組み");
@@ -162,6 +170,10 @@ export function SiteDetailPage() {
     setStatusSelectOpen(false);
     setStatusChangePin("");
     setStatusChangePinError(null);
+    setRemovalPinOpen(false);
+    setRemovalPinMode("complete");
+    setRemovalPin("");
+    setRemovalPinError(null);
   }, [siteId]);
 
   useEffect(() => {
@@ -219,16 +231,18 @@ export function SiteDetailPage() {
   }, [siteId, refreshSiteFromStorage]);
 
   useEffect(() => {
-    if (!removalConfirmOpen) {
-      setRemovalConfirmAcknowledged(false);
-      return;
-    }
+    if (!removalPinOpen) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setRemovalConfirmOpen(false);
+      if (e.key === "Escape") {
+        setRemovalPinOpen(false);
+        setRemovalPinMode("complete");
+        setRemovalPin("");
+        setRemovalPinError(null);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [removalConfirmOpen]);
+  }, [removalPinOpen]);
 
   const safeSite: Site = useMemo(() => {
     // site が未読込/未存在でも Hooks の順番が変わらないよう、常に生成する
@@ -262,7 +276,9 @@ export function SiteDetailPage() {
 
     const s: any = site;
     const companyKind =
-      s?.companyKind === "自社" || s?.companyKind === "KOUSEI"
+      s?.companyKind === "自社" ||
+      s?.companyKind === "自社_green" ||
+      s?.companyKind === "KOUSEI"
         ? (s.companyKind as Site["companyKind"])
         : "自社";
     const entranceDateKeys = normalizeEntranceDateKeys(s?.entranceDateKeys);
@@ -434,7 +450,15 @@ export function SiteDetailPage() {
 
       <header className={styles.header}>
         <div className={styles.headerTitleRow}>
-          <h1 className={styles.title}>{safeSite.name || "（現場名未設定）"}</h1>
+          <h1
+            className={
+              isCompanyKindGreenSiteName(safeSite.companyKind)
+                ? `${styles.title} ${styles.titleCompanyGreen}`
+                : styles.title
+            }
+          >
+            {safeSite.name || "（現場名未設定）"}
+          </h1>
           {(() => {
             const displayStatus = getEffectiveSiteDisplayStatus(safeSite);
             const badgeClass =
@@ -867,8 +891,10 @@ export function SiteDetailPage() {
             <dd className={styles.dd}>{safeSite.siteTypeName || "—"}</dd>
           </div>
           <div className={styles.row}>
-            <dt className={styles.dt}>自社 / KOUSEI</dt>
-            <dd className={styles.dd}>{safeSite.companyKind}</dd>
+            <dt className={styles.dt}>区分</dt>
+            <dd className={styles.dd}>
+              {companyKindLabel(safeSite.companyKind)}
+            </dd>
           </div>
         </dl>
 
@@ -1026,20 +1052,38 @@ export function SiteDetailPage() {
 
       <div className={styles.scaffoldRemovalBar}>
         {safeSite.scaffoldingRemovalCompletedAt?.trim() ? (
-          <button
-            type="button"
-            className={styles.scaffoldRemovalDone}
-            disabled
-            aria-label={`足場撤去は完了済みです（${formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）`}
-          >
-            撤去完了済み（
-            {formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）
-          </button>
+          <div className={styles.scaffoldRemovalBarRow}>
+            <div
+              className={styles.scaffoldRemovalDone}
+              role="status"
+              aria-label={`足場撤去は完了済みです（${formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）`}
+            >
+              撤去完了済み（
+              {formatRemovalCompletedDate(safeSite.scaffoldingRemovalCompletedAt)}）
+            </div>
+            <button
+              type="button"
+              className={styles.scaffoldRemovalUndoBtn}
+              onClick={() => {
+                setRemovalPinMode("undo");
+                setRemovalPin("");
+                setRemovalPinError(null);
+                setRemovalPinOpen(true);
+              }}
+            >
+              撤去完了を取り消す
+            </button>
+          </div>
         ) : (
           <button
             type="button"
             className={styles.scaffoldRemovalBtn}
-            onClick={() => setRemovalConfirmOpen(true)}
+            onClick={() => {
+              setRemovalPinMode("complete");
+              setRemovalPin("");
+              setRemovalPinError(null);
+              setRemovalPinOpen(true);
+            }}
           >
             足場撤去完了
           </button>
@@ -1427,66 +1471,141 @@ export function SiteDetailPage() {
         </div>
       )}
 
-      {removalConfirmOpen && (
+      {removalPinOpen && (
         <div
-          className={styles.modalBackdrop}
+          className={styles.deletePinBackdrop}
           role="presentation"
-          onClick={() => setRemovalConfirmOpen(false)}
+          onClick={() => {
+            setRemovalPinOpen(false);
+            setRemovalPinMode("complete");
+            setRemovalPin("");
+            setRemovalPinError(null);
+          }}
         >
           <div
-            className={styles.modal}
+            className={styles.deletePinCard}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="scaffold-removal-dialog-title"
-            aria-describedby="scaffold-removal-dialog-desc"
+            aria-labelledby="scaffold-removal-pin-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="scaffold-removal-dialog-title" className={styles.modalTitle}>
-              足場撤去の完了
-            </h2>
-            <p
-              id="scaffold-removal-dialog-desc"
-              className={styles.modalBody}
+            <h2
+              id="scaffold-removal-pin-title"
+              className={styles.deletePinTitle}
             >
-              足場の撤去が完了しましたか？この操作は取り消せません。
+              {removalPinMode === "undo"
+                ? "撤去完了の取り消し"
+                : "足場撤去完了"}
+            </h2>
+            <p className={styles.deletePinLead}>
+              {removalPinMode === "undo"
+                ? "4桁のPINコードを入力してください。通過後、撤去完了状態が解除されます。"
+                : "4桁のPINコードを入力してください。この操作は取り消せません。"}
             </p>
-            <label className={styles.modalAckLabel}>
-              <input
-                id="scaffold-removal-confirm-check"
-                className={styles.modalCheckbox}
-                type="checkbox"
-                checked={removalConfirmAcknowledged}
-                onChange={(e) =>
-                  setRemovalConfirmAcknowledged(e.target.checked)
-                }
-              />
-              <span>足場の撤去が完了したことを確認しました</span>
-            </label>
-            <div className={styles.modalActions}>
+            <div className={styles.deletePinDots} aria-label="入力状況">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <span
+                  key={j}
+                  className={
+                    removalPin.length > j
+                      ? styles.deletePinDotOn
+                      : styles.deletePinDotOff
+                  }
+                />
+              ))}
+            </div>
+            {removalPinError && (
+              <p className={styles.deletePinError} role="alert">
+                {removalPinError}
+              </p>
+            )}
+            <div className={styles.deleteKeypad} role="group" aria-label="テンキー">
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "enter",
+                "0",
+                "back",
+              ].map((k) => {
+                const isEnter = k === "enter";
+                const isBack = k === "back";
+                const label = isEnter ? "確定" : isBack ? "⌫" : k;
+                const disabled = isEnter ? removalPin.length !== 4 : false;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    className={
+                      isEnter ? styles.deleteEnterBtn : styles.deleteKeyBtn
+                    }
+                    disabled={disabled}
+                    onClick={() => {
+                      setRemovalPinError(null);
+                      if (isEnter) {
+                        if (removalPin.length !== 4) return;
+                        if (removalPin !== PIN_DELETE_SITE) {
+                          setRemovalPinError("PINが違います");
+                          setRemovalPin("");
+                          return;
+                        }
+                        if (removalPinMode === "undo") {
+                          const next: Site = {
+                            ...safeSite,
+                            scaffoldingRemovalCompletedAt: undefined,
+                          };
+                          updateSite(next);
+                          setSite(next);
+                        } else {
+                          const at = new Date().toISOString();
+                          const next: Site = {
+                            ...safeSite,
+                            scaffoldingRemovalCompletedAt: at,
+                          };
+                          updateSite(next);
+                          setSite(next);
+                        }
+                        setRemovalPinOpen(false);
+                        setRemovalPinMode("complete");
+                        setRemovalPin("");
+                        setRemovalPinError(null);
+                        return;
+                      }
+                      if (isBack) {
+                        setRemovalPin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      setRemovalPin((p) =>
+                        p.length >= 4 ? p : `${p}${k}`
+                      );
+                    }}
+                    aria-label={
+                      isEnter ? "確定" : isBack ? "1文字削除" : `数字${k}`
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={styles.deletePinFooter}>
               <button
                 type="button"
-                className={styles.modalCancel}
-                onClick={() => setRemovalConfirmOpen(false)}
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                className={styles.modalConfirm}
-                disabled={!removalConfirmAcknowledged}
+                className={styles.deletePinCancelBtn}
                 onClick={() => {
-                  if (!removalConfirmAcknowledged) return;
-                  const at = new Date().toISOString();
-                  const next: Site = {
-                    ...safeSite,
-                    scaffoldingRemovalCompletedAt: at,
-                  };
-                  updateSite(next);
-                  setSite(next);
-                  setRemovalConfirmOpen(false);
+                  setRemovalPinOpen(false);
+                  setRemovalPinMode("complete");
+                  setRemovalPin("");
+                  setRemovalPinError(null);
                 }}
               >
-                完了にする
+                キャンセル
               </button>
             </div>
           </div>

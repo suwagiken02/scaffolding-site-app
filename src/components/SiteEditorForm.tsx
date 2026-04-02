@@ -126,7 +126,10 @@ export function SiteEditorForm({
 
     const tid = st.find((x) => x.name === initialSite.siteTypeName)?.id ?? "";
     setSiteTypeSelectId(tid);
-    setCompanyKind(initialSite.companyKind);
+    const ck = initialSite.companyKind;
+    setCompanyKind(
+      ck === "KOUSEI" || ck === "自社" || ck === "自社_green" ? ck : "自社"
+    );
     setAlwaysShowOnMap(initialSite.alwaysShowOnMap === true);
     setIgnoreSiteListWarning(initialSite.ignoreSiteListWarning === true);
     setSiteMemos(normalizeSiteMemos(initialSite.siteMemos));
@@ -536,27 +539,22 @@ export function SiteEditorForm({
         </div>
 
         <div className={formStyles.field}>
-          <span className={formStyles.label}>8. 自社 or KOUSEI</span>
-          <div className={styles.radioRow}>
-            <label className={styles.radioLabel}>
-              <input
-                type="radio"
-                name="companyKind"
-                checked={companyKind === "自社"}
-                onChange={() => setCompanyKind("自社")}
-              />
-              自社
-            </label>
-            <label className={styles.radioLabel}>
-              <input
-                type="radio"
-                name="companyKind"
-                checked={companyKind === "KOUSEI"}
-                onChange={() => setCompanyKind("KOUSEI")}
-              />
-              KOUSEI
-            </label>
-          </div>
+          <label className={formStyles.label} htmlFor="site-editor-company-kind">
+            8. 区分（KOUSEI / 自社（白） / 自社（緑））
+          </label>
+          <select
+            id="site-editor-company-kind"
+            className={styles.select}
+            value={companyKind}
+            onChange={(e) =>
+              setCompanyKind(e.target.value as CompanyKind)
+            }
+            aria-label="区分"
+          >
+            <option value="KOUSEI">KOUSEI</option>
+            <option value="自社">自社（白）</option>
+            <option value="自社_green">自社（緑）</option>
+          </select>
         </div>
 
         <div className={formStyles.field}>

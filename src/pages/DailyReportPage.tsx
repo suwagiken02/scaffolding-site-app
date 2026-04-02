@@ -8,6 +8,7 @@ import {
   type SitePhoto,
   sitePhotoDisplaySrc,
 } from "../types/sitePhoto";
+import { companyKindLabel } from "../types/site";
 import { getSiteById } from "../lib/siteStorage";
 import { loadPhotosForSiteWorkDate } from "../lib/sitePhotoStorage";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
@@ -193,8 +194,8 @@ export function DailyReportPage() {
               <td>{site.siteTypeName || "—"}</td>
             </tr>
             <tr>
-              <th scope="row">自社 / KOUSEI</th>
-              <td>{site.companyKind}</td>
+              <th scope="row">区分</th>
+              <td>{companyKindLabel(site.companyKind)}</td>
             </tr>
           </tbody>
         </table>

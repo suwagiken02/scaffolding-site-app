@@ -73,7 +73,9 @@ function isNewSite(o: Record<string, unknown>): boolean {
     (o.vehicleLabels === undefined || Array.isArray(o.vehicleLabels)) &&
     isOptionalString(o.salesName) &&
     isOptionalString(o.siteTypeName) &&
-    (o.companyKind === "自社" || o.companyKind === "KOUSEI")
+    (o.companyKind === "自社" ||
+      o.companyKind === "自社_green" ||
+      o.companyKind === "KOUSEI")
   );
 }
 
@@ -113,7 +115,9 @@ function migrateLegacyRow(o: Record<string, unknown>): Site | null {
       : [],
     siteTypeName: typeof o.siteTypeName === "string" ? o.siteTypeName : "",
     companyKind:
-      o.companyKind === "自社" || o.companyKind === "KOUSEI"
+      o.companyKind === "自社" ||
+      o.companyKind === "自社_green" ||
+      o.companyKind === "KOUSEI"
         ? o.companyKind
         : "自社",
     siteMemos: normalizeSiteMemos(o.siteMemos),
@@ -184,7 +188,12 @@ function normalizeSite(x: unknown): Site | null {
       kogataNames: kogata,
       vehicleLabels: vehicles,
       siteTypeName: typeof o.siteTypeName === "string" ? o.siteTypeName : "",
-      companyKind: o.companyKind as Site["companyKind"],
+      companyKind:
+        o.companyKind === "自社" ||
+        o.companyKind === "自社_green" ||
+        o.companyKind === "KOUSEI"
+          ? o.companyKind
+          : "自社",
       siteMemos: normalizeSiteMemos(o.siteMemos),
       createdAt: o.createdAt as string,
       scaffoldingRemovalCompletedAt,

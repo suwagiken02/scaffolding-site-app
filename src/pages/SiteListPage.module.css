@@ -247,6 +247,10 @@
   text-overflow: ellipsis;
 }
 
+.siteNameGreen {
+  color: #15803d;
+}
+
 .siteClient {
   flex: 1 1 0;
   font-size: clamp(0.72rem, 2.1vw, 0.88rem);
