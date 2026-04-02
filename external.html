@@ -9,6 +9,12 @@
           if (!key) return;
           var t = String(key).trim();
           if (!t) return;
+          var standalone =
+            (window.matchMedia &&
+              window.matchMedia("(display-mode: standalone)").matches) ||
+            (typeof navigator !== "undefined" &&
+              navigator.standalone === true);
+          if (!standalone) return;
           var prefix = window.location.pathname.replace(/[^/]+$/, "");
           window.location.replace(
             prefix + "external/" + encodeURIComponent(t)

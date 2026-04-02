@@ -19,10 +19,12 @@ import { PayslipsPage } from "./pages/PayslipsPage";
 import { RosterPage } from "./pages/RosterPage";
 import { ExternalSiteDetailPage } from "./pages/ExternalSiteDetailPage";
 import { ExternalSitePortalPage } from "./pages/ExternalSitePortalPage";
+import { ExternalHtmlKeyRedirect } from "./components/ExternalHtmlKeyRedirect";
 
 export default function App() {
   return (
     <Routes>
+      <Route path="/external.html" element={<ExternalHtmlKeyRedirect />} />
       <Route
         path="/external/:companyKey/site/:siteId"
         element={<ExternalSiteDetailPage />}
