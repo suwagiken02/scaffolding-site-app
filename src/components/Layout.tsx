@@ -45,7 +45,7 @@ export function Layout() {
           </Link>
           <nav className={styles.nav} aria-label="メインナビゲーション">
             <Link to="/" className={styles.navLink}>
-              現場一覧
+              現場
             </Link>
             <Link to="/staff" className={styles.navLink}>
               社員マイページ
@@ -131,9 +131,6 @@ export function Layout() {
                 </ul>
               )}
             </div>
-            <Link to="/sites/new" className={styles.navCta}>
-              現場を登録
-            </Link>
           </nav>
         </div>
       </header>
