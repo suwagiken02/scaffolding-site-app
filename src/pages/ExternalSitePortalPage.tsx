@@ -28,7 +28,11 @@ import {
 import { externalPortalAuthStorageKey } from "../lib/externalPortalAuth";
 import { notifyExternalSiteRegisteredFcm } from "../lib/fcmTokensApi";
 import { computeSiteDisplayStatus } from "../lib/siteStatus";
+import { siteHasAnyWorkRecordOnDate } from "../lib/siteWorkRecordKeys";
 import { loadSiteTypeMasters } from "../lib/mastersStorage";
+import { todayLocalDateKey, tomorrowLocalDateKey } from "../lib/dateUtils";
+import { SiteMapView } from "../components/SiteMapView";
+import siteListStyles from "./SiteListPage.module.css";
 import editorStyles from "../components/SiteEditorForm.module.css";
 import formStyles from "./SiteFormPage.module.css";
 import pinStyles from "./LeaveRequestsPage.module.css";
@@ -89,6 +93,20 @@ function tieBreakNameId(a: Site, b: Site): number {
   const n = a.name.localeCompare(b.name, "ja", { sensitivity: "base" });
   if (n !== 0) return n;
   return a.id.localeCompare(b.id);
+}
+
+function siteMatchesTodayTab(site: Site, todayKey: string): boolean {
+  if (normalizeEntranceDateKeys(site.entranceDateKeys).includes(todayKey)) {
+    return true;
+  }
+  return siteHasAnyWorkRecordOnDate(site.id, todayKey);
+}
+
+function siteMatchesTomorrowEntranceOnly(
+  site: Site,
+  tomorrowKey: string
+): boolean {
+  return normalizeEntranceDateKeys(site.entranceDateKeys).includes(tomorrowKey);
 }
 
 function compareExternalSites(
@@ -165,6 +183,10 @@ export function ExternalSitePortalPage() {
   const [mode, setMode] = useState<"list" | "form">("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [listTab, setListTab] = useState<"sites" | "masters">("sites");
+  /** 現場一覧内: 今日 | 明日 | 一覧 | 地図（デフォルト: 今日） */
+  const [siteViewTab, setSiteViewTab] = useState<
+    "today" | "tomorrow" | "full" | "map"
+  >("today");
   const [listSort, setListSort] = useState<ExternalSiteListSort>("entranceDesc");
   const [listSearchQuery, setListSearchQuery] = useState("");
   const [masterRevision, setMasterRevision] = useState(0);
@@ -197,7 +219,11 @@ export function ExternalSitePortalPage() {
       setRevision((r) => r + 1);
     }
     window.addEventListener("siteDataSaved", onSaved);
-    return () => window.removeEventListener("siteDataSaved", onSaved);
+    window.addEventListener("siteDailyLaborSaved", onSaved);
+    return () => {
+      window.removeEventListener("siteDataSaved", onSaved);
+      window.removeEventListener("siteDailyLaborSaved", onSaved);
+    };
   }, []);
 
   useEffect(() => {
@@ -211,15 +237,30 @@ export function ExternalSitePortalPage() {
 
   const siteTypeMasters = useMemo(() => loadSiteTypeMasters(), [revision]);
 
+  const allSites = useMemo(() => loadSites(), [revision]);
+
+  const todayKey = useMemo(() => todayLocalDateKey(), []);
+  const tomorrowKey = useMemo(() => tomorrowLocalDateKey(), []);
+
+  const tabScopedSites = useMemo(() => {
+    if (siteViewTab === "today") {
+      return sites.filter((s) => siteMatchesTodayTab(s, todayKey));
+    }
+    if (siteViewTab === "tomorrow") {
+      return sites.filter((s) => siteMatchesTomorrowEntranceOnly(s, tomorrowKey));
+    }
+    return sites;
+  }, [sites, siteViewTab, todayKey, tomorrowKey]);
+
   const filteredSites = useMemo(() => {
     const q = listSearchQuery.trim().toLowerCase();
-    if (!q) return sites;
-    return sites.filter((s) => {
+    if (!q) return tabScopedSites;
+    return tabScopedSites.filter((s) => {
       const name = (s.name || "").toLowerCase();
       const client = (s.clientName || "").trim().toLowerCase();
       return name.includes(q) || client.includes(q);
     });
-  }, [sites, listSearchQuery]);
+  }, [tabScopedSites, listSearchQuery]);
 
   const sortedSites = useMemo(
     () =>
@@ -422,97 +463,176 @@ export function ExternalSitePortalPage() {
           masterRevision={masterRevision}
           onChanged={() => setMasterRevision((r) => r + 1)}
         />
-      ) : sites.length === 0 ? (
-        <p className={styles.empty}>まだ現場が登録されていません。</p>
       ) : (
         <>
-          <div className={styles.listToolbar}>
-            <div className={styles.searchGroup}>
-              <label className={styles.toolbarLabel} htmlFor="ext-site-search">
-                検索
-              </label>
-              <input
-                id="ext-site-search"
-                type="search"
-                className={formStyles.input}
-                value={listSearchQuery}
-                onChange={(e) => setListSearchQuery(e.target.value)}
-                placeholder="現場名・元請け名"
-                autoComplete="off"
-                enterKeyHint="search"
-                aria-label="現場名・元請け名で検索"
-              />
-            </div>
-            <div className={styles.sortGroup}>
-              <label className={styles.toolbarLabel} htmlFor="ext-site-list-sort">
-                並び替え
-              </label>
-              <select
-                id="ext-site-list-sort"
-                className={formStyles.input}
-                value={listSort}
-                onChange={(e) =>
-                  setListSort(e.target.value as ExternalSiteListSort)
-                }
-                aria-label="一覧の並び替え"
-              >
-                <option value="entranceDesc">入場日が新しい順</option>
-                <option value="entranceAsc">入場日が古い順</option>
-                <option value="name">現場名順（あいうえお順）</option>
-                <option value="status">ステータス順</option>
-              </select>
-            </div>
+          <div
+            className={siteListStyles.tabs}
+            role="tablist"
+            aria-label="現場一覧の表示"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={siteViewTab === "today"}
+              className={
+                siteViewTab === "today"
+                  ? siteListStyles.tabActive
+                  : siteListStyles.tab
+              }
+              onClick={() => setSiteViewTab("today")}
+            >
+              今日
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={siteViewTab === "tomorrow"}
+              className={
+                siteViewTab === "tomorrow"
+                  ? siteListStyles.tabActive
+                  : siteListStyles.tab
+              }
+              onClick={() => setSiteViewTab("tomorrow")}
+            >
+              明日
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={siteViewTab === "full"}
+              className={
+                siteViewTab === "full"
+                  ? siteListStyles.tabActive
+                  : siteListStyles.tab
+              }
+              onClick={() => setSiteViewTab("full")}
+            >
+              一覧
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={siteViewTab === "map"}
+              className={
+                siteViewTab === "map"
+                  ? siteListStyles.tabActive
+                  : siteListStyles.tab
+              }
+              onClick={() => setSiteViewTab("map")}
+            >
+              地図
+            </button>
           </div>
-          {sortedSites.length === 0 ? (
-            <p className={styles.empty}>該当する現場がありません。</p>
+
+          {siteViewTab === "map" ? (
+            <SiteMapView
+              sites={allSites}
+              externalCompanyKey={normalizedKey}
+              siteDetailHref={(s) =>
+                `/external/${normalizedKey}/site/${s.id}`
+              }
+            />
+          ) : sites.length === 0 ? (
+            <p className={styles.empty}>まだ現場が登録されていません。</p>
           ) : (
-            <ul className={styles.list}>
-              {sortedSites.map((s) => {
-                const st = computeSiteDisplayStatus(s);
-                return (
-                  <li key={s.id} className={styles.card}>
-                    <Link
-                      className={styles.cardLink}
-                      to={`/external/${normalizedKey}/site/${s.id}`}
-                      aria-label={`${s.name || "（無題）"}の詳細`}
-                    >
-                      <div className={styles.cardMain}>
-                        <span className={styles.siteName}>{s.name || "（無題）"}</span>
-                        <span className={styles.siteClient}>
-                          {s.clientName?.trim() || "—"}
-                        </span>
-                      </div>
-                      <span className={`${styles.statusBadge} ${statusBadgeClass(st)}`}>
-                        {st}
-                      </span>
-                    </Link>
-                    <div className={styles.cardActions}>
-                      <button
-                        type="button"
-                        className={styles.editBtn}
-                        onClick={() => {
-                          setEditingId(s.id);
-                          setMode("form");
-                        }}
-                      >
-                        編集
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.deleteSiteCardBtn}
-                        onClick={() => {
-                          setDeletePinSiteId(s.id);
-                          setDeletePin("");
-                          setDeletePinError(null);
-                        }}
-                      >
-                        削除
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              <div className={styles.listToolbar}>
+                <div className={styles.searchGroup}>
+                  <label className={styles.toolbarLabel} htmlFor="ext-site-search">
+                    検索
+                  </label>
+                  <input
+                    id="ext-site-search"
+                    type="search"
+                    className={formStyles.input}
+                    value={listSearchQuery}
+                    onChange={(e) => setListSearchQuery(e.target.value)}
+                    placeholder="現場名・元請け名"
+                    autoComplete="off"
+                    enterKeyHint="search"
+                    aria-label="現場名・元請け名で検索"
+                  />
+                </div>
+                <div className={styles.sortGroup}>
+                  <label className={styles.toolbarLabel} htmlFor="ext-site-list-sort">
+                    並び替え
+                  </label>
+                  <select
+                    id="ext-site-list-sort"
+                    className={formStyles.input}
+                    value={listSort}
+                    onChange={(e) =>
+                      setListSort(e.target.value as ExternalSiteListSort)
+                    }
+                    aria-label="一覧の並び替え"
+                  >
+                    <option value="entranceDesc">入場日が新しい順</option>
+                    <option value="entranceAsc">入場日が古い順</option>
+                    <option value="name">現場名順（あいうえお順）</option>
+                    <option value="status">ステータス順</option>
+                  </select>
+                </div>
+              </div>
+              {sortedSites.length === 0 ? (
+                <p className={styles.empty} role="status">
+                  {tabScopedSites.length === 0
+                    ? siteViewTab === "today"
+                      ? "今日の入場または本日の作業記録がある現場はありません。"
+                      : siteViewTab === "tomorrow"
+                        ? "明日が入場日の現場はありません。"
+                        : "該当する現場がありません。"
+                    : "該当する現場がありません。"}
+                </p>
+              ) : (
+                <ul className={styles.list}>
+                  {sortedSites.map((s) => {
+                    const st = computeSiteDisplayStatus(s);
+                    return (
+                      <li key={s.id} className={styles.card}>
+                        <Link
+                          className={styles.cardLink}
+                          to={`/external/${normalizedKey}/site/${s.id}`}
+                          aria-label={`${s.name || "（無題）"}の詳細`}
+                        >
+                          <div className={styles.cardMain}>
+                            <span className={styles.siteName}>{s.name || "（無題）"}</span>
+                            <span className={styles.siteClient}>
+                              {s.clientName?.trim() || "—"}
+                            </span>
+                          </div>
+                          <span className={`${styles.statusBadge} ${statusBadgeClass(st)}`}>
+                            {st}
+                          </span>
+                        </Link>
+                        <div className={styles.cardActions}>
+                          <button
+                            type="button"
+                            className={styles.editBtn}
+                            onClick={() => {
+                              setEditingId(s.id);
+                              setMode("form");
+                            }}
+                          >
+                            編集
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.deleteSiteCardBtn}
+                            onClick={() => {
+                              setDeletePinSiteId(s.id);
+                              setDeletePin("");
+                              setDeletePinError(null);
+                            }}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
           )}
         </>
       )}

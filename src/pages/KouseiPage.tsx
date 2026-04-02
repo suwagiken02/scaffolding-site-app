@@ -20,8 +20,8 @@ function formatYen(n: number): string {
   return `${Math.round(n).toLocaleString()}円`;
 }
 
-type MainTab = "sites" | "map" | "amount";
-type SiteSubTab = "today" | "tomorrow" | "full";
+/** 今日 | 明日 | 一覧 | 地図 | 金額 — デフォルトは「今日」 */
+type MainTab = "today" | "tomorrow" | "full" | "map" | "amount";
 
 function kouseiSites(sites: Site[]): Site[] {
   return sites.filter((s) => s.companyKind === "KOUSEI");
@@ -34,8 +34,10 @@ function siteMatchesTodayTab(site: Site, todayKey: string): boolean {
   return siteHasAnyWorkRecordOnDate(site.id, todayKey);
 }
 
-/** KOUSEI一覧「明日」：入場日が明日の現場のみ */
-function kouseiSiteMatchesTomorrowTab(site: Site, tomorrowKey: string): boolean {
+function siteMatchesTomorrowEntranceOnly(
+  site: Site,
+  tomorrowKey: string
+): boolean {
   return normalizeEntranceDateKeys(site.entranceDateKeys).includes(tomorrowKey);
 }
 
@@ -47,8 +49,7 @@ export function KouseiPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [sites, setSites] = useState<Site[]>([]);
-  const [mainTab, setMainTab] = useState<MainTab>("sites");
-  const [siteSubTab, setSiteSubTab] = useState<SiteSubTab>("today");
+  const [mainTab, setMainTab] = useState<MainTab>("today");
 
   const reloadSites = useCallback(() => {
     setSites(loadSites());
@@ -86,14 +87,17 @@ export function KouseiPage() {
 
   const filteredKouseiList = useMemo(() => {
     const ks = kouseiSites(sites);
-    if (siteSubTab === "today") {
+    if (mainTab === "today") {
       return ks.filter((s) => siteMatchesTodayTab(s, todayKey));
     }
-    if (siteSubTab === "tomorrow") {
-      return ks.filter((s) => kouseiSiteMatchesTomorrowTab(s, tomorrowKey));
+    if (mainTab === "tomorrow") {
+      return ks.filter((s) => siteMatchesTomorrowEntranceOnly(s, tomorrowKey));
     }
-    return ks;
-  }, [sites, siteSubTab, todayKey, tomorrowKey]);
+    if (mainTab === "full") {
+      return ks;
+    }
+    return [];
+  }, [sites, mainTab, todayKey, tomorrowKey]);
 
   function onAuth(e: FormEvent) {
     e.preventDefault();
@@ -187,27 +191,62 @@ export function KouseiPage() {
     setMessage("送信しました。");
   }
 
+  const listTabActive =
+    mainTab === "today" || mainTab === "tomorrow" || mainTab === "full";
+
   return (
     <div>
       <div className={styles.pageHead}>
         <h1 className={styles.title}>KOUSEI</h1>
       </div>
 
-      <div className={siteListStyles.tabs} role="tablist" aria-label="KOUSEIメニュー">
+      <div
+        className={siteListStyles.tabs}
+        role="tablist"
+        aria-label="KOUSEIの表示"
+      >
         <button
           type="button"
           role="tab"
-          aria-selected={mainTab === "sites"}
-          className={mainTab === "sites" ? siteListStyles.tabActive : siteListStyles.tab}
-          onClick={() => setMainTab("sites")}
+          aria-selected={mainTab === "today"}
+          className={
+            mainTab === "today" ? siteListStyles.tabActive : siteListStyles.tab
+          }
+          onClick={() => setMainTab("today")}
         >
-          現場
+          今日
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mainTab === "tomorrow"}
+          className={
+            mainTab === "tomorrow"
+              ? siteListStyles.tabActive
+              : siteListStyles.tab
+          }
+          onClick={() => setMainTab("tomorrow")}
+        >
+          明日
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mainTab === "full"}
+          className={
+            mainTab === "full" ? siteListStyles.tabActive : siteListStyles.tab
+          }
+          onClick={() => setMainTab("full")}
+        >
+          一覧
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={mainTab === "map"}
-          className={mainTab === "map" ? siteListStyles.tabActive : siteListStyles.tab}
+          className={
+            mainTab === "map" ? siteListStyles.tabActive : siteListStyles.tab
+          }
           onClick={() => setMainTab("map")}
         >
           地図
@@ -216,60 +255,26 @@ export function KouseiPage() {
           type="button"
           role="tab"
           aria-selected={mainTab === "amount"}
-          className={mainTab === "amount" ? siteListStyles.tabActive : siteListStyles.tab}
+          className={
+            mainTab === "amount"
+              ? siteListStyles.tabActive
+              : siteListStyles.tab
+          }
           onClick={() => setMainTab("amount")}
         >
           金額
         </button>
       </div>
 
-      {mainTab === "sites" && (
+      {listTabActive && (
         <div className={styles.panel}>
-          <div className={siteListStyles.tabs} role="tablist" aria-label="現場一覧の表示">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={siteSubTab === "today"}
-              className={
-                siteSubTab === "today" ? siteListStyles.tabActive : siteListStyles.tab
-              }
-              onClick={() => setSiteSubTab("today")}
-            >
-              今日
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={siteSubTab === "tomorrow"}
-              className={
-                siteSubTab === "tomorrow"
-                  ? siteListStyles.tabActive
-                  : siteListStyles.tab
-              }
-              onClick={() => setSiteSubTab("tomorrow")}
-            >
-              明日
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={siteSubTab === "full"}
-              className={
-                siteSubTab === "full" ? siteListStyles.tabActive : siteListStyles.tab
-              }
-              onClick={() => setSiteSubTab("full")}
-            >
-              一覧
-            </button>
-          </div>
-
           {kouseiSites(sites).length === 0 ? (
             <p className={styles.muted}>KOUSEIの現場がまだありません。</p>
           ) : filteredKouseiList.length === 0 ? (
             <p className={styles.muted} role="status">
-              {siteSubTab === "today"
+              {mainTab === "today"
                 ? "今日の入場または本日の作業記録があるKOUSEI現場はありません"
-                : siteSubTab === "tomorrow"
+                : mainTab === "tomorrow"
                   ? "明日が入場日のKOUSEI現場はありません"
                   : "該当する現場がありません"}
             </p>

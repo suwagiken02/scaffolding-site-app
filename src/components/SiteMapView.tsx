@@ -18,6 +18,7 @@ import {
 } from "../lib/sitePhotoStorage";
 import { siteHasAnyWorkRecordOnDate } from "../lib/siteWorkRecordKeys";
 import { getEffectiveSiteDisplayStatus } from "../lib/siteStatus";
+import { normalizeCompanyKey } from "../lib/externalCompaniesStorage";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import styles from "./SiteMapView.module.css";
 
@@ -80,17 +81,31 @@ function MapInvalidateSize() {
 }
 
 type Props = {
+  /** 全現場（常時表示ピンの合流用。通常は loadSites()） */
   sites: Site[];
-  /** 指定時はタブ条件に合う現場をこの種別に限定。常時表示ピンは全種別から追加 */
+  /** 指定時はタブ条件に合う現場をこの種別に限定。常時表示ピンは sites 全体から追加 */
   companyKindFilter?: "KOUSEI";
+  /** 指定時は externalCompanyKey が一致する現場のみタブ条件の対象（companyKindFilter より優先） */
+  externalCompanyKey?: string;
+  /** バルーンから開くパス（外部ポータル用）。未指定時は /sites/:id */
+  siteDetailHref?: (site: Site) => string;
 };
 
-function matchesCompanyKind(
+function matchesMapScopeFilter(
   site: Site,
-  filter: Props["companyKindFilter"]
+  companyKindFilter: Props["companyKindFilter"],
+  externalCompanyKey: Props["externalCompanyKey"]
 ): boolean {
-  if (!filter) return true;
-  return site.companyKind === filter;
+  if (externalCompanyKey) {
+    return (
+      normalizeCompanyKey(site.externalCompanyKey ?? "") ===
+      normalizeCompanyKey(externalCompanyKey)
+    );
+  }
+  if (companyKindFilter) {
+    return site.companyKind === companyKindFilter;
+  }
+  return true;
 }
 
 function siteShowsOnTodayWorkMap(site: Site, todayKey: string): boolean {
@@ -112,7 +127,12 @@ function unionAlwaysPins(baseCandidates: Site[], allSites: Site[]): Site[] {
   return out;
 }
 
-export function SiteMapView({ sites, companyKindFilter }: Props) {
+export function SiteMapView({
+  sites,
+  companyKindFilter,
+  externalCompanyKey,
+  siteDetailHref,
+}: Props) {
   const [mapSubTab, setMapSubTab] = useState<MapSubTab>("today");
   const [markers, setMarkers] = useState<MarkerOk[]>([]);
   const [failed, setFailed] = useState<MarkerFail[]>([]);
@@ -182,10 +202,18 @@ export function SiteMapView({ sites, companyKindFilter }: Props) {
       setLoading(true);
 
       const withUrlAll = sites.filter((s) => s.googleMapUrl?.trim());
-      const noUrlCount = sites.length - withUrlAll.length;
+      const statsSites = externalCompanyKey
+        ? sites.filter((s) =>
+            matchesMapScopeFilter(s, undefined, externalCompanyKey)
+          )
+        : sites;
+      const statsWithUrl = statsSites.filter((s) => s.googleMapUrl?.trim());
+      const noUrlCount = statsSites.length - statsWithUrl.length;
 
       const naturalCandidates = withUrlAll.filter((s) => {
-        if (!matchesCompanyKind(s, companyKindFilter)) return false;
+        if (!matchesMapScopeFilter(s, companyKindFilter, externalCompanyKey)) {
+          return false;
+        }
         if (mapSubTab === "today") {
           return siteShowsOnTodayWorkMap(s, todayKey);
         }
@@ -256,7 +284,7 @@ export function SiteMapView({ sites, companyKindFilter }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sites, mapSubTab, photoRevision, companyKindFilter]);
+  }, [sites, mapSubTab, photoRevision, companyKindFilter, externalCompanyKey]);
 
   const positions = useMemo(() => {
     const p = markers.map((m) => [m.lat, m.lng] as [number, number]);
@@ -270,7 +298,13 @@ export function SiteMapView({ sites, companyKindFilter }: Props) {
     );
   }
 
-  const withUrlCount = sites.filter((s) => s.googleMapUrl?.trim()).length;
+  const statsSitesForMsg = externalCompanyKey
+    ? sites.filter((s) =>
+        matchesMapScopeFilter(s, undefined, externalCompanyKey)
+      )
+    : sites;
+  const withUrlCount = statsSitesForMsg.filter((s) => s.googleMapUrl?.trim())
+    .length;
 
   return (
     <div className={styles.wrap}>
@@ -376,6 +410,9 @@ export function SiteMapView({ sites, companyKindFilter }: Props) {
           )}
           {markers.map((m) => {
             const status = getEffectiveSiteDisplayStatus(m.site);
+            const href = siteDetailHref
+              ? siteDetailHref(m.site)
+              : `/sites/${m.site.id}`;
             return (
               <Marker
                 key={`${mapSubTab}-${m.site.id}`}
@@ -384,7 +421,7 @@ export function SiteMapView({ sites, companyKindFilter }: Props) {
               >
                 <Popup>
                   <Link
-                    to={`/sites/${m.site.id}`}
+                    to={href}
                     className={styles.popupBalloon}
                   >
                     <div className={styles.popupTitle}>{m.site.name}</div>
