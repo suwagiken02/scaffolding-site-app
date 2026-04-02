@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import {
+  deleteAttendanceForPersonDate,
   formatTimeJa,
   getAttendanceRecord,
   loadAttendanceStore,
@@ -138,14 +139,19 @@ export function AttendancePage() {
   const [attStore, setAttStore] = useState<AttendanceStore>({});
   const [attLoadError, setAttLoadError] = useState<string | null>(null);
   const [attRefreshing, setAttRefreshing] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const confirmRef = useRef<ConfirmState | null>(null);
   const meetingRef = useRef<MeetingState | null>(null);
   const doneMessageRef = useRef<string | null>(null);
+  const deleteConfirmRef = useRef<string | null>(null);
   const punchBusyRef = useRef(false);
   confirmRef.current = confirm;
   meetingRef.current = meeting;
   doneMessageRef.current = doneMessage;
+  deleteConfirmRef.current = deleteConfirm;
 
   /** 日付が変わったら表示用キーを更新（サーバー上の「本日」判定と一致させる） */
   useEffect(() => {
@@ -167,6 +173,7 @@ export function AttendancePage() {
   useEffect(() => {
     setConfirm(null);
     setMeeting(null);
+    setDeleteConfirm(null);
   }, [todayKey]);
 
   const refreshAttendance = useCallback(async () => {
@@ -206,7 +213,8 @@ export function AttendancePage() {
         punchBusyRef.current ||
         confirmRef.current !== null ||
         meetingRef.current !== null ||
-        doneMessageRef.current !== null
+        doneMessageRef.current !== null ||
+        deleteConfirmRef.current !== null
       ) {
         return;
       }
@@ -227,6 +235,8 @@ export function AttendancePage() {
     setConfirm(null);
     setMeeting(null);
     setDoneMessage(null);
+    setDeleteMode(false);
+    setDeleteConfirm(null);
   }
 
   useEffect(() => {
@@ -252,6 +262,15 @@ export function AttendancePage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [meeting]);
+
+  useEffect(() => {
+    if (!deleteConfirm) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setDeleteConfirm(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteConfirm]);
 
   if (!authed) {
     return (
@@ -378,18 +397,32 @@ export function AttendancePage() {
       ) : (
         <div className={styles.grid} role="list" aria-label="打刻対象者">
           {people.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={styles.personBtn}
-              onClick={() => {
-                const dk = todayLocalDateKey();
-                const rec = getAttendanceRecord(attStore, name, dk);
-                setConfirm({ personName: name, kind: nextPunchKind(rec) });
-              }}
-            >
-              {name}
-            </button>
+            <div key={name} className={styles.personRow}>
+              <button
+                type="button"
+                className={styles.personBtn}
+                onClick={() => {
+                  const dk = todayLocalDateKey();
+                  const rec = getAttendanceRecord(attStore, name, dk);
+                  setConfirm({ personName: name, kind: nextPunchKind(rec) });
+                }}
+              >
+                {name}
+              </button>
+              {deleteMode && (
+                <button
+                  type="button"
+                  className={styles.deleteMarkBtn}
+                  aria-label={`${name}の本日の打刻を削除`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteConfirm(name);
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -488,6 +521,65 @@ export function AttendancePage() {
                 }}
               >
                 はい
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="attendance-delete-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="attendance-delete-title" className={styles.modalTitle}>
+              {deleteConfirm}さんの本日（
+              {todayKey.replaceAll("-", "/")}）の打刻を削除しますか？
+            </h2>
+            <p className={styles.modalText}>
+              この操作は取り消せません。削除するには「削除する」を押してください。
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalBack}
+                onClick={() => setDeleteConfirm(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={styles.modalDanger}
+                disabled={deleteBusy}
+                onClick={() => {
+                  const name = deleteConfirm;
+                  if (!name) return;
+                  void (async () => {
+                    setDeleteBusy(true);
+                    try {
+                      await deleteAttendanceForPersonDate(name, todayKey);
+                      await refreshAttendance();
+                      setDeleteMode(false);
+                      setDeleteConfirm(null);
+                    } catch (e) {
+                      window.alert(
+                        e instanceof Error ? e.message : "削除に失敗しました"
+                      );
+                    } finally {
+                      setDeleteBusy(false);
+                    }
+                  })();
+                }}
+              >
+                {deleteBusy ? "削除中…" : "削除する"}
               </button>
             </div>
           </div>
@@ -634,7 +726,14 @@ export function AttendancePage() {
         </div>
       )}
 
-      <div className={styles.resetWrap} aria-label="開発用">
+      <div className={styles.resetWrap} aria-label="操作">
+        <button
+          type="button"
+          className={`${styles.deleteModeBtn} ${deleteMode ? styles.deleteModeBtnActive : ""}`}
+          onClick={() => setDeleteMode((v) => !v)}
+        >
+          {deleteMode ? "削除モードを終了" : "削除モード"}
+        </button>
         <button type="button" className={styles.resetBtn} onClick={resetPinAuth}>
           PIN認証をリセット
         </button>

@@ -140,7 +140,16 @@
   gap: 0.85rem;
 }
 
+.personRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 .personBtn {
+  flex: 1;
+  min-width: 0;
   appearance: none;
   font-family: inherit;
   font-size: 1.15rem;
@@ -156,6 +165,26 @@
 
 .personBtn:hover {
   background: var(--surface-hover);
+}
+
+.deleteMarkBtn {
+  flex-shrink: 0;
+  width: 2.5rem;
+  appearance: none;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  background: rgba(254, 242, 242, 0.9);
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.deleteMarkBtn:hover {
+  background: #fecaca;
 }
 
 .modalBackdrop {
@@ -233,6 +262,28 @@
 }
 
 .modalYes:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.modalDanger {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  padding: 0.65rem 1.05rem;
+  border-radius: var(--radius);
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  cursor: pointer;
+}
+
+.modalDanger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.modalDanger:disabled {
   background: #9ca3af;
   cursor: not-allowed;
 }
@@ -361,6 +412,33 @@
   margin-top: 1.25rem;
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.deleteModeBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.deleteModeBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.deleteModeBtnActive {
+  border-color: #dc2626;
+  color: #b91c1c;
+  background: rgba(254, 242, 242, 0.6);
 }
 
 .resetBtn {
