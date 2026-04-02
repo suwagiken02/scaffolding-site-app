@@ -6,6 +6,10 @@ export type CompanyProfile = {
   adminEmail: string;
   /** KOUSEI 専用ページのPIN */
   kouseiPin: string;
+  /** KOUSEI 請求確認の送信通知先（事務→KOUSEI） */
+  kouseiEmail: string;
+  /** KOUSEI 請求確認の更新通知先（KOUSEI→諏訪技建） */
+  notificationEmail: string;
 };
 
 const KEY = "company-profile-v1";
@@ -15,6 +19,8 @@ const EMPTY: CompanyProfile = {
   logoDataUrl: "",
   adminEmail: "",
   kouseiPin: "",
+  kouseiEmail: "",
+  notificationEmail: "",
 };
 
 export function loadCompanyProfile(): CompanyProfile {
@@ -28,6 +34,9 @@ export function loadCompanyProfile(): CompanyProfile {
       logoDataUrl: typeof p.logoDataUrl === "string" ? p.logoDataUrl : "",
       adminEmail: typeof p.adminEmail === "string" ? p.adminEmail : "",
       kouseiPin: typeof p.kouseiPin === "string" ? p.kouseiPin : "",
+      kouseiEmail: typeof p.kouseiEmail === "string" ? p.kouseiEmail : "",
+      notificationEmail:
+        typeof p.notificationEmail === "string" ? p.notificationEmail : "",
     };
   } catch {
     return EMPTY;
@@ -42,6 +51,8 @@ export function saveCompanyProfile(next: CompanyProfile): void {
       logoDataUrl: next.logoDataUrl ?? "",
       adminEmail: next.adminEmail ?? "",
       kouseiPin: next.kouseiPin ?? "",
+      kouseiEmail: next.kouseiEmail ?? "",
+      notificationEmail: next.notificationEmail ?? "",
     })
   );
   // persist to server disk in production

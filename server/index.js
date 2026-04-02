@@ -663,7 +663,7 @@ app.post("/api/attendance", async (req, res) => {
 const LEAVE_REQUESTS_FILE = join(DATA_DIR, "leave-requests.json");
 const STAFF_STORAGE_FILE = join(DATA_DIR, "master-staff-v1.json");
 const COMPANY_PROFILE_FILE = join(DATA_DIR, "company-profile-v1.json");
-const KOUSEI_BILLING_FILE = join(DATA_DIR, "kousei-billing-v1.json");
+const KOUSEI_BILLING_FILE = join(DATA_DIR, "kousei-billing-v2.json");
 const KOUSEI_ADMIN_BILLING_PIN = "1234";
 
 async function readKouseiBillingStoreFromDisk() {
@@ -688,44 +688,56 @@ async function writeKouseiBillingStoreToDisk(store) {
   await writeFile(KOUSEI_BILLING_FILE, JSON.stringify(store, null, 0), "utf8");
 }
 
-async function readCompanyKouseiPinFromDisk() {
+async function readCompanyKouseiEmailFromDisk() {
   try {
     if (!existsSync(COMPANY_PROFILE_FILE)) {
       return "";
     }
     const raw = await readFile(COMPANY_PROFILE_FILE, "utf8");
     const p = JSON.parse(raw);
-    return typeof p.kouseiPin === "string" ? p.kouseiPin.trim() : "";
+    return typeof p.kouseiEmail === "string" ? p.kouseiEmail.trim() : "";
   } catch {
     return "";
   }
 }
 
-function normalizeKouseiRowFromBody(o) {
+function normalizeKouseiBillingRowFromBody(o) {
   if (typeof o !== "object" || o === null) {
     return null;
   }
-  const siteCode = typeof o.siteCode === "string" ? o.siteCode : "";
-  const dateKey = typeof o.dateKey === "string" ? o.dateKey : "";
   const siteId = typeof o.siteId === "string" ? o.siteId : "";
   const siteName = typeof o.siteName === "string" ? o.siteName : "";
   const clientName = typeof o.clientName === "string" ? o.clientName : "";
   const workKind = typeof o.workKind === "string" ? o.workKind : "";
+  const dateKey = typeof o.dateKey === "string" ? o.dateKey : "";
   const peopleCount =
     typeof o.peopleCount === "number" && Number.isFinite(o.peopleCount)
       ? o.peopleCount
       : NaN;
-  if (!dateKey || !siteId || !siteName || !workKind) {
+  let amount = null;
+  if (o.amount !== null && o.amount !== undefined) {
+    const n = typeof o.amount === "number" ? o.amount : Number(o.amount);
+    amount = Number.isFinite(n) ? n : null;
+  }
+  const memo = typeof o.memo === "string" ? o.memo : "";
+  const checked = o.checked === true;
+  if (!siteId || !dateKey || !workKind) {
     return null;
   }
   if (!Number.isFinite(peopleCount)) {
     return null;
   }
-  return { siteCode, dateKey, siteId, siteName, clientName, workKind, peopleCount };
-}
-
-function kouseiRowKeyFromRow(r) {
-  return `${r.siteId}__${r.workKind}__${r.dateKey}`;
+  return {
+    siteId,
+    siteName,
+    clientName,
+    workKind,
+    dateKey,
+    peopleCount,
+    amount,
+    memo,
+    checked,
+  };
 }
 
 async function readLeaveRequestsFromDisk() {
@@ -1362,7 +1374,7 @@ app.post("/api/send-email", async (req, res) => {
   }
 });
 
-// ---- KOUSEI 請求確認（kousei-billing-v1.json） ----
+// ---- KOUSEI 請求確認（kousei-billing-v2.json） ----
 app.get("/api/kousei-billing", async (_req, res) => {
   try {
     const store = await readKouseiBillingStoreFromDisk();
@@ -1387,10 +1399,16 @@ app.post("/api/kousei-billing", async (req, res) => {
       res.status(400).json({ ok: false, error: "month は YYYY-MM 形式で指定してください。" });
       return;
     }
+    const dateRangeEnd =
+      typeof body.dateRangeEnd === "string" ? body.dateRangeEnd.trim() : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRangeEnd)) {
+      res.status(400).json({ ok: false, error: "dateRangeEnd は YYYY-MM-DD 形式で指定してください。" });
+      return;
+    }
     const rawRows = Array.isArray(body.rows) ? body.rows : [];
     const rows = [];
     for (const item of rawRows) {
-      const row = normalizeKouseiRowFromBody(item);
+      const row = normalizeKouseiBillingRowFromBody(item);
       if (row) {
         rows.push(row);
       }
@@ -1402,40 +1420,45 @@ app.post("/api/kousei-billing", async (req, res) => {
 
     const store = await readKouseiBillingStoreFromDisk();
     const records = [...store.records];
-    const idx = records.findIndex((r) => r && r.month === month);
-    if (idx >= 0 && records[idx].status === "approved") {
-      res.status(409).json({
-        ok: false,
-        error: "この月は了承済みのため再送信できません。",
-      });
-      return;
+    const sentAt = new Date().toISOString();
+    const record = {
+      id: randomUUID(),
+      month,
+      sentAt,
+      dateRangeEnd,
+      rows,
+      status: "sent",
+    };
+    records.push(record);
+    await writeKouseiBillingStoreToDisk({ records });
+
+    const kouseiEmail = await readCompanyKouseiEmailFromDisk();
+    if (kouseiEmail && GMAIL_USER && GMAIL_APP_PASSWORD) {
+      const ym = month.split("-");
+      const y = ym[0] ?? "";
+      const mo = ym[1] ?? "";
+      const lines = rows.map(
+        (r) =>
+          `${r.siteName} / ${r.workKind} / ${r.dateKey} / ${r.peopleCount}人`
+      );
+      const textBody = [
+        `${y}年${mo}月分の作業記録を送信しました。`,
+        `締め日: ${dateRangeEnd}`,
+        "",
+        ...lines,
+      ].join("\n");
+      try {
+        await sendMailToRecipients(
+          [kouseiEmail],
+          `【KOUSEI請求確認】${y}年${mo}月分 作業記録を送信しました`,
+          textBody
+        );
+      } catch (e) {
+        console.error("[server] POST /api/kousei-billing notify kousei", e);
+      }
     }
 
-    const sentAt = new Date().toISOString();
-    if (idx >= 0) {
-      const prev = records[idx];
-      records[idx] = {
-        ...prev,
-        month,
-        sentAt,
-        rows,
-        status: "sent",
-        amounts: {},
-        approvedAt: undefined,
-      };
-    } else {
-      records.push({
-        id: randomUUID(),
-        month,
-        sentAt,
-        rows,
-        status: "sent",
-        amounts: {},
-      });
-    }
-    await writeKouseiBillingStoreToDisk({ records });
-    const saved = records.find((r) => r.month === month);
-    res.json({ ok: true, record: saved });
+    res.json({ ok: true, record });
   } catch (e) {
     console.error("[server] POST /api/kousei-billing", e);
     res.status(500).json({ ok: false, error: "write failed" });
@@ -1450,10 +1473,16 @@ app.put("/api/kousei-billing/:id", async (req, res) => {
       return;
     }
     const body = req.body ?? {};
-    const pin = typeof body.pin === "string" ? body.pin.trim() : "";
-    const expected = await readCompanyKouseiPinFromDisk();
-    if (!expected || pin !== expected) {
-      res.status(401).json({ ok: false, error: "PINが違います。" });
+    const rawRows = Array.isArray(body.rows) ? body.rows : [];
+    const rows = [];
+    for (const item of rawRows) {
+      const row = normalizeKouseiBillingRowFromBody(item);
+      if (row) {
+        rows.push(row);
+      }
+    }
+    if (rows.length === 0) {
+      res.status(400).json({ ok: false, error: "rows が空です。" });
       return;
     }
 
@@ -1465,44 +1494,21 @@ app.put("/api/kousei-billing/:id", async (req, res) => {
       return;
     }
 
-    const rec = { ...records[idx] };
-    const amountsIn =
-      body.amounts && typeof body.amounts === "object" && !Array.isArray(body.amounts)
-        ? body.amounts
-        : {};
-    const nextAmounts = { ...(rec.amounts && typeof rec.amounts === "object" ? rec.amounts : {}) };
-    for (const [k, v] of Object.entries(amountsIn)) {
-      if (typeof k !== "string" || !k) {
-        continue;
-      }
-      const n = typeof v === "number" ? v : Number(v);
-      if (!Number.isFinite(n) || n < 0) {
-        res.status(400).json({ ok: false, error: `金額が不正です: ${k}` });
-        return;
-      }
-      nextAmounts[k] = n;
-    }
-    rec.amounts = nextAmounts;
-
-    const approve = body.approve === true;
-    if (approve) {
-      if (rec.status === "approved") {
-        res.json({ ok: true, record: rec });
-        return;
-      }
-      for (const row of rec.rows) {
-        const rk = kouseiRowKeyFromRow(row);
-        const a = Number(nextAmounts[rk]);
-        if (!Number.isFinite(a) || a < 0) {
+    const prev = records[idx];
+    const rec = { ...prev, rows };
+    const statusIn = body.status;
+    if (statusIn === "confirmed") {
+      for (const row of rows) {
+        const a = row.amount;
+        if (a === null || a === undefined || !Number.isFinite(Number(a)) || Number(a) < 0) {
           res.status(400).json({
             ok: false,
-            error: "すべての行に金額を入力してから了承してください。",
+            error: "すべての行に金額を入力してから確認済みにしてください。",
           });
           return;
         }
       }
-      rec.status = "approved";
-      rec.approvedAt = new Date().toISOString();
+      rec.status = "confirmed";
     }
 
     records[idx] = rec;

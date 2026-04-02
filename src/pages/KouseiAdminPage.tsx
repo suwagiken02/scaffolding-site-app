@@ -1,35 +1,37 @@
-import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { loadSites } from "../lib/siteStorage";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
 import { WORK_KINDS } from "../types/workKind";
+import type { CompanyKind } from "../types/site";
 import { todayLocalDateKey } from "../lib/dateUtils";
-import {
-  loadKouseiMonthList,
-  saveKouseiMonthList,
-  type KouseiRow,
-} from "../lib/kouseiListStorage";
 import {
   fetchKouseiBillingRecords,
   postKouseiBillingSend,
+  kouseiBillingRowKey,
   type KouseiBillingRecord,
+  type KouseiBillingRow,
 } from "../lib/kouseiBillingStorage";
 import styles from "./ContractorAdminPage.module.css";
-
-const UNDO_MS = 30_000;
 
 function toMonthValue(dateKey: string): string {
   return dateKey.slice(0, 7);
 }
 
-function rowKey(r: KouseiRow): string {
-  return `${r.siteId}__${r.workKind}__${r.dateKey}`;
+/** 月初〜「現在」までの締め日（当月は今日、過去月は月末） */
+function monthRangeEnd(month: string, todayKey: string): string | null {
+  if (!/^\d{4}-\d{2}$/.test(month)) return null;
+  const todayMonth = todayKey.slice(0, 7);
+  if (month > todayMonth) return null;
+  const [y, mo] = month.split("-").map(Number);
+  const lastD = new Date(y, mo, 0).getDate();
+  const lastStr = `${month}-${String(lastD).padStart(2, "0")}`;
+  if (month === todayMonth) return todayKey;
+  return lastStr;
+}
+
+function defaultChecked(companyKind: CompanyKind): boolean {
+  if (companyKind === "KOUSEI" || companyKind === "自社_green") return true;
+  return false;
 }
 
 function computePeopleCount(record: {
@@ -47,85 +49,61 @@ function computePeopleCount(record: {
   return set.size;
 }
 
-function buildRowsForMonth(month: string): KouseiRow[] {
+function buildBillingRowsForMonth(month: string, todayKey: string): KouseiBillingRow[] {
+  const rangeEnd = monthRangeEnd(month, todayKey);
+  if (!rangeEnd) return [];
+  const start = `${month}-01`;
   const sites = loadSites();
   const byId = new Map(sites.map((s) => [s.id, s]));
-  const out: KouseiRow[] = [];
+  const out: KouseiBillingRow[] = [];
 
   for (const s of sites) {
+    const ss = byId.get(s.id);
+    const kind = (ss?.companyKind ?? "自社") as CompanyKind;
     for (const k of WORK_KINDS) {
       const map = loadDailyLaborMap(s.id, k);
       for (const r of Object.values(map)) {
-        if (!r.dateKey.startsWith(`${month}-`)) continue;
-        const ss = byId.get(s.id);
+        if (r.dateKey < start || r.dateKey > rangeEnd) continue;
         out.push({
-          siteCode: ss?.siteCode?.trim() || "",
-          dateKey: r.dateKey,
           siteId: s.id,
           siteName: ss?.name || "（現場名未設定）",
           clientName: ss?.clientName || "—",
           workKind: k,
+          dateKey: r.dateKey,
           peopleCount: computePeopleCount(r),
+          amount: null,
+          memo: "",
+          checked: defaultChecked(kind),
         });
       }
     }
   }
 
-  return out.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  return out.sort((a, b) => {
+    const c = a.dateKey.localeCompare(b.dateKey);
+    return c !== 0 ? c : a.siteId.localeCompare(b.siteId);
+  });
 }
-
-type UndoEntry = {
-  key: string;
-  label: string;
-  expiresAt: number;
-};
 
 export function KouseiAdminPage() {
   const [pin, setPin] = useState("");
   const [authed, setAuthed] = useState(false);
-  const [month, setMonth] = useState(toMonthValue(todayLocalDateKey()));
+  const todayKey = useMemo(() => todayLocalDateKey(), []);
+  const [month, setMonth] = useState(toMonthValue(todayKey));
   const [message, setMessage] = useState<string | null>(null);
-  /** loadKouseiMonthList を再実行するためのバージョン（削除・取り消し直後に反映） */
-  const [storageTick, setStorageTick] = useState(0);
-  const [undoEntries, setUndoEntries] = useState<UndoEntry[]>([]);
-  const undoTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map()
-  );
   const [billingRecords, setBillingRecords] = useState<KouseiBillingRecord[]>(
     []
   );
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingSending, setBillingSending] = useState(false);
 
-  const monthState = useMemo(
-    () => loadKouseiMonthList(month),
-    [month, storageTick]
+  const [draftRows, setDraftRows] = useState<KouseiBillingRow[]>(() =>
+    buildBillingRowsForMonth(toMonthValue(todayKey), todayKey)
   );
 
-  const rows = useMemo(() => {
-    const all = buildRowsForMonth(month);
-    const excluded = new Set(monthState.excludedRowKeys);
-    return all.filter((r) => !excluded.has(rowKey(r)));
-  }, [month, monthState.excludedRowKeys]);
-
-  const clearUndoTimers = useCallback(() => {
-    for (const t of undoTimeoutsRef.current.values()) {
-      clearTimeout(t);
-    }
-    undoTimeoutsRef.current.clear();
-  }, []);
-
   useEffect(() => {
-    return () => {
-      clearUndoTimers();
-    };
-  }, [clearUndoTimers]);
-
-  /** 対象月が変わったら取り消し用 state は破棄（別画面相当・セッション内の取り消し不可） */
-  useEffect(() => {
-    clearUndoTimers();
-    setUndoEntries([]);
-  }, [month, clearUndoTimers]);
+    setDraftRows(buildBillingRowsForMonth(month, todayKey));
+  }, [month, todayKey]);
 
   const loadBillingRecords = useCallback(async () => {
     try {
@@ -145,52 +123,53 @@ export function KouseiAdminPage() {
     void loadBillingRecords();
   }, [authed, loadBillingRecords]);
 
-  function bumpStorage() {
-    setStorageTick((t) => t + 1);
+  const rangeEndLabel = monthRangeEnd(month, todayKey);
+
+  function toggleChecked(r: KouseiBillingRow, checked: boolean) {
+    const k = kouseiBillingRowKey(r);
+    setDraftRows((prev) =>
+      prev.map((row) =>
+        kouseiBillingRowKey(row) === k ? { ...row, checked } : row
+      )
+    );
   }
 
-  function scheduleUndoExpiry(key: string) {
-    const prev = undoTimeoutsRef.current.get(key);
-    if (prev) clearTimeout(prev);
-    const tid = setTimeout(() => {
-      setUndoEntries((list) => list.filter((e) => e.key !== key));
-      undoTimeoutsRef.current.delete(key);
-    }, UNDO_MS);
-    undoTimeoutsRef.current.set(key, tid);
-  }
-
-  function handleDelete(r: KouseiRow) {
-    if (monthState.confirmed) return;
-    const k = rowKey(r);
-    const next = new Set(monthState.excludedRowKeys);
-    next.add(k);
-    saveKouseiMonthList({
-      ...monthState,
-      month,
-      excludedRowKeys: [...next],
-    });
-    bumpStorage();
-    const label = `${r.siteName}（${r.dateKey}・${r.workKind}）`;
-    setUndoEntries((list) => [
-      ...list.filter((e) => e.key !== k),
-      { key: k, label, expiresAt: Date.now() + UNDO_MS },
-    ]);
-    scheduleUndoExpiry(k);
-  }
-
-  function handleUndo(key: string) {
-    const tid = undoTimeoutsRef.current.get(key);
-    if (tid) clearTimeout(tid);
-    undoTimeoutsRef.current.delete(key);
-    const next = new Set(monthState.excludedRowKeys);
-    next.delete(key);
-    saveKouseiMonthList({
-      ...monthState,
-      month,
-      excludedRowKeys: [...next],
-    });
-    bumpStorage();
-    setUndoEntries((list) => list.filter((e) => e.key !== key));
+  async function handleSend() {
+    const checkedRows = draftRows.filter((r) => r.checked);
+    if (checkedRows.length === 0) {
+      setMessage("送信する行を1件以上チェックしてください。");
+      return;
+    }
+    if (!rangeEndLabel) {
+      setMessage("対象月が不正です。");
+      return;
+    }
+    const ok = window.confirm(
+      `チェックした ${checkedRows.length} 件をKOUSEI請求確認として送信します。よろしいですか？`
+    );
+    if (!ok) return;
+    setBillingSending(true);
+    setMessage(null);
+    try {
+      const payload = checkedRows.map((r) => ({
+        ...r,
+        checked: true,
+        amount: null,
+        memo: "",
+      }));
+      await postKouseiBillingSend({
+        month,
+        dateRangeEnd: rangeEndLabel,
+        rows: payload,
+        adminPin: "1234",
+      });
+      await loadBillingRecords();
+      setMessage("確定送信しました。");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "確定送信に失敗しました。");
+    } finally {
+      setBillingSending(false);
+    }
   }
 
   function onAuth(e: FormEvent) {
@@ -203,30 +182,7 @@ export function KouseiAdminPage() {
     setMessage("PINが違います。");
   }
 
-  const visibleUndo = undoEntries.filter((e) => Date.now() < e.expiresAt);
-
-  const billingForMonth = billingRecords.find((r) => r.month === month);
-
-  async function handleBillingSend() {
-    if (rows.length === 0) return;
-    const ok = window.confirm(
-      "表示中の作業一覧をKOUSEI側の請求確認用データとしてサーバーに送信します。よろしいですか？"
-    );
-    if (!ok) return;
-    setBillingSending(true);
-    setMessage(null);
-    try {
-      await postKouseiBillingSend(month, rows, "1234");
-      await loadBillingRecords();
-      setMessage("確定送信しました。");
-    } catch (e) {
-      setMessage(
-        e instanceof Error ? e.message : "確定送信に失敗しました。"
-      );
-    } finally {
-      setBillingSending(false);
-    }
-  }
+  const sendCountThisMonth = billingRecords.filter((r) => r.month === month).length;
 
   if (!authed) {
     return (
@@ -280,84 +236,58 @@ export function KouseiAdminPage() {
           <button
             type="button"
             className={styles.btn}
-            disabled={monthState.confirmed || rows.length === 0}
-            onClick={() => {
-              const ok = window.confirm(
-                "一覧を確定します。確定後はKOUSEI側ページに表示されます。よろしいですか？"
-              );
-              if (!ok) return;
-              saveKouseiMonthList({
-                ...monthState,
-                month,
-                confirmed: true,
-                confirmedRows: rows,
-              });
-              bumpStorage();
-              setMessage("確定しました。");
-            }}
-          >
-            確定して送信
-          </button>
-          <button
-            type="button"
-            className={styles.btn}
-            disabled={
-              rows.length === 0 ||
-              billingSending ||
-              billingForMonth?.status === "approved"
-            }
-            onClick={() => void handleBillingSend()}
+            disabled={billingSending || draftRows.length === 0}
+            onClick={() => void handleSend()}
           >
             {billingSending ? "送信中…" : "確定送信"}
           </button>
-          {billingForMonth?.status === "sent" && (
-            <span className={styles.billingBadge}>送信済み</span>
-          )}
-          {billingForMonth?.status === "approved" && (
-            <span className={styles.billingBadge}>了承済み</span>
+          {sendCountThisMonth > 0 && (
+            <span className={styles.billingBadge}>
+              今月 {sendCountThisMonth} 件送信済み
+            </span>
           )}
         </div>
 
         {billingError && <p className={styles.danger}>{billingError}</p>}
 
         <p className={styles.muted}>
-          状態: {monthState.confirmed ? "確定済み" : "未確定"}
+          表示範囲: {month}-01 〜 {rangeEndLabel ?? "—"}
+          （月初から現在までの作業記録）
+        </p>
+        <p className={styles.muted}>
+          初期チェック: KOUSEI・自社（緑）= ON、自社（白）= OFF。変更してから送信してください。
         </p>
 
-        {rows.length === 0 ? (
+        {draftRows.length === 0 ? (
           <p className={styles.muted}>該当する作業記録がありません。</p>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>現場コード</th>
+                <th>送信</th>
                 <th>日付</th>
                 <th>現場名</th>
                 <th>元請け名</th>
                 <th>作業種別</th>
                 <th>人数</th>
-                <th />
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={rowKey(r)}>
-                  <td>{r.siteCode || "—"}</td>
+              {draftRows.map((r) => (
+                <tr key={kouseiBillingRowKey(r)}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={r.checked}
+                      onChange={(e) => toggleChecked(r, e.target.checked)}
+                      aria-label="送信に含める"
+                    />
+                  </td>
                   <td>{r.dateKey}</td>
                   <td>{r.siteName}</td>
                   <td>{r.clientName || "—"}</td>
                   <td>{r.workKind}</td>
                   <td>{r.peopleCount}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className={styles.btn}
-                      disabled={monthState.confirmed}
-                      onClick={() => handleDelete(r)}
-                    >
-                      削除
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -365,24 +295,6 @@ export function KouseiAdminPage() {
         )}
 
         {message && <p className={styles.muted}>{message}</p>}
-
-        {visibleUndo.length > 0 && (
-          <div className={styles.undoBar} role="region" aria-label="削除の取り消し">
-            <p className={styles.undoBarTitle}>直近の削除（30秒以内に取り消し可）</p>
-            {visibleUndo.map((e) => (
-              <div key={e.key} className={styles.undoRow}>
-                <span className={styles.undoLabel}>削除しました: {e.label}</span>
-                <button
-                  type="button"
-                  className={styles.undoBtn}
-                  onClick={() => handleUndo(e.key)}
-                >
-                  元に戻す
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

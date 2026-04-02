@@ -1,16 +1,26 @@
-import type { KouseiRow } from "./kouseiListStorage";
+/** サーバー kousei-billing-v2.json と同一構造 */
 
-export type KouseiBillingStatus = "sent" | "approved";
+export type KouseiBillingStatus = "sent" | "confirmed";
 
-/** サーバー `/var/data/kousei-billing-v1.json` と同一構造の1レコード */
+export type KouseiBillingRow = {
+  siteId: string;
+  siteName: string;
+  clientName: string;
+  workKind: string;
+  dateKey: string;
+  peopleCount: number;
+  amount: number | null;
+  memo: string;
+  checked: boolean;
+};
+
 export type KouseiBillingRecord = {
   id: string;
   month: string;
   sentAt: string;
-  rows: KouseiRow[];
+  dateRangeEnd: string;
+  rows: KouseiBillingRow[];
   status: KouseiBillingStatus;
-  amounts: Record<string, number>;
-  approvedAt?: string;
 };
 
 function apiBase(): string {
@@ -22,7 +32,7 @@ function apiUrl(path: string): string {
   return b ? `${b}${path}` : path;
 }
 
-export function kouseiBillingRowKey(r: KouseiRow): string {
+export function kouseiBillingRowKey(r: Pick<KouseiBillingRow, "siteId" | "workKind" | "dateKey">): string {
   return `${r.siteId}__${r.workKind}__${r.dateKey}`;
 }
 
@@ -39,15 +49,16 @@ export async function fetchKouseiBillingRecords(): Promise<KouseiBillingRecord[]
   return data.records;
 }
 
-export async function postKouseiBillingSend(
-  month: string,
-  rows: KouseiRow[],
-  adminPin: string
-): Promise<KouseiBillingRecord> {
+export async function postKouseiBillingSend(body: {
+  month: string;
+  dateRangeEnd: string;
+  rows: KouseiBillingRow[];
+  adminPin: string;
+}): Promise<KouseiBillingRecord> {
   const res = await fetch(apiUrl("/api/kousei-billing"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ month, rows, adminPin }),
+    body: JSON.stringify(body),
   });
   const data = (await res.json()) as {
     ok?: boolean;
@@ -63,9 +74,8 @@ export async function postKouseiBillingSend(
 export async function putKouseiBillingUpdate(
   id: string,
   body: {
-    amounts: Record<string, number>;
-    approve?: boolean;
-    pin: string;
+    rows: KouseiBillingRow[];
+    status?: KouseiBillingStatus;
   }
 ): Promise<KouseiBillingRecord> {
   const res = await fetch(
@@ -73,11 +83,7 @@ export async function putKouseiBillingUpdate(
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amounts: body.amounts,
-        approve: body.approve === true,
-        pin: body.pin,
-      }),
+      body: JSON.stringify(body),
     }
   );
   const data = (await res.json()) as {

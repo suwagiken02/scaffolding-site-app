@@ -1175,6 +1175,10 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
   const [logoDataUrl, setLogoDataUrl] = useState(initial.logoDataUrl);
   const [adminEmail, setAdminEmail] = useState(initial.adminEmail);
   const [kouseiPin, setKouseiPin] = useState(initial.kouseiPin);
+  const [kouseiEmail, setKouseiEmail] = useState(initial.kouseiEmail);
+  const [notificationEmail, setNotificationEmail] = useState(
+    initial.notificationEmail
+  );
   const [error, setError] = useState<string | null>(null);
 
   async function onLogoChange(file: File | null) {
@@ -1204,6 +1208,8 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
       logoDataUrl: logoDataUrl.trim(),
       adminEmail: adminEmail.trim(),
       kouseiPin: kouseiPin.trim(),
+      kouseiEmail: kouseiEmail.trim(),
+      notificationEmail: notificationEmail.trim(),
     };
     saveCompanyProfile(next);
     onRefresh();
@@ -1258,6 +1264,36 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
             placeholder="例：0000"
             autoComplete="off"
           />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.label}>KOUSEI 請求確認・送信通知先メール</span>
+          <input
+            className={styles.input}
+            type="email"
+            value={kouseiEmail}
+            onChange={(e) => setKouseiEmail(e.target.value)}
+            placeholder="例：kousei@example.com"
+            autoComplete="email"
+          />
+          <span className={styles.fieldHint}>
+            KOUSEI管理から「確定送信」したときに送る通知先です。
+          </span>
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.label}>KOUSEI 請求確認・更新通知先メール（諏訪技建）</span>
+          <input
+            className={styles.input}
+            type="email"
+            value={notificationEmail}
+            onChange={(e) => setNotificationEmail(e.target.value)}
+            placeholder="例：office@example.com"
+            autoComplete="email"
+          />
+          <span className={styles.fieldHint}>
+            KOUSEIページで金額を保存したときに送る通知先です。
+          </span>
         </label>
 
         <label className={styles.field}>

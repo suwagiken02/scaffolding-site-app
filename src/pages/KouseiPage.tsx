@@ -11,6 +11,7 @@ import {
   kouseiBillingRowKey,
   putKouseiBillingUpdate,
   type KouseiBillingRecord,
+  type KouseiBillingRow,
 } from "../lib/kouseiBillingStorage";
 import { sendEmailApi } from "../lib/sendEmailApi";
 import { getSiteById, loadSites, normalizeEntranceDateKeys } from "../lib/siteStorage";
@@ -18,7 +19,14 @@ import type { Site } from "../types/site";
 import { SiteMapView } from "../components/SiteMapView";
 import { getEffectiveSiteDisplayStatus } from "../lib/siteStatus";
 import { siteHasAnyWorkRecordOnDate } from "../lib/siteWorkRecordKeys";
-import { todayLocalDateKey, tomorrowLocalDateKey } from "../lib/dateUtils";
+import {
+  todayLocalDateKey,
+  tomorrowLocalDateKey,
+} from "../lib/dateUtils";
+
+function toMonthValue(dateKey: string): string {
+  return dateKey.slice(0, 7);
+}
 import styles from "./ContractorAdminPage.module.css";
 import siteListStyles from "./SiteListPage.module.css";
 
@@ -63,14 +71,22 @@ export function KouseiPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>("today");
 
+  const todayKey = useMemo(() => todayLocalDateKey(), []);
+  const tomorrowKey = useMemo(() => tomorrowLocalDateKey(), []);
+
   const [billingRecords, setBillingRecords] = useState<KouseiBillingRecord[]>(
     []
   );
-  const [billingMonth, setBillingMonth] = useState("");
-  const [billingDraft, setBillingDraft] = useState<Record<string, string>>({});
+  const [billingMonth, setBillingMonth] = useState(() =>
+    toMonthValue(todayLocalDateKey())
+  );
+  /** レコードIDごとの編集中行（保存前） */
+  const [localRowsById, setLocalRowsById] = useState<
+    Record<string, KouseiBillingRow[]>
+  >({});
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingMessage, setBillingMessage] = useState<string | null>(null);
-  const [billingSaving, setBillingSaving] = useState(false);
+  const [billingSavingId, setBillingSavingId] = useState<string | null>(null);
 
   const reloadSites = useCallback(() => {
     setSites(loadSites());
@@ -96,12 +112,7 @@ export function KouseiPage() {
     try {
       setBillingError(null);
       const list = await fetchKouseiBillingRecords();
-      list.sort((a, b) => b.month.localeCompare(a.month));
       setBillingRecords(list);
-      setBillingMonth((prev) => {
-        if (prev && list.some((r) => r.month === prev)) return prev;
-        return list[0]?.month ?? "";
-      });
     } catch (e) {
       setBillingError(
         e instanceof Error ? e.message : "請求データの取得に失敗しました"
@@ -115,25 +126,27 @@ export function KouseiPage() {
     void loadBillingRecords();
   }, [authed, mainTab, loadBillingRecords]);
 
-  const billingSelected = useMemo(
-    () => billingRecords.find((r) => r.month === billingMonth) ?? null,
-    [billingRecords, billingMonth]
-  );
-
   useEffect(() => {
-    if (!billingSelected) {
-      setBillingDraft({});
-      return;
-    }
-    const next: Record<string, string> = {};
-    for (const r of billingSelected.rows) {
-      const k = kouseiBillingRowKey(r);
-      const v = billingSelected.amounts[k];
-      next[k] =
-        v !== undefined && Number.isFinite(v) ? String(Math.round(v)) : "";
-    }
-    setBillingDraft(next);
-  }, [billingSelected?.id, billingSelected?.sentAt]);
+    setLocalRowsById((prev) => {
+      const next = { ...prev };
+      for (const r of billingRecords) {
+        next[r.id] = r.rows.map((row) => ({ ...row }));
+      }
+      return next;
+    });
+  }, [billingRecords]);
+
+  const billingRecordsForMonth = useMemo(() => {
+    return billingRecords
+      .filter((r) => r.month === billingMonth)
+      .sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+  }, [billingRecords, billingMonth]);
+
+  const billingMonthOptions = useMemo(() => {
+    const s = new Set(billingRecords.map((r) => r.month));
+    s.add(toMonthValue(todayKey));
+    return [...s].sort((a, b) => b.localeCompare(a));
+  }, [billingRecords, todayKey]);
 
   const months = useMemo(() => listKouseiConfirmedMonths(), []);
   const [month, setMonth] = useState(months[0] ?? "");
@@ -145,9 +158,6 @@ export function KouseiPage() {
   }, [authed, month]);
 
   const [draft, setDraft] = useState<Record<string, string>>({});
-
-  const todayKey = useMemo(() => todayLocalDateKey(), []);
-  const tomorrowKey = useMemo(() => tomorrowLocalDateKey(), []);
 
   const filteredKouseiList = useMemo(() => {
     const ks = kouseiSites(sites);
@@ -163,81 +173,109 @@ export function KouseiPage() {
     return [];
   }, [sites, mainTab, todayKey, tomorrowKey]);
 
-  const kouseiPin = (profile.kouseiPin ?? "").trim();
-
-  const billingAllAmountsFilled = useMemo(() => {
-    if (!billingSelected) return false;
-    return billingSelected.rows.every((r) => {
-      const k = kouseiBillingRowKey(r);
-      const raw = (billingDraft[k] ?? "").trim();
-      const n = Number(raw);
-      return raw !== "" && Number.isFinite(n) && n >= 0;
+  function updateBillingRow(
+    recordId: string,
+    rowKey: string,
+    patch: Partial<Pick<KouseiBillingRow, "amount" | "memo">>
+  ) {
+    setLocalRowsById((prev) => {
+      const rows = prev[recordId];
+      if (!rows) return prev;
+      return {
+        ...prev,
+        [recordId]: rows.map((row) =>
+          kouseiBillingRowKey(row) === rowKey ? { ...row, ...patch } : row
+        ),
+      };
     });
-  }, [billingSelected, billingDraft]);
-
-  function buildBillingAmountsPayload(): Record<string, number> {
-    const out: Record<string, number> = {};
-    if (!billingSelected) return out;
-    for (const r of billingSelected.rows) {
-      const k = kouseiBillingRowKey(r);
-      const raw = (billingDraft[k] ?? "").trim();
-      const n = Number(raw);
-      if (Number.isFinite(n) && n >= 0) out[k] = n;
-    }
-    return out;
   }
 
-  async function onBillingSaveAmounts() {
-    if (!billingSelected || !kouseiPin) {
-      setBillingError("マスター設定で KOUSEI の PIN を設定してください。");
-      return;
-    }
+  function billingRowsAllAmountsFilled(rows: KouseiBillingRow[]): boolean {
+    if (rows.length === 0) return false;
+    return rows.every((r) => {
+      const a = r.amount;
+      return (
+        a !== null &&
+        a !== undefined &&
+        Number.isFinite(Number(a)) &&
+        Number(a) >= 0
+      );
+    });
+  }
+
+  async function notifySuwaAfterSave(
+    month: string,
+    rows: KouseiBillingRow[]
+  ) {
+    const to = (profile.notificationEmail ?? "").trim();
+    if (!to) return;
+    const [y, mm] = month.split("-");
+    const lines = rows.map((r) => {
+      const amt =
+        r.amount === null || r.amount === undefined
+          ? "未入力"
+          : `${Number(r.amount).toLocaleString()}円`;
+      return `${r.siteName} / ${amt} / ${(r.memo ?? "").trim() || "—"}`;
+    });
+    await sendEmailApi({
+      to: [to],
+      subject: `【KOUSEI請求確認】${y}年${mm}月分 金額が更新されました`,
+      text: `${y}年${mm}月分の金額が更新されました。\n\n${lines.join("\n")}\n`,
+    });
+  }
+
+  async function onBillingSave(recordId: string) {
+    const rows = localRowsById[recordId];
+    if (!rows?.length) return;
     setBillingError(null);
     setBillingMessage(null);
-    setBillingSaving(true);
+    setBillingSavingId(recordId);
     try {
-      const updated = await putKouseiBillingUpdate(billingSelected.id, {
-        amounts: buildBillingAmountsPayload(),
-        approve: false,
-        pin: kouseiPin,
-      });
+      const rec = billingRecords.find((r) => r.id === recordId);
+      const updated = await putKouseiBillingUpdate(recordId, { rows });
       setBillingRecords((prev) =>
         prev.map((r) => (r.id === updated.id ? updated : r))
       );
-      setBillingMessage("金額を保存しました。");
+      setBillingMessage("保存しました。");
+      if (rec) {
+        await notifySuwaAfterSave(rec.month, rows);
+      }
     } catch (e) {
       setBillingError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
-      setBillingSaving(false);
+      setBillingSavingId(null);
     }
   }
 
-  async function onBillingApprove() {
-    if (!billingSelected || !kouseiPin) {
-      setBillingError("マスター設定で KOUSEI の PIN を設定してください。");
-      return;
-    }
-    if (!billingAllAmountsFilled) {
+  async function onBillingConfirm(recordId: string) {
+    const rows = localRowsById[recordId];
+    if (!rows?.length) return;
+    if (!billingRowsAllAmountsFilled(rows)) {
       setBillingError("すべての行に金額を入力してください。");
       return;
     }
     setBillingError(null);
     setBillingMessage(null);
-    setBillingSaving(true);
+    setBillingSavingId(recordId);
     try {
-      const updated = await putKouseiBillingUpdate(billingSelected.id, {
-        amounts: buildBillingAmountsPayload(),
-        approve: true,
-        pin: kouseiPin,
+      const rec = billingRecords.find((r) => r.id === recordId);
+      const updated = await putKouseiBillingUpdate(recordId, {
+        rows,
+        status: "confirmed",
       });
       setBillingRecords((prev) =>
         prev.map((r) => (r.id === updated.id ? updated : r))
       );
-      setBillingMessage("了承しました。");
+      setBillingMessage("確認済みにしました。");
+      if (rec) {
+        await notifySuwaAfterSave(rec.month, rows);
+      }
     } catch (e) {
-      setBillingError(e instanceof Error ? e.message : "了承の更新に失敗しました");
+      setBillingError(
+        e instanceof Error ? e.message : "確認済みの更新に失敗しました"
+      );
     } finally {
-      setBillingSaving(false);
+      setBillingSavingId(null);
     }
   }
 
@@ -484,129 +522,151 @@ export function KouseiPage() {
 
       {mainTab === "billing" && (
         <div className={styles.panel}>
-          {billingRecords.length === 0 ? (
+          <div className={styles.fieldRow}>
+            <label className={styles.field}>
+              <span className={styles.label}>対象月</span>
+              <select
+                className={styles.select}
+                value={billingMonth}
+                onChange={(e) => setBillingMonth(e.target.value)}
+              >
+                {billingMonthOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {billingError && <p className={styles.danger}>{billingError}</p>}
+          {billingMessage && (
+            <p className={styles.muted}>{billingMessage}</p>
+          )}
+          {billingRecordsForMonth.length === 0 ? (
             <p className={styles.muted}>
-              事務側から確定送信された請求データはまだありません。
+              この月の請求データはまだありません。
             </p>
           ) : (
             <>
-              <div className={styles.fieldRow}>
-                <label className={styles.field}>
-                  <span className={styles.label}>対象月</span>
-                  <select
-                    className={styles.select}
-                    value={billingMonth}
-                    onChange={(e) => setBillingMonth(e.target.value)}
+              {billingRecordsForMonth.map((rec) => {
+                const rows = localRowsById[rec.id] ?? rec.rows;
+                const busy = billingSavingId === rec.id;
+                const readOnly = rec.status === "confirmed";
+                const canConfirm =
+                  !readOnly && billingRowsAllAmountsFilled(rows);
+                return (
+                  <div
+                    key={rec.id}
+                    style={{
+                      marginTop: "1.25rem",
+                      paddingTop: "1rem",
+                      borderTop: "1px solid var(--border)",
+                    }}
                   >
-                    {billingRecords.map((r) => (
-                      <option key={r.id} value={r.month}>
-                        {r.month}
-                        {r.status === "approved" ? "（了承済み）" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {billingSelected?.status === "sent" && (
-                  <>
-                    <button
-                      type="button"
-                      className={styles.btn}
-                      disabled={billingSaving}
-                      onClick={() => void onBillingSaveAmounts()}
-                    >
-                      {billingSaving ? "保存中…" : "金額を保存"}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.btn}
-                      disabled={billingSaving || !billingAllAmountsFilled}
-                      onClick={() => void onBillingApprove()}
-                    >
-                      {billingSaving ? "処理中…" : "了承する"}
-                    </button>
-                  </>
-                )}
-              </div>
-              {billingSelected && (
-                <p className={styles.muted}>
-                  状態:{" "}
-                  {billingSelected.status === "approved"
-                    ? "了承済み"
-                    : "送信済み（未了承）"}
-                  {billingSelected.approvedAt
-                    ? ` / ${billingSelected.approvedAt}`
-                    : ""}
-                </p>
-              )}
-              {billingError && <p className={styles.danger}>{billingError}</p>}
-              {billingMessage && (
-                <p className={styles.muted}>{billingMessage}</p>
-              )}
-              {billingSelected && billingSelected.rows.length === 0 ? (
-                <p className={styles.muted}>作業行がありません。</p>
-              ) : (
-                billingSelected && (
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>現場コード</th>
-                        <th>日付</th>
-                        <th>現場名</th>
-                        <th>元請け名</th>
-                        <th>作業種別</th>
-                        <th>人数</th>
-                        <th>金額（円）</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {billingSelected.rows.map((r) => {
-                        const k = kouseiBillingRowKey(r);
-                        const site = getSiteById(r.siteId);
-                        const code = (r.siteCode ?? site?.siteCode ?? "").trim();
-                        const client = (
-                          r.clientName ??
-                          site?.clientName ??
-                          ""
-                        ).trim();
-                        const value = billingDraft[k] ?? "";
-                        const readOnly = billingSelected.status === "approved";
-                        return (
-                          <tr key={k}>
-                            <td>{code || "—"}</td>
-                            <td>{r.dateKey}</td>
-                            <td>{r.siteName}</td>
-                            <td>{client || "—"}</td>
-                            <td>{r.workKind}</td>
-                            <td>{r.peopleCount}</td>
-                            <td>
-                              {readOnly ? (
-                                value !== ""
-                                  ? `${Number(value).toLocaleString()}円`
-                                  : "—"
-                              ) : (
-                                <input
-                                  className={styles.amountInput}
-                                  type="number"
-                                  min={0}
-                                  step={1}
-                                  value={value}
-                                  onChange={(e) =>
-                                    setBillingDraft((p) => ({
-                                      ...p,
-                                      [k]: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="0"
-                                />
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )
-              )}
+                    <p className={styles.muted}>
+                      送信: {rec.sentAt} / 締め日: {rec.dateRangeEnd} /{" "}
+                      {rec.status === "confirmed" ? "確認済み" : "未確認"}
+                    </p>
+                    <div className={styles.fieldRow}>
+                      {!readOnly && (
+                        <>
+                          <button
+                            type="button"
+                            className={styles.btn}
+                            disabled={busy}
+                            onClick={() => void onBillingSave(rec.id)}
+                          >
+                            {busy ? "保存中…" : "保存"}
+                          </button>
+                          {canConfirm && (
+                            <button
+                              type="button"
+                              className={styles.btn}
+                              disabled={busy}
+                              onClick={() => void onBillingConfirm(rec.id)}
+                            >
+                              {busy ? "処理中…" : "確認済みにする"}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>日付</th>
+                          <th>現場名</th>
+                          <th>元請け名</th>
+                          <th>作業種別</th>
+                          <th>人数</th>
+                          <th>金額（円）</th>
+                          <th>メモ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => {
+                          const rk = kouseiBillingRowKey(r);
+                          const amtStr =
+                            r.amount === null || r.amount === undefined
+                              ? ""
+                              : String(r.amount);
+                          return (
+                            <tr key={rk}>
+                              <td>{r.dateKey}</td>
+                              <td>{r.siteName}</td>
+                              <td>{r.clientName || "—"}</td>
+                              <td>{r.workKind}</td>
+                              <td>{r.peopleCount}</td>
+                              <td>
+                                {readOnly ? (
+                                  amtStr !== ""
+                                    ? `${Number(amtStr).toLocaleString()}円`
+                                    : "—"
+                                ) : (
+                                  <input
+                                    className={styles.amountInput}
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    value={amtStr}
+                                    onChange={(e) => {
+                                      const v = e.target.value.trim();
+                                      updateBillingRow(rec.id, rk, {
+                                        amount:
+                                          v === ""
+                                            ? null
+                                            : Number(v),
+                                      });
+                                    }}
+                                    placeholder="0"
+                                  />
+                                )}
+                              </td>
+                              <td>
+                                {readOnly ? (
+                                  r.memo || "—"
+                                ) : (
+                                  <input
+                                    className={styles.input}
+                                    type="text"
+                                    value={r.memo}
+                                    onChange={(e) =>
+                                      updateBillingRow(rec.id, rk, {
+                                        memo: e.target.value,
+                                      })
+                                    }
+                                    placeholder="メモ"
+                                  />
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
             </>
           )}
         </div>
