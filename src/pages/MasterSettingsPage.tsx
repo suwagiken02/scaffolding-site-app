@@ -6,7 +6,10 @@ import {
   addRecipient,
   loadRecipients,
   removeRecipient,
+  updateRecipientFcmToken,
 } from "../lib/notificationRecipientStorage";
+import { getCurrentFcmDeviceToken } from "../lib/fcmInit";
+import { hasFirebaseMessagingConfig } from "../lib/firebase";
 import {
   loadClientMasters,
   addClientMaster,
@@ -604,6 +607,8 @@ function NotificationPanel() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fcmBusyId, setFcmBusyId] = useState<string | null>(null);
+  const [fcmMessage, setFcmMessage] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     setList(loadRecipients());
@@ -637,11 +642,32 @@ function NotificationPanel() {
     refresh();
   }
 
+  async function handleRegisterFcm(r: NotificationRecipient) {
+    setFcmMessage(null);
+    if (!hasFirebaseMessagingConfig()) {
+      setFcmMessage("Firebase（VITE_FIREBASE_*）が未設定のため登録できません。");
+      return;
+    }
+    setFcmBusyId(r.id);
+    try {
+      const token = await getCurrentFcmDeviceToken();
+      if (!token) {
+        setFcmMessage("トークンを取得できませんでした（通知の許可・HTTPS を確認してください）。");
+        return;
+      }
+      updateRecipientFcmToken(r.id, token);
+      refresh();
+      setFcmMessage(`${r.name} のスマホにプッシュ通知用トークンを保存しました。`);
+    } finally {
+      setFcmBusyId(null);
+    }
+  }
+
   return (
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>通知先</h2>
       <p className={styles.panelDesc}>
-        メール通知の宛先を登録します。各現場の「通知先」タブで送る相手を選べます。
+        メール通知の宛先と、休暇申請・外部現場登録などの管理者向けプッシュ通知先を登録します。各現場の「通知先」タブではメール宛先を選べます。
       </p>
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
@@ -678,6 +704,11 @@ function NotificationPanel() {
       </form>
 
       <h3 className={styles.subTitle}>登録一覧</h3>
+      {fcmMessage && (
+        <p className={styles.panelDesc} role="status">
+          {fcmMessage}
+        </p>
+      )}
       {list.length === 0 ? (
         <p className={styles.empty}>まだ登録がありません。</p>
       ) : (
@@ -687,6 +718,27 @@ function NotificationPanel() {
               <div className={styles.cardBody}>
                 <span className={styles.cardName}>{r.name}</span>
                 <span className={styles.cardEmail}>{r.email}</span>
+                <div className={styles.notifyFcmRow}>
+                  <button
+                    type="button"
+                    className={styles.notifyFcmBtn}
+                    disabled={fcmBusyId === r.id}
+                    onClick={() => void handleRegisterFcm(r)}
+                  >
+                    {fcmBusyId === r.id
+                      ? "取得中…"
+                      : "この端末でプッシュ通知を登録"}
+                  </button>
+                  {r.fcmToken ? (
+                    <span className={styles.notifyFcmToken} title={r.fcmToken}>
+                      FCM: {r.fcmToken.slice(0, 24)}…
+                    </span>
+                  ) : (
+                    <span className={styles.notifyFcmToken}>
+                      プッシュ未登録（上のボタンで登録）
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 type="button"

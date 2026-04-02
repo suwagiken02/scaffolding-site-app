@@ -580,6 +580,7 @@ export function SiteDetailPage() {
 
         <SiteWorkTimeSection
           siteId={safeSite.id}
+          siteName={safeSite.name}
           workKind={photoSectionWorkKind}
           revision={fileRevision}
           todayDateKey={todayKey}

@@ -9,6 +9,7 @@ import {
   workSessionTotalManDaysFromRecord,
 } from "../lib/manDayCalculations";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
+import { notifyWorkEndFcm, notifyWorkStartFcm } from "../lib/fcmNotifyApi";
 import styles from "./SiteJoyoWorkSection.module.css";
 
 type LaborModalCtx = {
@@ -20,6 +21,8 @@ type LaborModalCtx = {
 
 type Props = {
   siteId: string;
+  /** 通知文面用（マスターの現場名） */
+  siteName: string;
   workKind: WorkKind;
   revision: number;
   todayDateKey: string;
@@ -58,6 +61,7 @@ function openLaborModalFromRecord(
 
 export function SiteWorkTimeSection({
   siteId,
+  siteName,
   workKind,
   revision,
   todayDateKey,
@@ -84,6 +88,8 @@ export function SiteWorkTimeSection({
       workManDaysPerPerson: null,
       finalManDays: null,
     });
+    const nm = siteName.trim() || "現場";
+    notifyWorkStartFcm(nm, workKind);
   }
 
   function onEnd() {
@@ -98,6 +104,8 @@ export function SiteWorkTimeSection({
       workManDaysPerPerson: perPerson,
       finalManDays: null,
     });
+    const nm = siteName.trim() || "現場";
+    notifyWorkEndFcm(nm, workKind);
     openLaborModalFromRecord(
       { ...labor, workEndIso: endIso, workManDaysPerPerson: perPerson, dateKey: labor.dateKey },
       workKind,

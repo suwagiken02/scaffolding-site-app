@@ -32,6 +32,7 @@ import {
   updateStaffMaster,
 } from "../lib/staffMasterStorage";
 import {
+  clearFcmStaffContext,
   clearStaffPersonalAuthed,
   isStaffPersonalAuthed,
   setFcmStaffContext,
@@ -198,9 +199,10 @@ export function StaffPersonalPage() {
 
   useEffect(() => {
     if (!authed || !id) return;
-    setFcmStaffContext(id);
+    const nm = draft?.name?.trim() ?? staff?.name?.trim() ?? "";
+    if (nm) setFcmStaffContext(nm);
     void registerCurrentFcmTokenToServer();
-  }, [authed, id]);
+  }, [authed, id, draft?.name, staff?.name]);
 
   useEffect(() => {
     if (!authed || !id) return;
@@ -541,7 +543,8 @@ export function StaffPersonalPage() {
                           return;
                         }
                         setStaffPersonalAuthed(id);
-                        setFcmStaffContext(id);
+                        const nm = staff.name?.trim() ?? "";
+                        if (nm) setFcmStaffContext(nm);
                         void registerCurrentFcmTokenToServer();
                         setPin("");
                         setSessionBump((x) => x + 1);
@@ -596,6 +599,7 @@ export function StaffPersonalPage() {
           className={styles.logoutBtn}
           onClick={() => {
             clearStaffPersonalAuthed(id);
+            clearFcmStaffContext();
             navigate("/staff");
           }}
         >

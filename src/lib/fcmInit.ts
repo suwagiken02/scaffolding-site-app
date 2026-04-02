@@ -57,16 +57,16 @@ async function runFcmSetup(): Promise<void> {
       if (import.meta.env.DEV) {
         console.info("[FCM] 登録トークンを取得しました（開発時のみ表示）");
       }
-      const staffId = getFcmStaffContext();
-      if (staffId) {
+      const staffName = getFcmStaffContext();
+      if (staffName) {
         try {
-          await postFcmTokenToServer(staffId, token);
+          await postFcmTokenToServer(staffName, token);
         } catch (e) {
           console.warn("[FCM] サーバーへのトークン登録に失敗:", e);
         }
       } else {
         console.info(
-          "[FCM] staffId 未設定のためトークンをサーバーに送りません（個人ページでPIN認証後に紐付きます）。"
+          "[FCM] スタッフ名未設定のためトークンをサーバーに送りません（個人ページでPIN認証後に紐付きます）。"
         );
       }
     } else {
@@ -96,13 +96,13 @@ async function runFcmSetup(): Promise<void> {
 }
 
 /**
- * 個人ページで PIN 認証したあとに呼ぶ。既に取得済みの FCM トークンを staffId に紐付けてサーバーへ送る。
+ * 個人ページで PIN 認証したあとに呼ぶ。既に取得済みの FCM トークンをスタッフ名に紐付けてサーバーへ送る。
  */
 export async function registerCurrentFcmTokenToServer(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!hasFirebaseMessagingConfig()) return;
-  const staffId = getFcmStaffContext();
-  if (!staffId) return;
+  const staffName = getFcmStaffContext();
+  if (!staffName) return;
   try {
     if (!(await isSupported())) return;
     const app = getFirebaseApp();
@@ -116,9 +116,42 @@ export async function registerCurrentFcmTokenToServer(): Promise<void> {
       serviceWorkerRegistration: registration,
     });
     if (token) {
-      await postFcmTokenToServer(staffId, token);
+      await postFcmTokenToServer(staffName, token);
     }
   } catch (e) {
     console.warn("[FCM] registerCurrentFcmTokenToServer:", e);
+  }
+}
+
+/**
+ * マスター「通知先」で FCM 登録するときに使う。通知許可後にトークンを取得する。
+ */
+export async function getCurrentFcmDeviceToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  if (!hasFirebaseMessagingConfig()) return null;
+  try {
+    if (!(await isSupported())) return null;
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") return null;
+    const app = getFirebaseApp();
+    const messaging = getMessaging(app);
+    const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+    const swUrl = `${base}firebase-messaging-sw.js`;
+    let registration =
+      (await navigator.serviceWorker.getRegistration(swUrl)) ?? undefined;
+    if (!registration) {
+      registration = await navigator.serviceWorker.register(swUrl, {
+        scope: base,
+      });
+      await navigator.serviceWorker.ready;
+    }
+    const token = await getToken(messaging, {
+      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: registration,
+    });
+    return token || null;
+  } catch (e) {
+    console.warn("[FCM] getCurrentFcmDeviceToken:", e);
+    return null;
   }
 }

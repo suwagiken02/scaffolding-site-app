@@ -477,3 +477,40 @@
   color: #34c759;
   white-space: nowrap;
 }
+
+.notifyFcmRow {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+}
+
+.notifyFcmBtn {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.notifyFcmBtn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.notifyFcmBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.notifyFcmToken {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  max-width: 100%;
+}

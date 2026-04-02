@@ -14,8 +14,9 @@ import { basename, dirname, join } from "node:path";
 import {
   initFirebaseAdminIfPossible,
   isFcmConfigured,
-  notifyOfficeStaff,
-  notifyStaffIds,
+  notifyAdminRecipients,
+  notifyAllStaff,
+  notifyStaffByNames,
   readFcmTokensStore,
   registerFcmToken,
 } from "./fcm.js";
@@ -219,23 +220,6 @@ app.post(
     }
 
     const url = `${publicBase}/${key}`;
-    const photoCategory =
-      typeof req.body?.photoCategory === "string" ? req.body.photoCategory.trim() : "";
-    const siteNameForNotify =
-      typeof req.body?.siteName === "string" ? req.body.siteName.trim() : "";
-    if (photoCategory === "入場時" && siteNameForNotify && isFcmConfigured()) {
-      try {
-        const staffList = await readStaffMastersFromDisk();
-        await notifyOfficeStaff(
-          staffList,
-          DATA_DIR,
-          "【写真】",
-          `${siteNameForNotify}の入場写真がアップロードされました`
-        );
-      } catch (e) {
-        console.error("[server] FCM 入場写真通知", e);
-      }
-    }
 
     res.json({ ok: true, url, key });
   }
@@ -364,13 +348,14 @@ app.post("/api/site-documents/delete", async (req, res) => {
 // ---- FCM（トークン登録・プッシュ） ----
 app.post("/api/fcm-tokens", async (req, res) => {
   try {
-    const staffId = typeof req.body?.staffId === "string" ? req.body.staffId.trim() : "";
+    const staffName =
+      typeof req.body?.staffName === "string" ? req.body.staffName.trim() : "";
     const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
-    if (!staffId || !token) {
-      res.status(400).json({ ok: false, error: "staffId と token が必要です。" });
+    if (!staffName || !token) {
+      res.status(400).json({ ok: false, error: "staffName と token が必要です。" });
       return;
     }
-    await registerFcmToken(DATA_DIR, staffId, token);
+    await registerFcmToken(DATA_DIR, staffName, token);
     res.json({ ok: true });
   } catch (e) {
     console.error("[server] POST /api/fcm-tokens", e);
@@ -378,19 +363,120 @@ app.post("/api/fcm-tokens", async (req, res) => {
   }
 });
 
-app.get("/api/fcm-tokens/:staffId", async (req, res) => {
+/** スタッフ名をキーにしたトークン一覧（URL エンコードされた名前を渡す） */
+app.get("/api/fcm-tokens/:staffNameEncoded", async (req, res) => {
   try {
-    const staffId = String(req.params.staffId ?? "").trim();
-    if (!staffId) {
-      res.status(400).json({ ok: false, error: "staffId が不正です。" });
+    let name = String(req.params.staffNameEncoded ?? "").trim();
+    try {
+      name = decodeURIComponent(name);
+    } catch {
+      // そのまま
+    }
+    if (!name) {
+      res.status(400).json({ ok: false, error: "staffName が不正です。" });
       return;
     }
     const store = await readFcmTokensStore(DATA_DIR);
-    const tokens = Array.isArray(store[staffId]) ? store[staffId] : [];
+    const tokens = Array.isArray(store[name]) ? store[name] : [];
     res.json({ ok: true, tokens });
   } catch (e) {
     console.error("[server] GET /api/fcm-tokens", e);
     res.status(500).json({ ok: false, error: "read failed" });
+  }
+});
+
+app.post("/api/fcm-notify/work-start", async (req, res) => {
+  try {
+    const siteName =
+      typeof req.body?.siteName === "string" ? req.body.siteName.trim() : "";
+    const workKind =
+      typeof req.body?.workKind === "string" ? req.body.workKind.trim() : "";
+    if (!siteName || !workKind) {
+      res.status(400).json({ ok: false, error: "siteName と workKind が必要です。" });
+      return;
+    }
+    if (!isFcmConfigured()) {
+      res.json({ ok: true, skipped: true });
+      return;
+    }
+    await notifyAllStaff(
+      DATA_DIR,
+      "【作業開始】",
+      `${siteName}で${workKind}の作業が開始されました`
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] POST /api/fcm-notify/work-start", e);
+    res.status(500).json({ ok: false, error: "notify failed" });
+  }
+});
+
+app.post("/api/fcm-notify/work-end", async (req, res) => {
+  try {
+    const siteName =
+      typeof req.body?.siteName === "string" ? req.body.siteName.trim() : "";
+    const workKind =
+      typeof req.body?.workKind === "string" ? req.body.workKind.trim() : "";
+    if (!siteName || !workKind) {
+      res.status(400).json({ ok: false, error: "siteName と workKind が必要です。" });
+      return;
+    }
+    if (!isFcmConfigured()) {
+      res.json({ ok: true, skipped: true });
+      return;
+    }
+    await notifyAllStaff(
+      DATA_DIR,
+      "【作業終了】",
+      `${siteName}で${workKind}の作業が終了しました`
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] POST /api/fcm-notify/work-end", e);
+    res.status(500).json({ ok: false, error: "notify failed" });
+  }
+});
+
+function formatAttendanceTimeJa(iso) {
+  try {
+    const d = new Date(String(iso));
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return new Intl.DateTimeFormat("ja-JP", {
+      dateStyle: "short",
+      timeStyle: "medium",
+    }).format(d);
+  } catch {
+    return String(iso);
+  }
+}
+
+app.post("/api/fcm-notify/attendance", async (req, res) => {
+  try {
+    const staffName =
+      typeof req.body?.staffName === "string" ? req.body.staffName.trim() : "";
+    const punchKind = req.body?.punchKind === "out" ? "out" : "in";
+    const timeIso =
+      typeof req.body?.timeIso === "string" ? req.body.timeIso.trim() : "";
+    if (!staffName || !timeIso) {
+      res.status(400).json({ ok: false, error: "staffName と timeIso が必要です。" });
+      return;
+    }
+    if (!isFcmConfigured()) {
+      res.json({ ok: true, skipped: true });
+      return;
+    }
+    const label = punchKind === "out" ? "退勤" : "出勤";
+    const t = formatAttendanceTimeJa(timeIso);
+    await notifyStaffByNames(
+      [staffName],
+      DATA_DIR,
+      "【打刻完了】",
+      `${label}の打刻が完了しました（${t}）`
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[server] POST /api/fcm-notify/attendance", e);
+    res.status(500).json({ ok: false, error: "notify failed" });
   }
 });
 
@@ -407,9 +493,7 @@ app.post("/api/fcm-notify/external-site", async (req, res) => {
       res.json({ ok: true, skipped: true });
       return;
     }
-    const staffList = await readStaffMastersFromDisk();
-    await notifyOfficeStaff(
-      staffList,
+    await notifyAdminRecipients(
       DATA_DIR,
       "【新規現場】",
       `${companyName}から${siteName}が登録されました`
@@ -717,12 +801,10 @@ app.post("/api/leave-requests", async (req, res) => {
 
     if (isFcmConfigured()) {
       try {
-        const staffList = await readStaffMastersFromDisk();
-        await notifyOfficeStaff(
-          staffList,
+        await notifyAdminRecipients(
           DATA_DIR,
           "【休暇申請】",
-          `${staffName}から休暇申請が届きました`
+          `${staffName}から申請が届きました`
         );
       } catch (e) {
         console.error("[server] FCM leave-request notify", e);
@@ -788,8 +870,12 @@ app.post("/api/leave-requests/:id/decide", async (req, res) => {
 
       if (isFcmConfigured()) {
         try {
-          const staffList = await readStaffMastersFromDisk();
-          await notifyStaffIds([row.staffId], staffList, DATA_DIR, "【休暇申請】", "否認されました");
+          await notifyStaffByNames(
+            [row.staffName],
+            DATA_DIR,
+            "【休暇申請】",
+            "否認されました"
+          );
         } catch (e) {
           console.error("[server] FCM leave reject", e);
         }
@@ -846,8 +932,12 @@ app.post("/api/leave-requests/:id/decide", async (req, res) => {
 
     if (isFcmConfigured()) {
       try {
-        const staffList = await readStaffMastersFromDisk();
-        await notifyStaffIds([row.staffId], staffList, DATA_DIR, "【休暇申請】", "承認されました");
+        await notifyStaffByNames(
+          [row.staffName],
+          DATA_DIR,
+          "【休暇申請】",
+          "承認されました"
+        );
       } catch (e) {
         console.error("[server] FCM leave approve", e);
       }
@@ -1071,14 +1161,16 @@ app.post(
 
       if (isFcmConfigured()) {
         try {
-          const staffListFcm = await readStaffMastersFromDisk();
-          await notifyStaffIds(
-            [staff.id],
-            staffListFcm,
-            DATA_DIR,
-            "【給与明細】",
-            `${monthJa}分の給与明細がアップロードされました`
-          );
+          const nm =
+            typeof staff.name === "string" ? staff.name.trim() : "";
+          if (nm) {
+            await notifyStaffByNames(
+              [nm],
+              DATA_DIR,
+              "【給与明細】",
+              `${monthJa}分がアップロードされました`
+            );
+          }
         } catch (e) {
           console.error("[server] FCM payslip notify", e);
         }

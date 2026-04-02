@@ -16,10 +16,15 @@ function readRaw(): unknown {
 function isRecipient(x: unknown): x is NotificationRecipient {
   if (typeof x !== "object" || x === null) return false;
   const o = x as Record<string, unknown>;
+  const fcmOk =
+    o.fcmToken === undefined ||
+    o.fcmToken === null ||
+    typeof o.fcmToken === "string";
   return (
     typeof o.id === "string" &&
     typeof o.name === "string" &&
-    typeof o.email === "string"
+    typeof o.email === "string" &&
+    fcmOk
   );
 }
 
@@ -55,4 +60,13 @@ export function addRecipient(
 
 export function removeRecipient(id: string): void {
   saveRecipients(loadRecipients().filter((r) => r.id !== id));
+}
+
+export function updateRecipientFcmToken(id: string, fcmToken: string): void {
+  const list = loadRecipients();
+  const i = list.findIndex((r) => r.id === id);
+  if (i < 0) return;
+  const t = fcmToken.trim();
+  list[i] = { ...list[i], fcmToken: t || undefined };
+  saveRecipients(list);
 }

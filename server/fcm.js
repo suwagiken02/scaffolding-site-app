@@ -10,14 +10,8 @@ function appsReady() {
   return admin.apps.length > 0;
 }
 
-/**
- * 事務員向け通知: マスターで役割に「その他」が含まれるスタッフ（FCMトークン登録済みの端末へ送信）
- */
-export function isOfficeStaffForFcm(s) {
-  if (!s || typeof s.id !== "string" || !s.id.trim()) return false;
-  const roles = Array.isArray(s.roles) ? s.roles : [];
-  return roles.includes("その他");
-}
+/** 通知先マスター（localStorage 同期）のファイル名 */
+const NOTIFICATION_RECIPIENTS_FILE = "notification-recipients-master-v1.json";
 
 export function initFirebaseAdminIfPossible() {
   if (appsReady()) return true;
@@ -56,6 +50,7 @@ export function fcmTokensPath(dataDir) {
 }
 
 /**
+ * キーはスタッフ名（trim）。値は端末トークン配列。
  * @returns {Promise<Record<string, string[]>>}
  */
 export async function readFcmTokensStore(dataDir) {
@@ -90,39 +85,46 @@ export async function writeFcmTokensStore(dataDir, store) {
 
 /**
  * @param {string} dataDir
- * @param {string} staffId
+ * @param {string} staffName
  * @param {string} token
  */
-export async function registerFcmToken(dataDir, staffId, token) {
-  const sid = String(staffId ?? "").trim();
+export async function registerFcmToken(dataDir, staffName, token) {
+  const name = String(staffName ?? "").trim();
   const t = String(token ?? "").trim();
-  if (!sid || !t) return;
+  if (!name || !t) return;
   const store = await readFcmTokensStore(dataDir);
-  const prev = Array.isArray(store[sid]) ? store[sid] : [];
+  const prev = Array.isArray(store[name]) ? store[name] : [];
   const next = [t, ...prev.filter((x) => x !== t)];
-  store[sid] = [...new Set(next)].slice(0, 20);
+  store[name] = [...new Set(next)].slice(0, 20);
   await writeFcmTokensStore(dataDir, store);
 }
 
 /**
- * @param {string[]} staffIds
- * @param {unknown[]} staffList
- * @param {string} dataDir
- * @returns {Promise<string[]>}
+ * @param {Record<string, string[]>} store
+ * @returns {string[]}
  */
-export async function collectTokensForStaffIds(staffIds, staffList, dataDir) {
-  const set = new Set(staffIds.map((x) => String(x ?? "").trim()).filter(Boolean));
+export function collectAllTokensFromStore(store) {
+  const out = [];
+  for (const v of Object.values(store)) {
+    if (!Array.isArray(v)) continue;
+    for (const t of v) {
+      if (typeof t === "string" && t.length > 0) out.push(t);
+    }
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * @param {string[]} staffNames
+ * @param {Record<string, string[]>} store
+ * @returns {string[]}
+ */
+export function collectTokensForStaffNames(staffNames, store) {
+  const set = new Set(staffNames.map((x) => String(x ?? "").trim()).filter(Boolean));
   if (set.size === 0) return [];
-  const store = await readFcmTokensStore(dataDir);
-  const validIds = new Set(
-    (Array.isArray(staffList) ? staffList : [])
-      .filter((s) => s && typeof s.id === "string")
-      .map((s) => s.id)
-  );
   const tokens = [];
-  for (const id of set) {
-    if (!validIds.has(id)) continue;
-    const list = store[id];
+  for (const name of set) {
+    const list = store[name];
     if (Array.isArray(list)) {
       for (const t of list) {
         if (typeof t === "string" && t.length > 0) tokens.push(t);
@@ -133,14 +135,28 @@ export async function collectTokensForStaffIds(staffIds, staffList, dataDir) {
 }
 
 /**
- * @param {unknown[]} staffList
+ * マスター notificationRecipients に保存された FCM トークン（管理者向け）
  * @param {string} dataDir
+ * @returns {Promise<string[]>}
  */
-export async function collectOfficeStaffTokens(staffList, dataDir) {
-  const officeIds = (Array.isArray(staffList) ? staffList : [])
-    .filter(isOfficeStaffForFcm)
-    .map((s) => s.id);
-  return collectTokensForStaffIds(officeIds, staffList, dataDir);
+export async function readNotificationRecipientFcmTokens(dataDir) {
+  const p = join(dataDir, NOTIFICATION_RECIPIENTS_FILE);
+  try {
+    if (!existsSync(p)) return [];
+    const raw = await readFile(p, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const tokens = [];
+    for (const row of parsed) {
+      if (!row || typeof row !== "object") continue;
+      const ft = row.fcmToken;
+      if (typeof ft === "string" && ft.trim().length > 0) tokens.push(ft.trim());
+    }
+    return [...new Set(tokens)];
+  } catch (e) {
+    console.error("[server] readNotificationRecipientFcmTokens", e);
+    return [];
+  }
 }
 
 const BATCH = 500;
@@ -181,38 +197,57 @@ export async function sendFcmToTokens(tokens, title, body) {
 }
 
 /**
- * @param {unknown[]} staffList
+ * 登録済みの全トークンへ（全スタッフ）
  * @param {string} dataDir
  * @param {string} title
  * @param {string} body
  */
-export async function notifyOfficeStaff(staffList, dataDir, title, body) {
-  if (!appsReady()) {
-    console.error("[server] FCM notifyOfficeStaff: Firebase not configured");
+export async function notifyAllStaff(dataDir, title, body) {
+  if (!appsReady()) return;
+  const store = await readFcmTokensStore(dataDir);
+  const tokens = collectAllTokensFromStore(store);
+  if (tokens.length === 0) {
+    console.warn("[server] FCM notifyAllStaff: no tokens");
     return;
   }
-  const tokens = await collectOfficeStaffTokens(staffList, dataDir);
+  const r = await sendFcmToTokens(tokens, title, body);
+  console.log("[server] FCM all-staff notify:", r);
+}
+
+/**
+ * スタッフ名に紐づくトークンへ
+ * @param {string[]} staffNames
+ * @param {string} dataDir
+ * @param {string} title
+ * @param {string} body
+ */
+export async function notifyStaffByNames(staffNames, dataDir, title, body) {
+  if (!appsReady()) return;
+  const store = await readFcmTokensStore(dataDir);
+  const tokens = collectTokensForStaffNames(staffNames, store);
+  if (tokens.length === 0) {
+    console.warn("[server] FCM notifyStaffByNames: no tokens for", staffNames);
+    return;
+  }
+  const r = await sendFcmToTokens(tokens, title, body);
+  console.log("[server] FCM staff-by-name notify:", r);
+}
+
+/**
+ * 通知先マスターの FCM トークンへ（管理者）
+ * @param {string} dataDir
+ * @param {string} title
+ * @param {string} body
+ */
+export async function notifyAdminRecipients(dataDir, title, body) {
+  if (!appsReady()) return;
+  const tokens = await readNotificationRecipientFcmTokens(dataDir);
   if (tokens.length === 0) {
     console.warn(
-      "[server] FCM notifyOfficeStaff: no tokens (事務向けは役割「その他」かつトークン登録が必要です)"
+      "[server] FCM notifyAdminRecipients: no fcmToken in notification-recipients-master-v1"
     );
     return;
   }
   const r = await sendFcmToTokens(tokens, title, body);
-  console.log("[server] FCM office notify:", r);
-}
-
-/**
- * @param {string[]} staffIds
- * @param {unknown[]} staffList
- * @param {string} dataDir
- * @param {string} title
- * @param {string} body
- */
-export async function notifyStaffIds(staffIds, staffList, dataDir, title, body) {
-  if (!appsReady()) return;
-  const tokens = await collectTokensForStaffIds(staffIds, staffList, dataDir);
-  if (tokens.length === 0) return;
-  const r = await sendFcmToTokens(tokens, title, body);
-  console.log("[server] FCM staff notify:", r);
+  console.log("[server] FCM admin notify:", r);
 }

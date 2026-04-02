@@ -7,16 +7,18 @@ function apiBase(): string {
   return "http://localhost:3001";
 }
 
-/** FCM トークンをサーバーに保存（Render の fcm-tokens.json） */
+/**
+ * FCM トークンをサーバーに保存（本番では `/var/data/fcm-tokens.json`、キーはスタッフ名）。
+ */
 export async function postFcmTokenToServer(
-  staffId: string,
+  staffName: string,
   token: string
 ): Promise<void> {
   const url = `${apiBase()}/api/fcm-tokens`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ staffId, token }),
+    body: JSON.stringify({ staffName, token }),
   });
   if (!res.ok) {
     let err = "トークンの登録に失敗しました。";
