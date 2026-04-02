@@ -142,16 +142,23 @@ export function AttendancePage() {
   const [deleteMode, setDeleteMode] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deletePinOpen, setDeletePinOpen] = useState(false);
+  const [deleteModePin, setDeleteModePin] = useState("");
+  const [deleteModePinError, setDeleteModePinError] = useState<string | null>(
+    null
+  );
 
   const confirmRef = useRef<ConfirmState | null>(null);
   const meetingRef = useRef<MeetingState | null>(null);
   const doneMessageRef = useRef<string | null>(null);
   const deleteConfirmRef = useRef<string | null>(null);
+  const deletePinOpenRef = useRef(false);
   const punchBusyRef = useRef(false);
   confirmRef.current = confirm;
   meetingRef.current = meeting;
   doneMessageRef.current = doneMessage;
   deleteConfirmRef.current = deleteConfirm;
+  deletePinOpenRef.current = deletePinOpen;
 
   /** 日付が変わったら表示用キーを更新（サーバー上の「本日」判定と一致させる） */
   useEffect(() => {
@@ -174,6 +181,9 @@ export function AttendancePage() {
     setConfirm(null);
     setMeeting(null);
     setDeleteConfirm(null);
+    setDeletePinOpen(false);
+    setDeleteModePin("");
+    setDeleteModePinError(null);
   }, [todayKey]);
 
   const refreshAttendance = useCallback(async () => {
@@ -214,7 +224,8 @@ export function AttendancePage() {
         confirmRef.current !== null ||
         meetingRef.current !== null ||
         doneMessageRef.current !== null ||
-        deleteConfirmRef.current !== null
+        deleteConfirmRef.current !== null ||
+        deletePinOpenRef.current
       ) {
         return;
       }
@@ -237,6 +248,9 @@ export function AttendancePage() {
     setDoneMessage(null);
     setDeleteMode(false);
     setDeleteConfirm(null);
+    setDeletePinOpen(false);
+    setDeleteModePin("");
+    setDeleteModePinError(null);
   }
 
   useEffect(() => {
@@ -271,6 +285,19 @@ export function AttendancePage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deleteConfirm]);
+
+  useEffect(() => {
+    if (!deletePinOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setDeletePinOpen(false);
+        setDeleteModePin("");
+        setDeleteModePinError(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deletePinOpen]);
 
   if (!authed) {
     return (
@@ -424,6 +451,110 @@ export function AttendancePage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {deletePinOpen && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => {
+            setDeletePinOpen(false);
+            setDeleteModePin("");
+            setDeleteModePinError(null);
+          }}
+        >
+          <div
+            className={styles.pinCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-mode-pin-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-mode-pin-title" className={styles.pinTitle}>
+              削除モード
+            </h2>
+            <p className={styles.pinLead}>4桁のPINコードを入力してください。</p>
+
+            <div className={styles.pinDots} aria-label="入力状況">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <span
+                  key={i}
+                  className={
+                    deleteModePin.length > i ? styles.pinDotOn : styles.pinDotOff
+                  }
+                />
+              ))}
+            </div>
+
+            {deleteModePinError && (
+              <p className={styles.pinError} role="alert">
+                {deleteModePinError}
+              </p>
+            )}
+
+            <div className={styles.keypad} role="group" aria-label="テンキー">
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "enter",
+                "0",
+                "back",
+              ].map((k) => {
+                const isEnter = k === "enter";
+                const isBack = k === "back";
+                const label = isEnter ? "入室" : isBack ? "⌫" : k;
+                const disabled = isEnter ? deleteModePin.length !== 4 : false;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    className={isEnter ? styles.enterBtn : styles.keyBtn}
+                    disabled={disabled}
+                    onClick={() => {
+                      setDeleteModePinError(null);
+                      if (isEnter) {
+                        if (deleteModePin.length !== 4) return;
+                        if (deleteModePin === PIN_DEFAULT) {
+                          setDeleteMode(true);
+                          setDeletePinOpen(false);
+                          setDeleteModePin("");
+                          setDeleteModePinError(null);
+                          return;
+                        }
+                        setDeleteModePinError("PINが違います");
+                        setDeleteModePin("");
+                        return;
+                      }
+                      if (isBack) {
+                        setDeleteModePin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      setDeleteModePin((p) =>
+                        p.length >= 4 ? p : `${p}${k}`
+                      );
+                    }}
+                    aria-label={
+                      isEnter
+                        ? "入室"
+                        : isBack
+                          ? "1文字削除"
+                          : `数字${k}`
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -730,7 +861,15 @@ export function AttendancePage() {
         <button
           type="button"
           className={`${styles.deleteModeBtn} ${deleteMode ? styles.deleteModeBtnActive : ""}`}
-          onClick={() => setDeleteMode((v) => !v)}
+          onClick={() => {
+            if (deleteMode) {
+              setDeleteMode(false);
+              return;
+            }
+            setDeleteModePin("");
+            setDeleteModePinError(null);
+            setDeletePinOpen(true);
+          }}
         >
           {deleteMode ? "削除モードを終了" : "削除モード"}
         </button>
