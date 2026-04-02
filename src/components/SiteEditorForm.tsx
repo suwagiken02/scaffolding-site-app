@@ -11,7 +11,10 @@ import {
 } from "../lib/mastersStorage";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import type { StaffMaster } from "../types/staffMaster";
-import { resolveGoogleMapsUrlForPin } from "../lib/googleMapsUrlCoords";
+import {
+  resolveGoogleMapsUrlForPin,
+  type LatLng,
+} from "../lib/googleMapsUrlCoords";
 import {
   newSiteMemoId,
   normalizeEntranceDateKeys,
@@ -82,6 +85,9 @@ export function SiteEditorForm({
     null
   );
   const lastResolvedUrlRef = useRef<string>("");
+  /** URL から解析した緯度経度（現在の googleMapUrl と一致するとき保存対象） */
+  const [mapPinResolved, setMapPinResolved] = useState<LatLng | null>(null);
+  const [mapPinSourceUrl, setMapPinSourceUrl] = useState("");
   const [entranceDateKeys, setEntranceDateKeys] = useState<string[]>([]);
   const [entranceDateDraft, setEntranceDateDraft] = useState("");
   const [salesSelectId, setSalesSelectId] = useState("");
@@ -96,6 +102,8 @@ export function SiteEditorForm({
     if (!initialSite) {
       setSiteMemos([]);
       setAlwaysShowOnMap(false);
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
       return;
     }
 
@@ -122,6 +130,23 @@ export function SiteEditorForm({
     setAlwaysShowOnMap(initialSite.alwaysShowOnMap === true);
     setIgnoreSiteListWarning(initialSite.ignoreSiteListWarning === true);
     setSiteMemos(normalizeSiteMemos(initialSite.siteMemos));
+    const gUrl = (initialSite.googleMapUrl ?? "").trim();
+    if (
+      typeof initialSite.mapPinLat === "number" &&
+      typeof initialSite.mapPinLng === "number" &&
+      Number.isFinite(initialSite.mapPinLat) &&
+      Number.isFinite(initialSite.mapPinLng) &&
+      gUrl
+    ) {
+      setMapPinResolved({
+        lat: initialSite.mapPinLat,
+        lng: initialSite.mapPinLng,
+      });
+      setMapPinSourceUrl(gUrl);
+    } else {
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
+    }
   }, [initialSite]);
 
   useEffect(() => {
@@ -131,6 +156,8 @@ export function SiteEditorForm({
       setAddressFetchStatus("idle");
       setAddressFetchMessage(null);
       lastResolvedUrlRef.current = "";
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
       return;
     }
     if (lastResolvedUrlRef.current === url) return;
@@ -147,8 +174,13 @@ export function SiteEditorForm({
           "住所を取得できませんでした（URLから座標を読み取れません）。手入力してください。"
         );
         lastResolvedUrlRef.current = url;
+        setMapPinResolved(null);
+        setMapPinSourceUrl("");
         return;
       }
+
+      setMapPinResolved(coords);
+      setMapPinSourceUrl(url);
 
       try {
         const q = new URLSearchParams({
@@ -237,6 +269,13 @@ export function SiteEditorForm({
     const clientName = clientFree.trim() || masterName(c, clientSelectId);
     const salesName = masterName(s, salesSelectId);
     const siteTypeName = masterName(st, siteTypeSelectId);
+    const trimmedMapUrl = googleMapUrl.trim();
+    const pinToSave =
+      trimmedMapUrl &&
+      mapPinSourceUrl === trimmedMapUrl &&
+      mapPinResolved !== null
+        ? { mapPinLat: mapPinResolved.lat, mapPinLng: mapPinResolved.lng }
+        : {};
 
     const site: Site = {
       id: initialSite?.id ?? newSiteId(),
@@ -244,7 +283,8 @@ export function SiteEditorForm({
       siteCode: siteCode.trim(),
       clientName,
       address: address.trim(),
-      googleMapUrl: googleMapUrl.trim(),
+      googleMapUrl: trimmedMapUrl,
+      ...pinToSave,
       startDate: startDateFromEntranceDateKeys(normalizedEntrances),
       entranceDateKeys: normalizedEntrances,
       salesName,
@@ -361,6 +401,12 @@ export function SiteEditorForm({
           <p className={styles.hint}>
             GoogleマップでURLを取得する方法：GoogleマップでコピーしたURLをそのまま貼り付けてください。
           </p>
+          {mapPinResolved && mapPinSourceUrl === googleMapUrl.trim() && (
+            <p className={styles.hint} role="status">
+              緯度経度を取得しました（保存時に記録します）:{" "}
+              {mapPinResolved.lat.toFixed(6)}, {mapPinResolved.lng.toFixed(6)}
+            </p>
+          )}
         </label>
 
         <label className={`${formStyles.field} ${styles.checkboxField}`}>

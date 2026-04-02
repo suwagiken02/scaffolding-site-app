@@ -32,6 +32,10 @@ import { siteHasAnyWorkRecordOnDate } from "../lib/siteWorkRecordKeys";
 import { loadSiteTypeMasters } from "../lib/mastersStorage";
 import { todayLocalDateKey, tomorrowLocalDateKey } from "../lib/dateUtils";
 import { SiteMapView } from "../components/SiteMapView";
+import {
+  resolveGoogleMapsUrlForPin,
+  type LatLng,
+} from "../lib/googleMapsUrlCoords";
 import siteListStyles from "./SiteListPage.module.css";
 import editorStyles from "../components/SiteEditorForm.module.css";
 import formStyles from "./SiteFormPage.module.css";
@@ -990,6 +994,8 @@ function ExternalSiteForm({
   const [clientSelectId, setClientSelectId] = useState("");
   const [clientFree, setClientFree] = useState("");
   const [googleMapUrl, setGoogleMapUrl] = useState("");
+  const [mapPinResolved, setMapPinResolved] = useState<LatLng | null>(null);
+  const [mapPinSourceUrl, setMapPinSourceUrl] = useState("");
   const [address, setAddress] = useState("");
   const [entranceDateKeys, setEntranceDateKeys] = useState<string[]>([]);
   const [entranceDraft, setEntranceDraft] = useState("");
@@ -1005,6 +1011,8 @@ function ExternalSiteForm({
       setClientSelectId("");
       setClientFree("");
       setGoogleMapUrl("");
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
       setAddress("");
       setEntranceDateKeys([]);
       setEntranceDraft("");
@@ -1031,7 +1039,57 @@ function ExternalSiteForm({
     setSiteTypeSelectId(tid);
     const memos = normalizeSiteMemos(existing.siteMemos);
     setMemoText(memos.map((m) => m.text).join("\n"));
+    const url = (existing.googleMapUrl ?? "").trim();
+    if (
+      url &&
+      typeof existing.mapPinLat === "number" &&
+      typeof existing.mapPinLng === "number" &&
+      Number.isFinite(existing.mapPinLat) &&
+      Number.isFinite(existing.mapPinLng)
+    ) {
+      setMapPinResolved({ lat: existing.mapPinLat, lng: existing.mapPinLng });
+      setMapPinSourceUrl(url);
+    } else {
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
+    }
   }, [existing, clientMasters, salesMasters, siteTypeMasters]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = googleMapUrl.trim();
+    if (!url) {
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
+      return;
+    }
+    void (async () => {
+      const coords = await resolveGoogleMapsUrlForPin(url);
+      if (cancelled) return;
+      if (coords) {
+        setMapPinResolved(coords);
+        setMapPinSourceUrl(url);
+        return;
+      }
+      if (
+        existing &&
+        (existing.googleMapUrl ?? "").trim() === url &&
+        typeof existing.mapPinLat === "number" &&
+        typeof existing.mapPinLng === "number" &&
+        Number.isFinite(existing.mapPinLat) &&
+        Number.isFinite(existing.mapPinLng)
+      ) {
+        setMapPinResolved({ lat: existing.mapPinLat, lng: existing.mapPinLng });
+        setMapPinSourceUrl(url);
+        return;
+      }
+      setMapPinResolved(null);
+      setMapPinSourceUrl("");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [googleMapUrl, existing]);
 
   function masterName(list: { id: string; name: string }[], id: string): string {
     return list.find((m) => m.id === id)?.name ?? "";
@@ -1061,12 +1119,22 @@ function ExternalSiteForm({
       ? [{ id: newSiteMemoId(), text: memoText.trim() }]
       : [];
 
+    const trimmedMapUrl = googleMapUrl.trim();
+    const pinToSave =
+      trimmedMapUrl &&
+      mapPinSourceUrl === trimmedMapUrl &&
+      mapPinResolved !== null
+        ? { mapPinLat: mapPinResolved.lat, mapPinLng: mapPinResolved.lng }
+        : {};
+
     if (existing) {
+      const { mapPinLat: _omitLat, mapPinLng: _omitLng, ...existingRest } =
+        existing;
       const next: Site = {
-        ...existing,
+        ...existingRest,
         name: trimmedName,
         clientName: clientName.trim(),
-        googleMapUrl: googleMapUrl.trim(),
+        googleMapUrl: trimmedMapUrl,
         address: address.trim(),
         startDate: startDateFromEntranceDateKeys(entrances),
         entranceDateKeys: entrances,
@@ -1077,6 +1145,7 @@ function ExternalSiteForm({
         externalUnconfirmed: true,
         externalCompanyKey: normalizedKey,
         externalCompanyName: company.companyName,
+        ...pinToSave,
       };
       updateSite(next);
     } else {
@@ -1086,7 +1155,7 @@ function ExternalSiteForm({
         siteCode: "",
         clientName: clientName.trim(),
         address: address.trim(),
-        googleMapUrl: googleMapUrl.trim(),
+        googleMapUrl: trimmedMapUrl,
         startDate: startDateFromEntranceDateKeys(entrances),
         entranceDateKeys: entrances,
         salesName,
@@ -1100,6 +1169,7 @@ function ExternalSiteForm({
         externalUnconfirmed: true,
         externalCompanyKey: normalizedKey,
         externalCompanyName: company.companyName,
+        ...pinToSave,
       };
       addSite(site);
       void notifyExternalSiteRegisteredFcm(company.companyName, trimmedName);
@@ -1177,6 +1247,12 @@ function ExternalSiteForm({
             onChange={(e) => setGoogleMapUrl(e.target.value)}
             autoComplete="off"
           />
+          {mapPinResolved && mapPinSourceUrl === googleMapUrl.trim() && (
+            <p className={editorStyles.hint}>
+              緯度経度を取得しました（保存時に記録します）:{" "}
+              {mapPinResolved.lat.toFixed(6)}, {mapPinResolved.lng.toFixed(6)}
+            </p>
+          )}
         </label>
 
         <label className={formStyles.field}>

@@ -11,7 +11,10 @@ import {
 import "leaflet/dist/leaflet.css";
 import type { Site } from "../types/site";
 import { normalizeEntranceDateKeys } from "../lib/siteStorage";
-import { resolveGoogleMapsUrlForPin } from "../lib/googleMapsUrlCoords";
+import {
+  resolveGoogleMapsUrlForPin,
+  type LatLng,
+} from "../lib/googleMapsUrlCoords";
 import {
   getTodayMapPinKind,
   siteMatchesScaffoldingInstallMap,
@@ -113,6 +116,18 @@ function siteShowsOnTodayWorkMap(site: Site, todayKey: string): boolean {
     return true;
   }
   return siteHasAnyWorkRecordOnDate(site.id, todayKey);
+}
+
+function coordsFromSiteOrUrl(site: Site): Promise<LatLng | null> {
+  if (
+    typeof site.mapPinLat === "number" &&
+    typeof site.mapPinLng === "number" &&
+    Number.isFinite(site.mapPinLat) &&
+    Number.isFinite(site.mapPinLng)
+  ) {
+    return Promise.resolve({ lat: site.mapPinLat, lng: site.mapPinLng });
+  }
+  return resolveGoogleMapsUrlForPin(site.googleMapUrl);
 }
 
 function unionAlwaysPins(baseCandidates: Site[], allSites: Site[]): Site[] {
@@ -240,7 +255,7 @@ export function SiteMapView({
         const site = candidates[i];
         if (cancelled) return;
 
-        const coords = await resolveGoogleMapsUrlForPin(site.googleMapUrl);
+        const coords = await coordsFromSiteOrUrl(site);
         if (cancelled) return;
 
         if (coords) {

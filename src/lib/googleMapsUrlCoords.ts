@@ -1,6 +1,10 @@
 /**
  * Google マップの URL / リダイレクト後の URL / HTML 断片から緯度経度を抽出する。
- * 対応例: ?q=35.1,138.2 / @35.1,138.2,17z / !3d35.1!4d138.2 / &ll=
+ * 対応例:
+ * - https://maps.google.com/maps?q=35.68,139.76
+ * - .../place/...@35.995004,138.150585,17z/...（@ 直後の lat,lng）
+ * - !3d35.123!4d138.456 / &ll= / &center=
+ * - 短縮 URL は fetch でリダイレクト先・本文をたどって解析
  */
 
 export type LatLng = { lat: number; lng: number };
@@ -20,6 +24,24 @@ function tryPair(a: string, b: string): LatLng | null {
   return { lat, lng };
 }
 
+/** @ の直後の「緯度,経度」（ズームや data= が続く場合あり） */
+const AT_LAT_LNG_RE =
+  /@([+-]?\d+(?:\.\d+)?),([+-]?\d+(?:\.\d+)?)(?:[,/]|$|[^0-9.+-])/g;
+
+/** q パラメータ値が「座標2値のみ」のとき */
+function tryLatLngFromQValue(qRaw: string): LatLng | null {
+  let q = qRaw.trim();
+  try {
+    q = decodeURIComponent(q.replace(/\+/g, " "));
+  } catch {
+    /* keep */
+  }
+  const coordOnly =
+    /^([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)$/.exec(q.trim());
+  if (coordOnly) return tryPair(coordOnly[1], coordOnly[2]);
+  return null;
+}
+
 /** 文字列全体から複数パターンで座標を探す（最初の有効値） */
 export function extractLatLngFromGoogleMapsText(text: string): LatLng | null {
   if (!text || typeof text !== "string") return null;
@@ -31,28 +53,19 @@ export function extractLatLngFromGoogleMapsText(text: string): LatLng | null {
     s = text;
   }
 
-  // @lat,lng（zoom 等が続く場合あり）
-  const atRe = /@(-?\d+\.\d+|-?\d+),(-?\d+\.\d+|-?\d+)/g;
+  // @lat,lng（例: /place/...@35.995004,138.150585,17z/）
   let m: RegExpExecArray | null;
-  while ((m = atRe.exec(s)) !== null) {
+  AT_LAT_LNG_RE.lastIndex = 0;
+  while ((m = AT_LAT_LNG_RE.exec(s)) !== null) {
     const p = tryPair(m[1], m[2]);
     if (p) return p;
   }
 
-  // ?q=lat,lng または &q=（座標のみのとき）
+  // ?q= &q=（座標のみ）
   const qParam = /[?&]q=([^&]+)/i.exec(s);
   if (qParam) {
-    let q = qParam[1];
-    try {
-      q = decodeURIComponent(q.replace(/\+/g, " "));
-    } catch {
-      /* keep */
-    }
-    const coordOnly = /^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/.exec(q.trim());
-    if (coordOnly) {
-      const p = tryPair(coordOnly[1], coordOnly[2]);
-      if (p) return p;
-    }
+    const fromQ = tryLatLngFromQValue(qParam[1]);
+    if (fromQ) return fromQ;
   }
 
   // !3d35.123!4d138.456（モバイル共有URLなど）
@@ -83,9 +96,16 @@ function looksLikeGoogleShortUrl(url: string): boolean {
   return /^https?:\/\/(goo\.gl\/maps|maps\.app\.goo\.gl)\b/i.test(url.trim());
 }
 
+/** ブラウザから直接取得を試みる長い Google マップ URL（CORS で失敗しうる） */
+function looksLikeGoogleMapsPageUrl(url: string): boolean {
+  return /https?:\/\/(www\.)?(maps\.google\.[^/]+\/maps|google\.[^/]+\/maps)\b/i.test(
+    url.trim()
+  );
+}
+
 /**
  * 入力URLからピン用座標を得る。
- * 短縮URLは fetch でリダイレクト先・本文をたどって解析（CORS等で失敗しうる）。
+ * 短縮URL・maps.google / google.com/maps は fetch でリダイレクト先・本文をたどって解析（CORS等で失敗しうる）。
  */
 export async function resolveGoogleMapsUrlForPin(
   input: string
@@ -96,7 +116,9 @@ export async function resolveGoogleMapsUrlForPin(
   const direct = extractLatLngFromGoogleMapsText(t);
   if (direct) return direct;
 
-  if (!looksLikeGoogleShortUrl(t)) return null;
+  if (!looksLikeGoogleShortUrl(t) && !looksLikeGoogleMapsPageUrl(t)) {
+    return null;
+  }
 
   try {
     const res = await fetch(t, {

@@ -196,6 +196,12 @@ function normalizeSite(x: unknown): Site | null {
       ...(externalCompanyName ? { externalCompanyName } : {}),
       ...(manualDisplayStatus ? { manualDisplayStatus } : {}),
       ...(o.alwaysShowOnMap === true ? { alwaysShowOnMap: true } : {}),
+      ...(typeof o.mapPinLat === "number" &&
+      typeof o.mapPinLng === "number" &&
+      Number.isFinite(o.mapPinLat) &&
+      Number.isFinite(o.mapPinLng)
+        ? { mapPinLat: o.mapPinLat, mapPinLng: o.mapPinLng }
+        : {}),
     };
   }
   return migrateLegacyRow(o);

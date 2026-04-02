@@ -18,6 +18,9 @@ export type Site = {
   address: string;
   /** Google マップの共有URL（地図ピン用。未入力ならピンなし） */
   googleMapUrl: string;
+  /** URL から解析して保存したピン位置（再計算・オフライン表示の高速化用） */
+  mapPinLat?: number;
+  mapPinLng?: number;
   /** 開始日 YYYY-MM-DD（入場日があるときは最古の入場日と同期。保存時に自動設定） */
   startDate: string;
   /** 入場日（YYYY-MM-DD、複数可） */
