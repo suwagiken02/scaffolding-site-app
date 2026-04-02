@@ -349,6 +349,52 @@
   background: var(--accent-hover);
 }
 
+.tabSaveFooter {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.tabSaveDone {
+  margin-right: auto;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.tabSaveBtn {
+  appearance: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.65rem 1.75rem;
+  border: none;
+  border-radius: var(--radius);
+  background: #ea580c;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.35);
+}
+
+.tabSaveBtn:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.tabSaveBtn:focus-visible {
+  outline: 2px solid #ea580c;
+  outline-offset: 2px;
+}
+
+.tabSaveBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .subTitle {
   margin: 0 0 0.85rem;
   font-size: 1rem;

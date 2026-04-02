@@ -62,6 +62,7 @@ import {
   removeExternalCompany,
   updateExternalCompany,
 } from "../lib/externalCompaniesStorage";
+import { persistLocalStorageKeyToServer } from "../lib/persistStorageApi";
 import styles from "./MasterSettingsPage.module.css";
 
 const PIN_DEFAULT = "1234";
@@ -91,6 +92,76 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "traffic", label: "交通費設定" },
   { id: "externalCompany", label: "外部会社" },
 ];
+
+/** タブごとの localStorage キー（本番でサーバーへ PUT 同期） */
+const TAB_STORAGE_KEYS: Record<TabId, string[]> = {
+  notify: ["notification-recipients-master-v1"],
+  company: ["company-profile-v1"],
+  client: ["master-motouke-v1"],
+  contractor: ["master-contractor-v1"],
+  staff: ["master-staff-v1"],
+  vehicle: ["master-vehicle-v1"],
+  sales: ["master-sales-v1"],
+  siteType: ["master-site-type-v1"],
+  traffic: ["scaffolding-traffic-cost-settings-v1"],
+  externalCompany: ["external-companies-v1"],
+};
+
+function TabSaveFooter({
+  storageKeys,
+  onBeforePersist,
+}: {
+  storageKeys: string[];
+  onBeforePersist?: () => void | Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+    };
+  }, []);
+
+  async function handleClick() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await Promise.resolve(onBeforePersist?.());
+      await new Promise((r) => setTimeout(r, 80));
+      for (const k of storageKeys) {
+        persistLocalStorageKeyToServer(k);
+      }
+      setDone(true);
+      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+      doneTimerRef.current = setTimeout(() => {
+        setDone(false);
+        doneTimerRef.current = null;
+      }, 2000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className={styles.tabSaveFooter}>
+      {done && (
+        <span className={styles.tabSaveDone} role="status" aria-live="polite">
+          保存しました ✓
+        </span>
+      )}
+      <button
+        type="button"
+        className={styles.tabSaveBtn}
+        disabled={saving}
+        onClick={() => void handleClick()}
+      >
+        {saving ? "保存中…" : "保存"}
+      </button>
+    </div>
+  );
+}
 
 function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
   const list = loadStaffMasters();
@@ -375,6 +446,7 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
           ))}
         </ul>
       )}
+      <TabSaveFooter storageKeys={TAB_STORAGE_KEYS.staff} />
     </div>
   );
 }
@@ -510,6 +582,7 @@ function ContractorPanel({ onRefresh }: { onRefresh: () => void }) {
           ))}
         </ul>
       )}
+      <TabSaveFooter storageKeys={TAB_STORAGE_KEYS.contractor} />
     </div>
   );
 }
@@ -522,6 +595,7 @@ function SimpleNameListPanel({
   onRefresh,
   onAdd,
   onRemove,
+  storageKeys,
 }: {
   title: string;
   description: string;
@@ -530,6 +604,7 @@ function SimpleNameListPanel({
   onRefresh: () => void;
   onAdd: (name: string) => void;
   onRemove: (id: string) => void;
+  storageKeys: string[];
 }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -601,6 +676,7 @@ function SimpleNameListPanel({
           ))}
         </ul>
       )}
+      <TabSaveFooter storageKeys={storageKeys} />
     </div>
   );
 }
@@ -754,6 +830,7 @@ function NotificationPanel() {
           ))}
         </ul>
       )}
+      <TabSaveFooter storageKeys={TAB_STORAGE_KEYS.notify} />
     </div>
   );
 }
@@ -972,6 +1049,7 @@ function TrafficCostPanel({ onRefresh }: { onRefresh: () => void }) {
           })}
         </ul>
       )}
+      <TabSaveFooter storageKeys={TAB_STORAGE_KEYS.traffic} />
     </div>
   );
 }
@@ -983,11 +1061,9 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
   const [adminEmail, setAdminEmail] = useState(initial.adminEmail);
   const [kouseiPin, setKouseiPin] = useState(initial.kouseiPin);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function onLogoChange(file: File | null) {
     setError(null);
-    setMessage(null);
     if (!file) return;
     if (!(file.type === "image/png" || file.type === "image/jpeg")) {
       setError("ロゴは PNG または JPG でアップロードしてください。");
@@ -1006,9 +1082,8 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
     setLogoDataUrl(dataUrl);
   }
 
-  function onSave() {
+  function persistCompanyToStorage() {
     setError(null);
-    setMessage(null);
     const next: CompanyProfile = {
       companyName: companyName.trim(),
       logoDataUrl: logoDataUrl.trim(),
@@ -1017,7 +1092,6 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
     };
     saveCompanyProfile(next);
     onRefresh();
-    setMessage("保存しました。");
   }
 
   return (
@@ -1032,7 +1106,6 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
           {error}
         </p>
       )}
-      {message && <p className={styles.saved}>{message}</p>}
 
       <div className={styles.fields}>
         <label className={styles.field}>
@@ -1096,11 +1169,10 @@ function CompanyPanel({ onRefresh }: { onRefresh: () => void }) {
         </div>
       )}
 
-      <div className={styles.fields} style={{ justifyContent: "flex-end" }}>
-        <button type="button" className={styles.submit} onClick={onSave}>
-          保存
-        </button>
-      </div>
+      <TabSaveFooter
+        storageKeys={TAB_STORAGE_KEYS.company}
+        onBeforePersist={persistCompanyToStorage}
+      />
     </div>
   );
 }
@@ -1243,6 +1315,7 @@ export function MasterSettingsPage() {
           onRefresh={refresh}
           onAdd={(n) => addClientMaster(n)}
           onRemove={removeClientMaster}
+          storageKeys={TAB_STORAGE_KEYS.client}
         />
       )}
 
@@ -1259,6 +1332,7 @@ export function MasterSettingsPage() {
           onRefresh={refresh}
           onAdd={(n) => addVehicleMaster(n)}
           onRemove={removeVehicleMaster}
+          storageKeys={TAB_STORAGE_KEYS.vehicle}
         />
       )}
 
@@ -1271,6 +1345,7 @@ export function MasterSettingsPage() {
           onRefresh={refresh}
           onAdd={(n) => addSalesMaster(n)}
           onRemove={removeSalesMaster}
+          storageKeys={TAB_STORAGE_KEYS.sales}
         />
       )}
 
@@ -1283,6 +1358,7 @@ export function MasterSettingsPage() {
           onRefresh={refresh}
           onAdd={(n) => addSiteTypeMaster(n)}
           onRemove={removeSiteTypeMaster}
+          storageKeys={TAB_STORAGE_KEYS.siteType}
         />
       )}
 
@@ -1544,6 +1620,7 @@ function ExternalCompanyPanel({ onRefresh }: { onRefresh: () => void }) {
           ))}
         </ul>
       )}
+      <TabSaveFooter storageKeys={TAB_STORAGE_KEYS.externalCompany} />
     </div>
   );
 }
