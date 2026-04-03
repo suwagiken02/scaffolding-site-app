@@ -1,19 +1,39 @@
 :root {
   color-scheme: dark;
-  --bg: #0f1419;
-  --surface: #1a2332;
-  --surface-hover: #243044;
-  --border: #2d3a4d;
-  /** 入力欄・日付ピッカー等：ページ背景より明るく、境界をはっきりさせる */
-  --form-control-bg: #222e3f;
-  --form-control-border: #415571;
-  --text: #e8edf4;
-  --text-muted: #8b9bb0;
-  --accent: #3d8bfd;
-  --accent-hover: #5c9dff;
-  --success: #34c759;
-  --radius: 10px;
+
+  /* カラーパレット統一 */
+  --bg: #111827;
+  --surface: #1f2937;
+  --surface-hover: #374151;
+  --border: #374151;
+  --separator: #374151;
+
+  --form-control-bg: #1f2937;
+  --form-control-border: #374151;
+
+  --text: #f9fafb;
+  --text-muted: #9ca3af;
+
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+
+  /* 角丸：カード・パネル 12px / ボタン 8px */
+  --radius: 12px;
+  --radius-button: 8px;
+
   --font: "Noto Sans JP", system-ui, sans-serif;
+
+  /* ステータスバッジ（一覧・詳細で共通化しやすい） */
+  --status-pre-bg: #6b7280;
+  --status-assembly-bg: #3b82f6;
+  --status-active-bg: #10b981;
+  --status-dismantle-bg: #f97316;
+  --status-ended-bg: #6b7280;
+  --status-on-accent: #ffffff;
 }
 
 *,
@@ -55,6 +75,21 @@ input,
 select,
 textarea {
   font-family: inherit;
+}
+
+/* フォーム：枠線とフォーカス（モジュールより詳細度が低い／上書き可能） */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]),
+select,
+textarea {
+  border-radius: var(--radius-button);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.28);
 }
 
 @media print {

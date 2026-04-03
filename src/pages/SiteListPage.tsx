@@ -218,7 +218,7 @@ export function SiteListPage() {
   ]);
 
   return (
-    <div>
+    <div className={styles.page}>
       <div className={styles.head}>
         <h1 className={styles.title}>現場一覧</h1>
         <Link to="/sites/new" className={styles.primaryBtn}>

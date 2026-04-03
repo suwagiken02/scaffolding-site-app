@@ -1,3 +1,9 @@
+.page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
 .head {
   display: flex;
   flex-wrap: wrap;
@@ -11,7 +17,7 @@
   display: flex;
   gap: 0;
   margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--separator);
 }
 
 .tab,
@@ -21,10 +27,11 @@
   font-size: 0.95rem;
   font-weight: 600;
   padding: 0.55rem 1.1rem;
+  min-height: 44px;
   margin-bottom: -1px;
   border: 1px solid transparent;
   border-bottom: none;
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: var(--radius-button) var(--radius-button) 0 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -38,7 +45,7 @@
 .tabActive {
   color: var(--text);
   background: var(--surface);
-  border-color: var(--border);
+  border-color: var(--separator);
   border-bottom-color: var(--surface);
   cursor: default;
 }
@@ -58,7 +65,8 @@
   font-weight: 600;
   font-size: 0.9rem;
   padding: 0.5rem 1rem;
-  border-radius: var(--radius);
+  min-height: 44px;
+  border-radius: var(--radius-button);
   border: none;
   text-decoration: none;
 }
@@ -73,7 +81,7 @@
   text-align: center;
   padding: 3rem 1.5rem;
   background: var(--surface);
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--separator);
   border-radius: var(--radius);
 }
 
@@ -90,7 +98,7 @@
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
 }
 
@@ -139,10 +147,11 @@
 .sortSelect {
   font-family: inherit;
   font-size: 0.88rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
+  padding: 0.5rem 0.65rem;
+  min-height: 44px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--separator);
+  background: var(--form-control-bg);
   color: var(--text);
   min-width: 13rem;
 }
@@ -150,6 +159,7 @@
 .sortSelect:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
 }
 
 @media (max-width: 520px) {
@@ -170,10 +180,11 @@
 .searchInput {
   font-family: inherit;
   font-size: 0.9rem;
-  padding: 0.45rem 0.65rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
+  padding: 0.5rem 0.75rem;
+  min-height: 44px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--separator);
+  background: var(--form-control-bg);
   color: var(--text);
   width: 100%;
 }
@@ -181,6 +192,7 @@
 .searchInput:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
 }
 
 .searchInput::placeholder {
@@ -195,7 +207,7 @@
   color: var(--text-muted);
   font-size: 0.95rem;
   background: var(--surface);
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--separator);
   border-radius: var(--radius);
 }
 
@@ -220,16 +232,22 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.7rem 0.95rem;
+  min-height: 44px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--separator);
+  border-left: 4px solid transparent;
   border-radius: var(--radius);
   color: inherit;
   text-decoration: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s ease,
+    border-left-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .cardRow:hover {
-  border-color: var(--accent);
+  border-color: var(--separator);
+  border-left-color: var(--accent);
   background: var(--surface-hover);
   color: inherit;
   text-decoration: none;
@@ -301,33 +319,33 @@
 }
 
 .statusPre {
-  background: rgba(14, 165, 233, 0.15);
-  color: #0369a1;
-  border-color: rgba(14, 165, 233, 0.35);
+  background: var(--status-pre-bg);
+  color: var(--status-on-accent);
+  border-color: transparent;
 }
 
 .statusAssembly {
-  background: rgba(139, 92, 246, 0.16);
-  color: #5b21b6;
-  border-color: rgba(139, 92, 246, 0.38);
+  background: var(--status-assembly-bg);
+  color: var(--status-on-accent);
+  border-color: transparent;
 }
 
 .statusActive {
-  background: rgba(34, 197, 94, 0.15);
-  color: #166534;
-  border-color: rgba(34, 197, 94, 0.35);
+  background: var(--status-active-bg);
+  color: var(--status-on-accent);
+  border-color: transparent;
 }
 
 .statusDismantle {
-  background: rgba(249, 115, 22, 0.18);
-  color: #9a3412;
-  border-color: rgba(249, 115, 22, 0.38);
+  background: var(--status-dismantle-bg);
+  color: var(--status-on-accent);
+  border-color: transparent;
 }
 
 .statusEnded {
-  background: rgba(148, 163, 184, 0.25);
-  color: #475569;
-  border-color: rgba(148, 163, 184, 0.45);
+  background: var(--status-ended-bg);
+  color: var(--status-on-accent);
+  border-color: transparent;
 }
 
 .warnBadge {
