@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
-import { type SitePhoto, sitePhotoDisplaySrc } from "../types/sitePhoto";
+import {
+  type SitePhoto,
+  sitePhotoDisplaySrc,
+} from "../types/sitePhoto";
 import {
   loadPhotosForSiteWorkDate,
   mainMemberWorkTimesFromPhotos,
@@ -17,6 +20,7 @@ import {
 import { laborIsContractor } from "../lib/siteDailyLaborEmployment";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
+import { PhotoLightboxModal } from "./PhotoLightboxModal";
 import photoStyles from "./SitePhotosSection.module.css";
 import styles from "./SiteWorkDateAccordions.module.css";
 
@@ -102,6 +106,10 @@ export function SiteWorkDateAccordions({
   const [laborConfirm, setLaborConfirm] = useState<SiteDailyLaborRecord | null>(
     null
   );
+  const [photoLightbox, setPhotoLightbox] = useState<{
+    photos: SitePhoto[];
+    index: number;
+  } | null>(null);
 
   /** 作業種別タブ切り替え時はすべて閉じた状態から */
   useEffect(() => {
@@ -346,19 +354,28 @@ export function SiteWorkDateAccordions({
                       <p className={styles.muted}>この日の写真はありません。</p>
                     ) : (
                       <ul className={photoStyles.photoGrid}>
-                        {photos.map((p: SitePhoto) => (
+                        {photos.map((p: SitePhoto, pi: number) => (
                           <li key={p.id} className={photoStyles.photoCard}>
-                            <div className={photoStyles.thumbWrap}>
-                              <div className={photoStyles.badgeOverlay}>
-                                <PhotoCategoryBadge category={p.category} />
+                            <button
+                              type="button"
+                              className={photoStyles.thumbOpenBtn}
+                              onClick={() =>
+                                setPhotoLightbox({ photos, index: pi })
+                              }
+                              aria-label="写真を拡大表示"
+                            >
+                              <div className={photoStyles.thumbWrap}>
+                                <div className={photoStyles.badgeOverlay}>
+                                  <PhotoCategoryBadge category={p.category} />
+                                </div>
+                                <img
+                                  src={sitePhotoDisplaySrc(p)}
+                                  alt={p.fileName}
+                                  className={photoStyles.thumb}
+                                  loading="lazy"
+                                />
                               </div>
-                              <img
-                                src={sitePhotoDisplaySrc(p)}
-                                alt={p.fileName}
-                                className={photoStyles.thumb}
-                                loading="lazy"
-                              />
-                            </div>
+                            </button>
                             <div className={photoStyles.caption}>
                               <time
                                 className={photoStyles.time}
@@ -385,6 +402,13 @@ export function SiteWorkDateAccordions({
           );
         })}
       </ul>
+
+      <PhotoLightboxModal
+        open={photoLightbox !== null}
+        photos={photoLightbox?.photos ?? []}
+        initialIndex={photoLightbox?.index ?? 0}
+        onClose={() => setPhotoLightbox(null)}
+      />
 
       {laborConfirm && (
         <div

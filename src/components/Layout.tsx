@@ -18,7 +18,30 @@ const T = {
   payslips: "\u7d66\u4e0e\u660e\u7d30",
   roster: "\u540d\u7c3f\u7ba1\u7406",
   masterSettings: "\u30de\u30b9\u30bf\u30fc\u8a2d\u5b9a",
+  refresh: "\u66f4\u65b0",
 } as const;
+
+function RefreshIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 16H3v5" />
+    </svg>
+  );
+}
 
 export function Layout() {
   const [adminOpen, setAdminOpen] = useState(false);
@@ -61,102 +84,113 @@ export function Layout() {
               decoding="async"
             />
           </Link>
-          <nav className={styles.nav} aria-label={T.navMain}>
-            <Link to="/" className={styles.navLink}>
-              {T.site}
-            </Link>
-            <Link to="/staff" className={styles.navLink}>
-              {T.staffMyPage}
-            </Link>
-            <Link to="/contractor/view" className={styles.navLink}>
-              {T.contractorMyPage}
-            </Link>
-            <div className={styles.navDropdown} ref={adminRef}>
-              <button
-                type="button"
-                className={styles.navDropdownBtn}
-                aria-expanded={adminOpen}
-                aria-haspopup="true"
-                aria-controls="nav-admin-menu"
-                id="nav-admin-trigger"
-                onClick={() => setAdminOpen((v) => !v)}
-              >
-                {T.admin}
-                <span className={styles.navDropdownChevron} aria-hidden>
-                  {adminOpen ? T.chevronOpen : T.chevronClosed}
-                </span>
-              </button>
-              {adminOpen && (
-                <ul
-                  id="nav-admin-menu"
-                  className={styles.navDropdownMenu}
-                  role="menu"
-                  aria-labelledby="nav-admin-trigger"
+          <div className={styles.headerRight}>
+            <nav className={styles.nav} aria-label={T.navMain}>
+              <Link to="/" className={styles.navLink}>
+                {T.site}
+              </Link>
+              <Link to="/staff" className={styles.navLink}>
+                {T.staffMyPage}
+              </Link>
+              <Link to="/contractor/view" className={styles.navLink}>
+                {T.contractorMyPage}
+              </Link>
+              <div className={styles.navDropdown} ref={adminRef}>
+                <button
+                  type="button"
+                  className={styles.navDropdownBtn}
+                  aria-expanded={adminOpen}
+                  aria-haspopup="true"
+                  aria-controls="nav-admin-menu"
+                  id="nav-admin-trigger"
+                  onClick={() => setAdminOpen((v) => !v)}
                 >
-                  <li role="none">
-                    <Link
-                      to="/kousei-admin"
-                      className={styles.navDropdownItem}
-                      role="menuitem"
-                      onClick={() => setAdminOpen(false)}
-                    >
-                      {T.kouseiAdmin}
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link
-                      to="/leave-requests"
-                      className={styles.navDropdownItem}
-                      role="menuitem"
-                      onClick={() => setAdminOpen(false)}
-                    >
-                      {T.leaveRequests}
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link
-                      to="/attendance"
-                      className={styles.navDropdownItem}
-                      role="menuitem"
-                      onClick={() => setAdminOpen(false)}
-                    >
-                      {T.timeCard}
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link
-                      to="/payslips"
-                      className={styles.navDropdownItem}
-                      role="menuitem"
-                      onClick={() => setAdminOpen(false)}
-                    >
-                      {T.payslips}
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link
-                      to="/roster"
-                      className={styles.navDropdownItem}
-                      role="menuitem"
-                      onClick={() => setAdminOpen(false)}
-                    >
-                      {T.roster}
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link
-                      to="/master"
-                      className={styles.navDropdownItem}
-                      role="menuitem"
-                      onClick={() => setAdminOpen(false)}
-                    >
-                      {T.masterSettings}
-                    </Link>
-                  </li>
-                </ul>
-              )}
-            </div>
-          </nav>
+                  {T.admin}
+                  <span className={styles.navDropdownChevron} aria-hidden>
+                    {adminOpen ? T.chevronOpen : T.chevronClosed}
+                  </span>
+                </button>
+                {adminOpen && (
+                  <ul
+                    id="nav-admin-menu"
+                    className={styles.navDropdownMenu}
+                    role="menu"
+                    aria-labelledby="nav-admin-trigger"
+                  >
+                    <li role="none">
+                      <Link
+                        to="/kousei-admin"
+                        className={styles.navDropdownItem}
+                        role="menuitem"
+                        onClick={() => setAdminOpen(false)}
+                      >
+                        {T.kouseiAdmin}
+                      </Link>
+                    </li>
+                    <li role="none">
+                      <Link
+                        to="/leave-requests"
+                        className={styles.navDropdownItem}
+                        role="menuitem"
+                        onClick={() => setAdminOpen(false)}
+                      >
+                        {T.leaveRequests}
+                      </Link>
+                    </li>
+                    <li role="none">
+                      <Link
+                        to="/attendance"
+                        className={styles.navDropdownItem}
+                        role="menuitem"
+                        onClick={() => setAdminOpen(false)}
+                      >
+                        {T.timeCard}
+                      </Link>
+                    </li>
+                    <li role="none">
+                      <Link
+                        to="/payslips"
+                        className={styles.navDropdownItem}
+                        role="menuitem"
+                        onClick={() => setAdminOpen(false)}
+                      >
+                        {T.payslips}
+                      </Link>
+                    </li>
+                    <li role="none">
+                      <Link
+                        to="/roster"
+                        className={styles.navDropdownItem}
+                        role="menuitem"
+                        onClick={() => setAdminOpen(false)}
+                      >
+                        {T.roster}
+                      </Link>
+                    </li>
+                    <li role="none">
+                      <Link
+                        to="/master"
+                        className={styles.navDropdownItem}
+                        role="menuitem"
+                        onClick={() => setAdminOpen(false)}
+                      >
+                        {T.masterSettings}
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            </nav>
+            <button
+              type="button"
+              className={styles.refreshBtn}
+              title={T.refresh}
+              aria-label={T.refresh}
+              onClick={() => window.location.reload()}
+            >
+              <RefreshIcon />
+            </button>
+          </div>
         </div>
       </header>
       <main className={styles.main}>

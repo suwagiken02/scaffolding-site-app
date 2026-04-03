@@ -22,6 +22,7 @@ import {
 import { laborIsContractor } from "../lib/siteDailyLaborEmployment";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
+import { PhotoLightboxModal } from "./PhotoLightboxModal";
 import { SiteWorkPhotoAddButton } from "./SiteWorkPhotoAddButton";
 import photoStyles from "./SitePhotosSection.module.css";
 import accStyles from "./SiteWorkDateAccordions.module.css";
@@ -114,6 +115,10 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
   const [workConfirm, setWorkConfirm] = useState<{
     workKind: WorkKind;
     dateKey: string;
+  } | null>(null);
+  const [photoLightbox, setPhotoLightbox] = useState<{
+    photos: SitePhoto[];
+    index: number;
   } | null>(null);
 
   const rows = useMemo<WorkRecordRow[]>(() => {
@@ -462,19 +467,28 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                         <p className={accStyles.muted}>この日の写真はありません。</p>
                       ) : (
                         <ul className={photoStyles.photoGrid}>
-                          {photos.map((p: SitePhoto) => (
+                          {photos.map((p: SitePhoto, pi: number) => (
                             <li key={p.id} className={photoStyles.photoCard}>
-                              <div className={photoStyles.thumbWrap}>
-                                <div className={photoStyles.badgeOverlay}>
-                                  <PhotoCategoryBadge category={p.category} />
+                              <button
+                                type="button"
+                                className={photoStyles.thumbOpenBtn}
+                                onClick={() =>
+                                  setPhotoLightbox({ photos, index: pi })
+                                }
+                                aria-label="写真を拡大表示"
+                              >
+                                <div className={photoStyles.thumbWrap}>
+                                  <div className={photoStyles.badgeOverlay}>
+                                    <PhotoCategoryBadge category={p.category} />
+                                  </div>
+                                  <img
+                                    src={sitePhotoDisplaySrc(p)}
+                                    alt={p.fileName}
+                                    className={photoStyles.thumb}
+                                    loading="lazy"
+                                  />
                                 </div>
-                                <img
-                                  src={sitePhotoDisplaySrc(p)}
-                                  alt={p.fileName}
-                                  className={photoStyles.thumb}
-                                  loading="lazy"
-                                />
-                              </div>
+                              </button>
                               <div className={photoStyles.caption}>
                                 <time
                                   className={photoStyles.time}
@@ -551,6 +565,13 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
           </div>
         </div>
       )}
+
+      <PhotoLightboxModal
+        open={photoLightbox !== null}
+        photos={photoLightbox?.photos ?? []}
+        initialIndex={photoLightbox?.index ?? 0}
+        onClose={() => setPhotoLightbox(null)}
+      />
 
       {workConfirm && (
         <div
