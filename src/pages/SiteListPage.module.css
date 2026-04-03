@@ -15,6 +15,7 @@
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: 1.25rem;
   border-bottom: 1px solid var(--separator);
@@ -100,6 +101,34 @@
   background: var(--surface);
   border: 1px solid var(--separator);
   border-radius: var(--radius);
+}
+
+/** 今日・昨日・明日：並び替えのみ・ラベルとセレクトを1行 */
+.listToolbarSortOnly {
+  align-items: center;
+}
+
+.listToolbarSortOnly .toolbarFieldInline {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.toolbarFieldInline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  width: 100%;
+}
+
+.toolbarFieldInline .toolbarLabel {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.toolbarFieldInline .sortSelect {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .toolbarField {

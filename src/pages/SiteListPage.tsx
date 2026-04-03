@@ -6,14 +6,25 @@ import { SiteMapView } from "../components/SiteMapView";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
 import { getEffectiveSiteDisplayStatus } from "../lib/siteStatus";
 import { siteHasAnyWorkRecordOnDate } from "../lib/siteWorkRecordKeys";
-import { todayLocalDateKey, tomorrowLocalDateKey } from "../lib/dateUtils";
+import {
+  todayLocalDateKey,
+  tomorrowLocalDateKey,
+  yesterdayLocalDateKey,
+  thisWeekLocalDateKeys,
+} from "../lib/dateUtils";
 import { siteNeedsRemovalFollowUpWarning } from "../lib/siteRemovalFollowUpWarning";
 import { WORK_KINDS } from "../types/workKind";
 import { loadContractorMasters } from "../lib/contractorMasterStorage";
 import styles from "./SiteListPage.module.css";
 
-/** 今日・明日・一覧はリスト表示、地図はマップ */
-type MainTab = "today" | "tomorrow" | "full" | "map";
+/** リスト系タブと地図 */
+type MainTab =
+  | "today"
+  | "yesterday"
+  | "tomorrow"
+  | "week"
+  | "full"
+  | "map";
 
 type SortOption =
   | "start_desc"
@@ -113,6 +124,40 @@ function siteMatchesTomorrowTab(site: Site, tomorrowKey: string): boolean {
   );
 }
 
+/** 昨日タブ：入場日に「昨日」が含まれる現場のみ */
+function siteMatchesYesterdayTab(site: Site, yesterdayKey: string): boolean {
+  return normalizeEntranceDateKeys(site.entranceDateKeys).includes(
+    yesterdayKey
+  );
+}
+
+/** 今週タブ：今週（月〜日）のいずれかの入場日が含まれる現場 */
+function siteMatchesThisWeekTab(
+  site: Site,
+  weekKeySet: ReadonlySet<string>
+): boolean {
+  return normalizeEntranceDateKeys(site.entranceDateKeys).some((k) =>
+    weekKeySet.has(k)
+  );
+}
+
+function tabElementId(tab: MainTab): string {
+  switch (tab) {
+    case "today":
+      return "tab-today";
+    case "yesterday":
+      return "tab-yesterday";
+    case "tomorrow":
+      return "tab-tomorrow";
+    case "week":
+      return "tab-week";
+    case "full":
+      return "tab-full";
+    case "map":
+      return "tab-map";
+  }
+}
+
 export function SiteListPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>("today");
@@ -173,23 +218,41 @@ export function SiteListPage() {
   const listForDisplay = useMemo(() => {
     const todayKey = todayLocalDateKey();
     const tomorrowKey = tomorrowLocalDateKey();
+    const yesterdayKey = yesterdayLocalDateKey();
+    const weekKeys = thisWeekLocalDateKeys();
+    const weekKeySet = new Set(weekKeys);
     let scopeSites = sites;
     if (mainTab === "today") {
       scopeSites = sites.filter((s) => siteMatchesTodayTab(s, todayKey));
+    } else if (mainTab === "yesterday") {
+      scopeSites = sites.filter((s) =>
+        siteMatchesYesterdayTab(s, yesterdayKey)
+      );
     } else if (mainTab === "tomorrow") {
       scopeSites = sites.filter((s) => siteMatchesTomorrowTab(s, tomorrowKey));
+    } else if (mainTab === "week") {
+      scopeSites = sites.filter((s) => siteMatchesThisWeekTab(s, weekKeySet));
     }
-    const q = searchText.trim().toLowerCase();
-    const filtered = scopeSites.filter((s) => siteMatchesSearch(s, q));
+    const narrowTabs =
+      mainTab === "today" ||
+      mainTab === "yesterday" ||
+      mainTab === "tomorrow";
+    const filtered = narrowTabs
+      ? scopeSites
+      : scopeSites.filter((s) =>
+          siteMatchesSearch(s, searchText.trim().toLowerCase())
+        );
     const statusFiltered =
-      statusFilter === "all"
+      narrowTabs || statusFilter === "all"
         ? filtered
         : filtered.filter((s) => computeSiteStatus(s) === statusFilter);
-    const contractorFiltered = contractorFilter.trim()
-      ? statusFiltered.filter(
-          (s) => getLatestContractorCompanyName(s.id) === contractorFilter.trim()
-        )
-      : statusFiltered;
+    const contractorFiltered =
+      narrowTabs || !contractorFilter.trim()
+        ? statusFiltered
+        : statusFiltered.filter(
+            (s) =>
+              getLatestContractorCompanyName(s.id) === contractorFilter.trim()
+          );
     const sorted = sortSites(contractorFiltered, sortBy);
     const pendingExternal = sorted.filter((s) => s.externalUnconfirmed === true);
     const rest = sorted.filter((s) => s.externalUnconfirmed !== true);
@@ -217,6 +280,29 @@ export function SiteListPage() {
     photoRevision,
   ]);
 
+  const showSortOnlyToolbar =
+    mainTab === "today" ||
+    mainTab === "yesterday" ||
+    mainTab === "tomorrow";
+  const showFullFilters = mainTab === "week" || mainTab === "full";
+
+  const emptyListMessage = (() => {
+    switch (mainTab) {
+      case "today":
+        return "今日の入場または本日の作業記録がある現場はありません";
+      case "yesterday":
+        return "昨日の入場日が登録されている現場はありません";
+      case "tomorrow":
+        return "明日の入場日が登録されている現場はありません";
+      case "week":
+        return "今週の入場日が登録されている現場はありません";
+      case "full":
+        return "該当する現場が見つかりません";
+      case "map":
+        return "";
+    }
+  })();
+
   return (
     <div className={styles.page}>
       <div className={styles.head}>
@@ -241,6 +327,17 @@ export function SiteListPage() {
         <button
           type="button"
           role="tab"
+          id="tab-yesterday"
+          aria-selected={mainTab === "yesterday"}
+          aria-controls="panel-list"
+          className={mainTab === "yesterday" ? styles.tabActive : styles.tab}
+          onClick={() => setMainTab("yesterday")}
+        >
+          昨日
+        </button>
+        <button
+          type="button"
+          role="tab"
           id="tab-tomorrow"
           aria-selected={mainTab === "tomorrow"}
           aria-controls="panel-list"
@@ -248,6 +345,17 @@ export function SiteListPage() {
           onClick={() => setMainTab("tomorrow")}
         >
           明日
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-week"
+          aria-selected={mainTab === "week"}
+          aria-controls="panel-list"
+          className={mainTab === "week" ? styles.tabActive : styles.tab}
+          onClick={() => setMainTab("week")}
+        >
+          今週
         </button>
         <button
           type="button"
@@ -277,13 +385,7 @@ export function SiteListPage() {
         <div
           id="panel-list"
           role="tabpanel"
-          aria-labelledby={
-            mainTab === "today"
-              ? "tab-today"
-              : mainTab === "tomorrow"
-                ? "tab-tomorrow"
-                : "tab-full"
-          }
+          aria-labelledby={tabElementId(mainTab)}
         >
           {sites.length === 0 ? (
             <div className={styles.empty}>
@@ -296,9 +398,13 @@ export function SiteListPage() {
             </div>
           ) : (
             <>
-              <div className={styles.listToolbar}>
-                <div className={styles.toolbarSortStatusGroup}>
-                  <label className={styles.toolbarField}>
+              {showSortOnlyToolbar && (
+                <div
+                  className={`${styles.listToolbar} ${styles.listToolbarSortOnly}`}
+                >
+                  <label
+                    className={`${styles.toolbarField} ${styles.toolbarFieldInline}`}
+                  >
                     <span className={styles.toolbarLabel}>並び替え</span>
                     <select
                       className={styles.sortSelect}
@@ -315,62 +421,81 @@ export function SiteListPage() {
                       ))}
                     </select>
                   </label>
+                </div>
+              )}
+              {showFullFilters && (
+                <div className={styles.listToolbar}>
+                  <div className={styles.toolbarSortStatusGroup}>
+                    <label className={styles.toolbarField}>
+                      <span className={styles.toolbarLabel}>並び替え</span>
+                      <select
+                        className={styles.sortSelect}
+                        value={sortBy}
+                        onChange={(e) =>
+                          setSortBy(e.target.value as SortOption)
+                        }
+                        aria-label="一覧の並び替え"
+                      >
+                        {SORT_CHOICES.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className={styles.toolbarField}>
+                      <span className={styles.toolbarLabel}>ステータス</span>
+                      <select
+                        className={styles.sortSelect}
+                        value={statusFilter}
+                        onChange={(e) =>
+                          setStatusFilter(e.target.value as StatusFilter)
+                        }
+                        aria-label="ステータスで絞り込み"
+                      >
+                        <option value="all">すべて</option>
+                        <option value="入場前">入場前</option>
+                        <option value="組立中">組立中</option>
+                        <option value="設置中">設置中</option>
+                        <option value="解体中">解体中</option>
+                        <option value="撤去済">撤去済</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className={styles.toolbarFieldGrow}>
+                    <span className={styles.toolbarLabel}>検索</span>
+                    <input
+                      type="search"
+                      className={styles.searchInput}
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      placeholder="現場名・元請け・職長・種別"
+                      autoComplete="off"
+                      aria-label="現場をキーワードで検索"
+                    />
+                  </label>
                   <label className={styles.toolbarField}>
-                    <span className={styles.toolbarLabel}>ステータス</span>
+                    <span className={styles.toolbarLabel}>請負会社</span>
                     <select
                       className={styles.sortSelect}
-                      value={statusFilter}
-                      onChange={(e) =>
-                        setStatusFilter(e.target.value as StatusFilter)
-                      }
-                      aria-label="ステータスで絞り込み"
+                      value={contractorFilter}
+                      onChange={(e) => setContractorFilter(e.target.value)}
+                      aria-label="請負会社名で絞り込み"
                     >
-                      <option value="all">すべて</option>
-                      <option value="入場前">入場前</option>
-                      <option value="組立中">組立中</option>
-                      <option value="設置中">設置中</option>
-                      <option value="解体中">解体中</option>
-                      <option value="撤去済">撤去済</option>
+                      <option value="">すべて</option>
+                      {contractorChoices.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>
-                <label className={styles.toolbarFieldGrow}>
-                  <span className={styles.toolbarLabel}>検索</span>
-                  <input
-                    type="search"
-                    className={styles.searchInput}
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    placeholder="現場名・元請け・職長・種別"
-                    autoComplete="off"
-                    aria-label="現場をキーワードで検索"
-                  />
-                </label>
-                <label className={styles.toolbarField}>
-                  <span className={styles.toolbarLabel}>請負会社</span>
-                  <select
-                    className={styles.sortSelect}
-                    value={contractorFilter}
-                    onChange={(e) => setContractorFilter(e.target.value)}
-                    aria-label="請負会社名で絞り込み"
-                  >
-                    <option value="">すべて</option>
-                    {contractorChoices.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              )}
 
               {listForDisplay.length === 0 ? (
                 <p className={styles.noHits} role="status">
-                  {mainTab === "today"
-                    ? "今日の入場または本日の作業記録がある現場はありません"
-                    : mainTab === "tomorrow"
-                      ? "明日の入場日が登録されている現場はありません"
-                      : "該当する現場が見つかりません"}
+                  {emptyListMessage}
                 </p>
               ) : (
             <ul className={styles.list}>
