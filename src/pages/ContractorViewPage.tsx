@@ -76,10 +76,13 @@ function buildRows(contractorName: string, month: string): Row[] {
   return out.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 }
 
+type AuthPhase = "select" | "pin";
+
 export function ContractorViewPage() {
   const contractors = useMemo(() => loadContractorMasters(), []);
   const [contractorId, setContractorId] = useState("");
   const [pin, setPin] = useState("");
+  const [authPhase, setAuthPhase] = useState<AuthPhase>("select");
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,14 +94,43 @@ export function ContractorViewPage() {
   const baseMonth = useMemo(() => monthOf(todayLocalDateKey()), []);
   const prevMonth = useMemo(() => shiftMonth(baseMonth, -1), [baseMonth]);
 
+  function selectContractor(id: string) {
+    setError(null);
+    setPin("");
+    setContractorId(id);
+    setAuthPhase("pin");
+  }
+
+  function backToContractorList() {
+    setError(null);
+    setPin("");
+    setContractorId("");
+    setAuthPhase("select");
+  }
+
+  function logoutView() {
+    setError(null);
+    setPin("");
+    setContractorId("");
+    setAuthPhase("select");
+    setAuthed(false);
+  }
+
   function onAuth(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (!contractor) {
-      setError("会社名を選択してください。");
+      setError("会社を選択してください。");
       return;
     }
-    if (pin.trim() && pin.trim() === contractor.viewPin.trim()) {
+    const expected = contractor.viewPin.trim();
+    if (!expected) {
+      setError(
+        "閲覧用PINが未設定です。管理者にマスター設定（請負会社）での登録を依頼してください。"
+      );
+      return;
+    }
+    if (pin.trim() === expected) {
       setAuthed(true);
       return;
     }
@@ -142,29 +174,72 @@ export function ContractorViewPage() {
   }
 
   if (!authed) {
+    if (authPhase === "select") {
+      return (
+        <div>
+          <div className={styles.pageHead}>
+            <h1 className={styles.title}>請負会社閲覧</h1>
+          </div>
+          <div className={styles.panel}>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              閲覧する会社名を選んでください。
+            </p>
+            {contractors.length === 0 ? (
+              <p className={styles.danger}>登録されている請負会社がありません。</p>
+            ) : (
+              <ul className={styles.contractorPickList}>
+                {contractors.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className={styles.contractorPickBtn}
+                      onClick={() => selectContractor(c.id)}
+                    >
+                      {c.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (!contractor) {
+      return (
+        <div>
+          <div className={styles.pageHead}>
+            <h1 className={styles.title}>請負会社閲覧</h1>
+          </div>
+          <div className={styles.panel}>
+            <p className={styles.danger} role="alert">
+              会社情報が見つかりません。一覧から選び直してください。
+            </p>
+            <button type="button" className={styles.btnSecondary} onClick={backToContractorList}>
+              戻る
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         <div className={styles.pageHead}>
           <h1 className={styles.title}>請負会社閲覧</h1>
         </div>
         <div className={styles.panel}>
+          <p className={styles.muted} style={{ marginTop: 0 }}>
+            <strong>{contractor.name}</strong> の閲覧用PINを入力してください。
+          </p>
+          {!contractor.viewPin.trim() && (
+            <p className={styles.danger} role="alert">
+              閲覧用PINが未設定です。管理者にマスター設定（請負会社）での登録を依頼してください。
+            </p>
+          )}
           <form onSubmit={onAuth} noValidate>
             <div className={styles.fieldRow}>
-              <label className={styles.field}>
-                <span className={styles.label}>会社名</span>
-                <select
-                  className={styles.select}
-                  value={contractorId}
-                  onChange={(e) => setContractorId(e.target.value)}
-                >
-                  <option value="">選択してください</option>
-                  {contractors.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label className={styles.field}>
                 <span className={styles.label}>PIN</span>
                 <input
@@ -174,13 +249,27 @@ export function ContractorViewPage() {
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   autoComplete="off"
+                  autoFocus
                 />
               </label>
-              <button type="submit" className={styles.btn}>
-                閲覧する
-              </button>
+              <div className={styles.pinActionsRow}>
+                <button type="button" className={styles.btnSecondary} onClick={backToContractorList}>
+                  戻る
+                </button>
+                <button
+                  type="submit"
+                  className={styles.btn}
+                  disabled={!contractor.viewPin.trim()}
+                >
+                  入場する
+                </button>
+              </div>
             </div>
-            {error && <p className={styles.danger}>{error}</p>}
+            {error && (
+              <p className={styles.danger} role="alert">
+                {error}
+              </p>
+            )}
           </form>
         </div>
       </div>
@@ -266,6 +355,9 @@ export function ContractorViewPage() {
     <div>
       <div className={styles.pageHead}>
         <h1 className={styles.title}>請負会社閲覧</h1>
+        <button type="button" className={styles.btnSecondary} onClick={logoutView}>
+          別の会社でログイン
+        </button>
       </div>
 
       <div className={styles.panel}>
