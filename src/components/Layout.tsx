@@ -53,9 +53,6 @@ export function Layout() {
             <Link to="/contractor" className={styles.navLink}>
               協力業者マイページ
             </Link>
-            <Link to="/attendance" className={styles.navLink}>
-              タイムカード
-            </Link>
             <div className={styles.navDropdown} ref={adminRef}>
               <button
                 type="button"
@@ -96,6 +93,16 @@ export function Layout() {
                       onClick={() => setAdminOpen(false)}
                     >
                       休暇申請
+                    </Link>
+                  </li>
+                  <li role="none">
+                    <Link
+                      to="/attendance"
+                      className={styles.navDropdownItem}
+                      role="menuitem"
+                      onClick={() => setAdminOpen(false)}
+                    >
+                      タイムカード
                     </Link>
                   </li>
                   <li role="none">
