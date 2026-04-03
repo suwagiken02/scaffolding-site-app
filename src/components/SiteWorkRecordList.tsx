@@ -19,6 +19,7 @@ import {
   FOCUS_SITE_WORK_RECORD,
   siteWorkRecordElementId,
 } from "../lib/siteWorkRecordFocus";
+import { laborIsContractor } from "../lib/siteDailyLaborEmployment";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import { SiteWorkPhotoAddButton } from "./SiteWorkPhotoAddButton";
@@ -54,6 +55,15 @@ function formatManDay(n: number | null | undefined): string {
 function formatVehicleCount(n: number): string {
   if (!Number.isFinite(n) || n < 0) return "—";
   return `${n}台`;
+}
+
+function formatContractorPeopleCount(
+  n: number | null | undefined
+): string {
+  if (n === null || n === undefined || !Number.isFinite(n) || n <= 0) {
+    return "—";
+  }
+  return `${n}名`;
 }
 
 function joinList(items: string[]): string {
@@ -228,6 +238,13 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
             ]
               .map((n) => n.trim())
               .filter((n) => n.length > 0);
+            const contractorCompanyTrim = (
+              labor?.contractorCompanyName ?? ""
+            ).trim();
+            /** ヘッダー表示：会社名があれば請負レイアウト（展開パネルは laborIsContractor を継続使用） */
+            const headerIsContractorByCompany = Boolean(
+              labor && contractorCompanyTrim
+            );
             const headerMemberLabel = labor
               ? joinList(
                   recordMemberNames.length > 0
@@ -238,6 +255,7 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
 
             const needsVehicleFallback =
               labor &&
+              !headerIsContractorByCompany &&
               labor.vehicleCount === 0 &&
               labor.memberForemanNames.length === 0 &&
               labor.memberKogataNames.length === 0;
@@ -270,11 +288,28 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                         作業種別：{workKind}
                       </span>
                       <span className={accStyles.accHeaderLine2}>
-                        メンバー：{headerMemberLabel}
-                        <span className={accStyles.accSep}>　</span>
-                        車両：{headerVehicleLabel}
-                        <span className={accStyles.accSep}>　</span>
-                        人工：{manLabel}
+                        {headerIsContractorByCompany ? (
+                          <>
+                            請負会社名：{contractorCompanyTrim}
+                            <span className={accStyles.accSep}>　</span>
+                            人数：
+                            {formatContractorPeopleCount(
+                              labor?.contractorPeopleCount
+                            )}
+                            <span className={accStyles.accSep}>　</span>
+                            車両：{headerVehicleLabel}
+                            <span className={accStyles.accSep}>　</span>
+                            人工：{manLabel}
+                          </>
+                        ) : (
+                          <>
+                            メンバー：{headerMemberLabel}
+                            <span className={accStyles.accSep}>　</span>
+                            車両：{headerVehicleLabel}
+                            <span className={accStyles.accSep}>　</span>
+                            人工：{manLabel}
+                          </>
+                        )}
                       </span>
                     </span>
                     <span className={accStyles.accChevron} aria-hidden>
@@ -298,61 +333,104 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                       {labor ? (
                         <>
                           <dl className={accStyles.laborDl}>
-                            <div className={accStyles.laborRow}>
-                              <dt>メインメンバー（職長・子方）</dt>
-                              <dd>
-                                {joinList([
-                                  ...labor.memberForemanNames,
-                                  ...labor.memberKogataNames,
-                                ])}
-                              </dd>
-                            </div>
-                            <div className={accStyles.laborRow}>
-                              <dt>メインメンバー作業開始</dt>
-                              <dd>{formatIsoMaybe(mainEntryIso)}</dd>
-                            </div>
-                            <div className={accStyles.laborRow}>
-                              <dt>メインメンバー作業終了</dt>
-                              <dd>{formatIsoMaybe(mainEndIso)}</dd>
-                            </div>
-                            <div className={accStyles.laborRow}>
-                              <dt>最終人工</dt>
-                              <dd>{formatManDay(labor.finalManDays)}人工</dd>
-                            </div>
-                            {(labor.workManDaysPerPerson ??
-                              labor.joyoManDaysPerPerson) != null && (
-                              <div className={accStyles.laborRow}>
-                                <dt>1人あたり人工（セッション）</dt>
-                                <dd>
-                                  {formatManDay(
-                                    labor.workManDaysPerPerson ??
-                                      labor.joyoManDaysPerPerson
-                                  )}
-                                  人工
-                                </dd>
-                              </div>
+                            {laborIsContractor(labor) ? (
+                              <>
+                                <div className={accStyles.laborRow}>
+                                  <dt>請負会社名</dt>
+                                  <dd>
+                                    {contractorCompanyTrim || "—"}
+                                  </dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>人数</dt>
+                                  <dd>
+                                    {formatContractorPeopleCount(
+                                      labor.contractorPeopleCount
+                                    )}
+                                  </dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>車両台数</dt>
+                                  <dd>
+                                    {formatVehicleCount(labor.vehicleCount)}
+                                  </dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>作業開始</dt>
+                                  <dd>{formatIsoMaybe(mainEntryIso)}</dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>作業終了</dt>
+                                  <dd>{formatIsoMaybe(mainEndIso)}</dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>最終人工</dt>
+                                  <dd>
+                                    {formatManDay(labor.finalManDays)}人工
+                                  </dd>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className={accStyles.laborRow}>
+                                  <dt>メインメンバー（職長・子方）</dt>
+                                  <dd>
+                                    {joinList([
+                                      ...labor.memberForemanNames,
+                                      ...labor.memberKogataNames,
+                                    ])}
+                                  </dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>メインメンバー作業開始</dt>
+                                  <dd>{formatIsoMaybe(mainEntryIso)}</dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>メインメンバー作業終了</dt>
+                                  <dd>{formatIsoMaybe(mainEndIso)}</dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>最終人工</dt>
+                                  <dd>
+                                    {formatManDay(labor.finalManDays)}人工
+                                  </dd>
+                                </div>
+                                {(labor.workManDaysPerPerson ??
+                                  labor.joyoManDaysPerPerson) != null && (
+                                  <div className={accStyles.laborRow}>
+                                    <dt>1人あたり人工（セッション）</dt>
+                                    <dd>
+                                      {formatManDay(
+                                        labor.workManDaysPerPerson ??
+                                          labor.joyoManDaysPerPerson
+                                      )}
+                                      人工
+                                    </dd>
+                                  </div>
+                                )}
+                                <div className={accStyles.laborRow}>
+                                  <dt>手伝い班</dt>
+                                  <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>手伝いメンバー</dt>
+                                  <dd>
+                                    {labor.hadHelpTeam &&
+                                    labor.helpMemberNames.length > 0
+                                      ? joinList(labor.helpMemberNames)
+                                      : "—"}
+                                  </dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>手伝い開始</dt>
+                                  <dd>{labor.helpStartTime ?? "—"}</dd>
+                                </div>
+                                <div className={accStyles.laborRow}>
+                                  <dt>手伝い終了</dt>
+                                  <dd>{labor.helpEndTime ?? "—"}</dd>
+                                </div>
+                              </>
                             )}
-                            <div className={accStyles.laborRow}>
-                              <dt>手伝い班</dt>
-                              <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
-                            </div>
-                            <div className={accStyles.laborRow}>
-                              <dt>手伝いメンバー</dt>
-                              <dd>
-                                {labor.hadHelpTeam &&
-                                labor.helpMemberNames.length > 0
-                                  ? joinList(labor.helpMemberNames)
-                                  : "—"}
-                              </dd>
-                            </div>
-                            <div className={accStyles.laborRow}>
-                              <dt>手伝い開始</dt>
-                              <dd>{labor.helpStartTime ?? "—"}</dd>
-                            </div>
-                            <div className={accStyles.laborRow}>
-                              <dt>手伝い終了</dt>
-                              <dd>{labor.helpEndTime ?? "—"}</dd>
-                            </div>
                           </dl>
                           <button
                             type="button"
