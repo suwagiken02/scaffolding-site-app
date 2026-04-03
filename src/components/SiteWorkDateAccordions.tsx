@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
@@ -21,11 +27,11 @@ import { laborIsContractor } from "../lib/siteDailyLaborEmployment";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import { PhotoLightboxModal } from "./PhotoLightboxModal";
-import {
-  SiteWorkRecordPunchBlock,
-  type LaborModalCtx,
-} from "./SiteWorkRecordPunchBlock";
+import type { LaborModalCtx } from "../hooks/useSiteWorkRecordPunch";
+import { useSiteWorkRecordPunch } from "../hooks/useSiteWorkRecordPunch";
+import { SiteWorkRecordPunchBlockBody } from "./SiteWorkRecordPunchBlockBody";
 import photoStyles from "./SitePhotosSection.module.css";
+import joyoStyles from "./SiteJoyoWorkSection.module.css";
 import styles from "./SiteWorkDateAccordions.module.css";
 
 type Props = {
@@ -88,6 +94,35 @@ function joinList(items: string[]): string {
   return items.join("、");
 }
 
+function headerWorkerLabel(
+  labor: SiteDailyLaborRecord | undefined,
+  site: Site
+): string {
+  if (!labor) return "—";
+  const recordMemberNames = [
+    ...labor.memberForemanNames,
+    ...labor.memberKogataNames,
+  ]
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+  const fallbackMemberNames = [site.foremanName, ...site.kogataNames]
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+  const names = joinList(
+    recordMemberNames.length > 0 ? recordMemberNames : fallbackMemberNames
+  );
+  const co = (labor.contractorCompanyName ?? "").trim();
+  if (laborIsContractor(labor) && co) {
+    if (names === "—") return `（${co}）`;
+    return `${names}（${co}）`;
+  }
+  return names;
+}
+
+function stopAccordionToggle(e: MouseEvent) {
+  e.stopPropagation();
+}
+
 function formatVehicleCount(n: number): string {
   if (!Number.isFinite(n) || n < 0) return "—";
   return `${n}台`;
@@ -100,6 +135,318 @@ function formatContractorPeopleCount(
     return "—";
   }
   return `${n}名`;
+}
+
+type SiteWorkDateAccordionRowProps = {
+  siteId: string;
+  site: Site;
+  siteName: string;
+  workKind: WorkKind;
+  dateKey: string;
+  revision: number;
+  isOpen: boolean;
+  onToggleDate: () => void;
+  onInvalidate: () => void;
+  onLaborModalNeeded: (ctx: LaborModalCtx) => void;
+  onAfterWorkStartPunch?: () => void;
+  onPhotoLightbox: (photos: SitePhoto[], index: number) => void;
+  removePhoto: (dateKey: string, photoId: string) => void;
+  onLaborDeleteRequest: (record: SiteDailyLaborRecord) => void;
+};
+
+function SiteWorkDateAccordionRow({
+  siteId,
+  site,
+  siteName,
+  workKind,
+  dateKey,
+  revision,
+  isOpen,
+  onToggleDate,
+  onInvalidate,
+  onLaborModalNeeded,
+  onAfterWorkStartPunch,
+  onPhotoLightbox,
+  removePhoto,
+  onLaborDeleteRequest,
+}: SiteWorkDateAccordionRowProps) {
+  const punch = useSiteWorkRecordPunch({
+    siteId,
+    siteName,
+    workKind,
+    dateKey,
+    revision,
+    onStorageChange: onInvalidate,
+    onLaborModalNeeded,
+    onAfterWorkStartPunch,
+  });
+
+  const labor = loadDailyLaborMap(siteId, workKind)[dateKey];
+  const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
+  const { entryIso: mainEntryIso, endIso: mainEndIso } =
+    mainMemberTimesForWorkRecord(workKind, photos, labor);
+  const manLabel = labor ? formatManDay(labor.finalManDays) : "—";
+  const contractorCompanyTrim = (labor?.contractorCompanyName ?? "").trim();
+  const workerHeader = headerWorkerLabel(labor, site);
+
+  return (
+    <li className={styles.accItem}>
+      {punch.confirmModal}
+
+      <div className={styles.accTopRow}>
+        <button
+          type="button"
+          className={styles.accHeader}
+          aria-expanded={isOpen}
+          onClick={onToggleDate}
+        >
+          <span className={styles.accHeaderRow}>
+            <span
+              className={`${styles.accHeaderCell} ${styles.accHeaderCellDate}`}
+              title={formatDateKeySlash(dateKey)}
+            >
+              {formatDateKeySlash(dateKey)}
+            </span>
+            <span className={styles.accHeaderSep} aria-hidden>
+              ／
+            </span>
+            <span
+              className={`${styles.accHeaderCell} ${styles.accHeaderCellKind}`}
+              title={workKind}
+            >
+              {workKind}
+            </span>
+            <span className={styles.accHeaderSep} aria-hidden>
+              ／
+            </span>
+            <span
+              className={`${styles.accHeaderCell} ${styles.accHeaderCellWorker}`}
+              title={workerHeader}
+            >
+              {workerHeader}
+            </span>
+            <span className={styles.accHeaderSep} aria-hidden>
+              ／
+            </span>
+            <span
+              className={`${styles.accHeaderCell} ${styles.accHeaderCellMan}`}
+              title={manLabel}
+            >
+              {manLabel}
+            </span>
+          </span>
+          <span className={styles.accChevron} aria-hidden>
+            {isOpen ? "▼" : "▶"}
+          </span>
+        </button>
+
+        <div
+          className={styles.headerPunchCluster}
+          onClick={stopAccordionToggle}
+          onPointerDown={stopAccordionToggle}
+        >
+          <button
+            type="button"
+            className={`${joyoStyles.btnStart}${punch.canStart ? ` ${joyoStyles.btnStartPulse}` : ""}${punch.startIso ? ` ${joyoStyles.btnMuted}` : ""} ${styles.headerPunchBtn}`}
+            disabled={!punch.canStart}
+            onClick={(e) => {
+              stopAccordionToggle(e);
+              punch.requestStart();
+            }}
+          >
+            {punch.startLabel}
+          </button>
+          <button
+            type="button"
+            className={`${joyoStyles.btnEnd}${punch.canEnd ? ` ${joyoStyles.btnEndPulse}` : ""}${punch.endIso ? ` ${joyoStyles.btnMuted}` : ""} ${styles.headerPunchBtn}`}
+            disabled={!punch.canEnd}
+            onClick={(e) => {
+              stopAccordionToggle(e);
+              punch.requestEnd();
+            }}
+          >
+            {punch.endLabel}
+          </button>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className={styles.accPanel}>
+          <section className={styles.block} aria-label="人工データ">
+            <h3 className={styles.blockTitle}>人工・手伝い班</h3>
+            {labor ? (
+              <>
+                <dl className={styles.laborDl}>
+                  {laborIsContractor(labor) ? (
+                    <>
+                      <div className={styles.laborRow}>
+                        <dt>請負会社名</dt>
+                        <dd>{contractorCompanyTrim || "—"}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>人数</dt>
+                        <dd>
+                          {formatContractorPeopleCount(
+                            labor.contractorPeopleCount
+                          )}
+                        </dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>車両台数</dt>
+                        <dd>
+                          {formatVehicleCount(labor.vehicleCount)}
+                        </dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>作業開始</dt>
+                        <dd>{formatIsoMaybe(mainEntryIso)}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>作業終了</dt>
+                        <dd>{formatIsoMaybe(mainEndIso)}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>最終人工</dt>
+                        <dd>
+                          {formatManDay(labor.finalManDays)}人工
+                        </dd>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={styles.laborRow}>
+                        <dt>メインメンバー（職長・子方）</dt>
+                        <dd>
+                          {joinList([
+                            ...labor.memberForemanNames,
+                            ...labor.memberKogataNames,
+                          ])}
+                        </dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>メインメンバー作業開始</dt>
+                        <dd>{formatIsoMaybe(mainEntryIso)}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>メインメンバー作業終了</dt>
+                        <dd>{formatIsoMaybe(mainEndIso)}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>最終人工</dt>
+                        <dd>
+                          {formatManDay(labor.finalManDays)}人工
+                        </dd>
+                      </div>
+                      {(labor.workManDaysPerPerson ??
+                        labor.joyoManDaysPerPerson) != null && (
+                        <div className={styles.laborRow}>
+                          <dt>1人あたり人工（セッション）</dt>
+                          <dd>
+                            {formatManDay(
+                              labor.workManDaysPerPerson ??
+                                labor.joyoManDaysPerPerson
+                            )}
+                            人工
+                          </dd>
+                        </div>
+                      )}
+                      <div className={styles.laborRow}>
+                        <dt>手伝い班</dt>
+                        <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>手伝いメンバー</dt>
+                        <dd>
+                          {labor.hadHelpTeam &&
+                          labor.helpMemberNames.length > 0
+                            ? joinList(labor.helpMemberNames)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>手伝い開始</dt>
+                        <dd>{labor.helpStartTime ?? "—"}</dd>
+                      </div>
+                      <div className={styles.laborRow}>
+                        <dt>手伝い終了</dt>
+                        <dd>{labor.helpEndTime ?? "—"}</dd>
+                      </div>
+                    </>
+                  )}
+                </dl>
+                <button
+                  type="button"
+                  className={styles.laborDeleteBtn}
+                  onClick={() => onLaborDeleteRequest(labor)}
+                >
+                  この日の人工データを削除
+                </button>
+              </>
+            ) : (
+              <p className={styles.muted}>
+                未登録です。作業終了の打刻後、手伝い班・最終人工の確認を完了すると表示されます。
+              </p>
+            )}
+          </section>
+
+          <SiteWorkRecordPunchBlockBody
+            punch={punch}
+            workKind={workKind}
+            dateKey={dateKey}
+            embedded
+            renderConfirmModal={false}
+          />
+
+          <section className={styles.block} aria-label="写真一覧">
+            <h3 className={styles.blockTitle}>写真</h3>
+            {photos.length === 0 ? (
+              <p className={styles.muted}>この日の写真はありません。</p>
+            ) : (
+              <ul className={photoStyles.photoGrid}>
+                {photos.map((p: SitePhoto, pi: number) => (
+                  <li key={p.id} className={photoStyles.photoCard}>
+                    <button
+                      type="button"
+                      className={photoStyles.thumbOpenBtn}
+                      onClick={() => onPhotoLightbox(photos, pi)}
+                      aria-label="写真を拡大表示"
+                    >
+                      <div className={photoStyles.thumbWrap}>
+                        <div className={photoStyles.badgeOverlay}>
+                          <PhotoCategoryBadge category={p.category} />
+                        </div>
+                        <img
+                          src={sitePhotoDisplaySrc(p)}
+                          alt={p.fileName}
+                          className={photoStyles.thumb}
+                          loading="lazy"
+                        />
+                      </div>
+                    </button>
+                    <div className={photoStyles.caption}>
+                      <time
+                        className={photoStyles.time}
+                        dateTime={p.uploadedAt}
+                      >
+                        {formatUploadedAt(p.uploadedAt)}
+                      </time>
+                      <button
+                        type="button"
+                        className={photoStyles.deleteBtn}
+                        onClick={() => removePhoto(dateKey, p.id)}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
+    </li>
+  );
 }
 
 export function SiteWorkDateAccordions({
@@ -131,11 +478,6 @@ export function SiteWorkDateAccordions({
     return listDateKeysForSiteWork(siteId, workKind, pk);
   }, [siteId, workKind, revision]);
 
-  const laborByDate = useMemo(
-    () => loadDailyLaborMap(siteId, workKind),
-    [siteId, workKind, revision]
-  );
-
   const toggle = useCallback((dk: string) => {
     setExpanded((prev) => {
       const n = new Set(prev);
@@ -165,264 +507,27 @@ export function SiteWorkDateAccordions({
     <div className={styles.root}>
       <h2 className={styles.sectionTitle}>日付別</h2>
       <ul className={styles.accList}>
-        {dateKeys.map((dateKey) => {
-          const isOpen = expanded.has(dateKey);
-          const labor = laborByDate[dateKey];
-          const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
-          const { entryIso: mainEntryIso, endIso: mainEndIso } =
-            mainMemberTimesForWorkRecord(workKind, photos, labor);
-          const manLabel = labor ? formatManDay(labor.finalManDays) : "—";
-
-          const isContractor = labor ? laborIsContractor(labor) : false;
-          const recordMemberNames =
-            labor && (labor.memberForemanNames.length > 0 || labor.memberKogataNames.length > 0)
-              ? [...labor.memberForemanNames, ...labor.memberKogataNames]
-              : [];
-          const fallbackMemberNames = [
-            site.foremanName,
-            ...site.kogataNames,
-          ].map((n) => n.trim()).filter((n) => n.length > 0);
-          const contractorCompanyTrim = (labor?.contractorCompanyName ?? "").trim();
-          const headerMemberLabel = labor
-            ? isContractor
-              ? `${contractorCompanyTrim || "請負"}${
-                  Number.isFinite(labor.contractorPeopleCount) &&
-                  (labor.contractorPeopleCount ?? 0) > 0
-                    ? `（${labor.contractorPeopleCount}名）`
-                    : ""
-                }`
-              : joinList(
-                  recordMemberNames.length > 0
-                    ? recordMemberNames
-                    : fallbackMemberNames
-                )
-            : "—";
-
-          const needsVehicleFallback =
-            labor &&
-            !isContractor &&
-            labor.vehicleCount === 0 &&
-            labor.memberForemanNames.length === 0 &&
-            labor.memberKogataNames.length === 0;
-          const headerVehicleCount = labor
-            ? needsVehicleFallback
-              ? site.vehicleLabels.length
-              : labor.vehicleCount
-            : NaN;
-          const headerVehicleLabel = labor ? formatVehicleCount(headerVehicleCount) : "—";
-
-          return (
-            <li key={dateKey} className={styles.accItem}>
-              <button
-                type="button"
-                className={styles.accHeader}
-                aria-expanded={isOpen}
-                onClick={() => toggle(dateKey)}
-              >
-                <span className={styles.accHeaderMain}>
-                  <span className={styles.accHeaderLine1}>
-                    {formatDateKeySlash(dateKey)}
-                    <span className={styles.accSep}>　</span>
-                    作業種別：{workKind}
-                  </span>
-                  <span className={styles.accHeaderLine2}>
-                    メンバー：{headerMemberLabel}
-                    <span className={styles.accSep}>　</span>
-                    車両：{headerVehicleLabel}
-                    <span className={styles.accSep}>　</span>
-                    人工：{manLabel}
-                  </span>
-                </span>
-                <span className={styles.accChevron} aria-hidden>
-                  {isOpen ? "▼" : "▶"}
-                </span>
-              </button>
-              {isOpen && (
-                <div className={styles.accPanel}>
-                  <section className={styles.block} aria-label="人工データ">
-                    <h3 className={styles.blockTitle}>人工・手伝い班</h3>
-                    {labor ? (
-                      <>
-                        <dl className={styles.laborDl}>
-                          {laborIsContractor(labor) ? (
-                            <>
-                              <div className={styles.laborRow}>
-                                <dt>請負会社名</dt>
-                                <dd>
-                                  {contractorCompanyTrim || "—"}
-                                </dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>人数</dt>
-                                <dd>
-                                  {formatContractorPeopleCount(
-                                    labor.contractorPeopleCount
-                                  )}
-                                </dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>車両台数</dt>
-                                <dd>
-                                  {formatVehicleCount(labor.vehicleCount)}
-                                </dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>作業開始</dt>
-                                <dd>{formatIsoMaybe(mainEntryIso)}</dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>作業終了</dt>
-                                <dd>{formatIsoMaybe(mainEndIso)}</dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>最終人工</dt>
-                                <dd>
-                                  {formatManDay(labor.finalManDays)}人工
-                                </dd>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className={styles.laborRow}>
-                                <dt>メインメンバー（職長・子方）</dt>
-                                <dd>
-                                  {joinList([
-                                    ...labor.memberForemanNames,
-                                    ...labor.memberKogataNames,
-                                  ])}
-                                </dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>メインメンバー作業開始</dt>
-                                <dd>{formatIsoMaybe(mainEntryIso)}</dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>メインメンバー作業終了</dt>
-                                <dd>{formatIsoMaybe(mainEndIso)}</dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>最終人工</dt>
-                                <dd>
-                                  {formatManDay(labor.finalManDays)}人工
-                                </dd>
-                              </div>
-                              {(labor.workManDaysPerPerson ??
-                                labor.joyoManDaysPerPerson) != null && (
-                                <div className={styles.laborRow}>
-                                  <dt>1人あたり人工（セッション）</dt>
-                                  <dd>
-                                    {formatManDay(
-                                      labor.workManDaysPerPerson ??
-                                        labor.joyoManDaysPerPerson
-                                    )}
-                                    人工
-                                  </dd>
-                                </div>
-                              )}
-                              <div className={styles.laborRow}>
-                                <dt>手伝い班</dt>
-                                <dd>{labor.hadHelpTeam ? "あり" : "なし"}</dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>手伝いメンバー</dt>
-                                <dd>
-                                  {labor.hadHelpTeam &&
-                                  labor.helpMemberNames.length > 0
-                                    ? joinList(labor.helpMemberNames)
-                                    : "—"}
-                                </dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>手伝い開始</dt>
-                                <dd>{labor.helpStartTime ?? "—"}</dd>
-                              </div>
-                              <div className={styles.laborRow}>
-                                <dt>手伝い終了</dt>
-                                <dd>{labor.helpEndTime ?? "—"}</dd>
-                              </div>
-                            </>
-                          )}
-                        </dl>
-                        <button
-                          type="button"
-                          className={styles.laborDeleteBtn}
-                          onClick={() => setLaborConfirm(labor)}
-                        >
-                          この日の人工データを削除
-                        </button>
-                      </>
-                    ) : (
-                      <p className={styles.muted}>
-                        未登録です。作業終了の打刻後、手伝い班・最終人工の確認を完了すると表示されます。
-                      </p>
-                    )}
-                  </section>
-
-                  <SiteWorkRecordPunchBlock
-                    siteId={siteId}
-                    siteName={siteName}
-                    workKind={workKind}
-                    dateKey={dateKey}
-                    revision={revision}
-                    onStorageChange={onInvalidate}
-                    onLaborModalNeeded={onLaborModalNeeded}
-                    onAfterWorkStartPunch={onAfterWorkStartPunch}
-                    embedded
-                  />
-
-                  <section className={styles.block} aria-label="写真一覧">
-                    <h3 className={styles.blockTitle}>写真</h3>
-                    {photos.length === 0 ? (
-                      <p className={styles.muted}>この日の写真はありません。</p>
-                    ) : (
-                      <ul className={photoStyles.photoGrid}>
-                        {photos.map((p: SitePhoto, pi: number) => (
-                          <li key={p.id} className={photoStyles.photoCard}>
-                            <button
-                              type="button"
-                              className={photoStyles.thumbOpenBtn}
-                              onClick={() =>
-                                setPhotoLightbox({ photos, index: pi })
-                              }
-                              aria-label="写真を拡大表示"
-                            >
-                              <div className={photoStyles.thumbWrap}>
-                                <div className={photoStyles.badgeOverlay}>
-                                  <PhotoCategoryBadge category={p.category} />
-                                </div>
-                                <img
-                                  src={sitePhotoDisplaySrc(p)}
-                                  alt={p.fileName}
-                                  className={photoStyles.thumb}
-                                  loading="lazy"
-                                />
-                              </div>
-                            </button>
-                            <div className={photoStyles.caption}>
-                              <time
-                                className={photoStyles.time}
-                                dateTime={p.uploadedAt}
-                              >
-                                {formatUploadedAt(p.uploadedAt)}
-                              </time>
-                              <button
-                                type="button"
-                                className={photoStyles.deleteBtn}
-                                onClick={() => removePhoto(dateKey, p.id)}
-                              >
-                                削除
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                </div>
-              )}
-            </li>
-          );
-        })}
+        {dateKeys.map((dateKey) => (
+          <SiteWorkDateAccordionRow
+            key={dateKey}
+            siteId={siteId}
+            site={site}
+            siteName={siteName}
+            workKind={workKind}
+            dateKey={dateKey}
+            revision={revision}
+            isOpen={expanded.has(dateKey)}
+            onToggleDate={() => toggle(dateKey)}
+            onInvalidate={onInvalidate}
+            onLaborModalNeeded={onLaborModalNeeded}
+            onAfterWorkStartPunch={onAfterWorkStartPunch}
+            onPhotoLightbox={(photos, index) =>
+              setPhotoLightbox({ photos, index })
+            }
+            removePhoto={removePhoto}
+            onLaborDeleteRequest={(record) => setLaborConfirm(record)}
+          />
+        ))}
       </ul>
 
       <PhotoLightboxModal

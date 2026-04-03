@@ -39,6 +39,79 @@
   overflow: hidden;
 }
 
+.accTopRow {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.accTopRow .accHeader {
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+}
+
+.accHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.accHeaderSep {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  user-select: none;
+  font-weight: 500;
+}
+
+.accHeaderCell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.accHeaderCellDate {
+  flex: 0 0 auto;
+  max-width: 5.75rem;
+}
+
+.accHeaderCellKind {
+  flex: 0 1 5.5rem;
+}
+
+.accHeaderCellWorker {
+  flex: 1 1 6rem;
+}
+
+.accHeaderCellMan {
+  flex: 0 0 3.25rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.headerPunchCluster {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.4rem;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.headerPunchBtn {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 0.38rem 0.5rem !important;
+  white-space: nowrap;
+}
+
 .accHeader {
   display: flex;
   align-items: flex-start;
