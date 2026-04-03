@@ -21,15 +21,22 @@ import { laborIsContractor } from "../lib/siteDailyLaborEmployment";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import { PhotoLightboxModal } from "./PhotoLightboxModal";
+import {
+  SiteWorkRecordPunchBlock,
+  type LaborModalCtx,
+} from "./SiteWorkRecordPunchBlock";
 import photoStyles from "./SitePhotosSection.module.css";
 import styles from "./SiteWorkDateAccordions.module.css";
 
 type Props = {
   siteId: string;
   site: Site;
+  siteName: string;
   workKind: WorkKind;
   revision: number;
   onInvalidate: () => void;
+  onLaborModalNeeded: (ctx: LaborModalCtx) => void;
+  onAfterWorkStartPunch?: () => void;
 };
 
 function formatDateKeySlash(dateKey: string): string {
@@ -98,9 +105,12 @@ function formatContractorPeopleCount(
 export function SiteWorkDateAccordions({
   siteId,
   site,
+  siteName,
   workKind,
   revision,
   onInvalidate,
+  onLaborModalNeeded,
+  onAfterWorkStartPunch,
 }: Props) {
   const [expanded, setExpanded] = useState(() => new Set<string>());
   const [laborConfirm, setLaborConfirm] = useState<SiteDailyLaborRecord | null>(
@@ -347,6 +357,18 @@ export function SiteWorkDateAccordions({
                       </p>
                     )}
                   </section>
+
+                  <SiteWorkRecordPunchBlock
+                    siteId={siteId}
+                    siteName={siteName}
+                    workKind={workKind}
+                    dateKey={dateKey}
+                    revision={revision}
+                    onStorageChange={onInvalidate}
+                    onLaborModalNeeded={onLaborModalNeeded}
+                    onAfterWorkStartPunch={onAfterWorkStartPunch}
+                    embedded
+                  />
 
                   <section className={styles.block} aria-label="写真一覧">
                     <h3 className={styles.blockTitle}>写真</h3>

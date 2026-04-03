@@ -18,7 +18,6 @@ import { todayLocalDateKey } from "../lib/dateUtils";
 import { WORK_KINDS, type WorkKind } from "../types/workKind";
 import { LaborSummaryBar } from "../components/LaborSummaryBar";
 import { HelpTeamLaborModal } from "../components/HelpTeamLaborModal";
-import { SiteWorkTimeSection } from "../components/SiteWorkTimeSection";
 import { SiteWorkStartModal } from "../components/SiteWorkStartModal";
 import { SiteNotificationRecipientsPanel } from "../components/SiteNotificationRecipientsPanel";
 import { loadDailyLaborMap } from "../lib/siteDailyLaborStorage";
@@ -347,13 +346,6 @@ export function SiteDetailPage() {
     return WORK_KINDS.filter((k) => Boolean(loadDailyLaborMap(safeSite.id, k)[todayKey]));
   }, [safeSite.id, todayKey, fileRevision]);
 
-  /** 写真アップロード先の作業種別（今日の人工が無いときは画面上の workKind を使う） */
-  const photoSectionWorkKind = useMemo<WorkKind>(() => {
-    if (todayWorkKinds.length === 1) return todayWorkKinds[0];
-    if (todayWorkKinds.length > 1) return todayUploadKind;
-    return workKind;
-  }, [todayWorkKinds, todayUploadKind, workKind]);
-
   useEffect(() => {
     // 今日の作業が1件なら自動選択、複数なら先頭をデフォルトにする
     if (todayWorkKinds.length === 0) return;
@@ -559,40 +551,6 @@ export function SiteDetailPage() {
           </div>
         )}
 
-        {todayWorkKinds.length > 1 && (
-          <div
-            className={styles.workKindTabs}
-            role="group"
-            aria-label="本日登録済みの作業種別の切り替え"
-          >
-            {todayWorkKinds.map((k) => (
-              <button
-                key={k}
-                type="button"
-                className={
-                  todayUploadKind === k
-                    ? styles.workKindTabActive
-                    : styles.workKindTab
-                }
-                onClick={() => setTodayUploadKind(k)}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <SiteWorkTimeSection
-          siteId={safeSite.id}
-          siteName={safeSite.name}
-          workKind={photoSectionWorkKind}
-          revision={fileRevision}
-          todayDateKey={todayKey}
-          onStorageChange={bumpFile}
-          onLaborModalNeeded={(ctx) => setHelpLaborModal(ctx)}
-          onAfterWorkStartPunch={() => setWorkPunchStartAckOpen(true)}
-        />
-
         {helpLaborModal && (
           <HelpTeamLaborModal
             siteId={safeSite.id}
@@ -609,8 +567,11 @@ export function SiteDetailPage() {
         <SiteWorkRecordList
           siteId={safeSite.id}
           site={safeSite}
+          siteName={safeSite.name}
           revision={fileRevision}
           onInvalidate={bumpFile}
+          onLaborModalNeeded={(ctx) => setHelpLaborModal(ctx)}
+          onAfterWorkStartPunch={() => setWorkPunchStartAckOpen(true)}
         />
       </section>
 

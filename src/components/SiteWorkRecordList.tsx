@@ -23,6 +23,10 @@ import { laborIsContractor } from "../lib/siteDailyLaborEmployment";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
 import { PhotoLightboxModal } from "./PhotoLightboxModal";
+import {
+  SiteWorkRecordPunchBlock,
+  type LaborModalCtx,
+} from "./SiteWorkRecordPunchBlock";
 import { SiteWorkPhotoAddButton } from "./SiteWorkPhotoAddButton";
 import photoStyles from "./SitePhotosSection.module.css";
 import accStyles from "./SiteWorkDateAccordions.module.css";
@@ -38,8 +42,12 @@ type WorkRecordRow = {
 type Props = {
   siteId: string;
   site: Site;
+  /** 通知・表示用の現場名 */
+  siteName: string;
   revision: number;
   onInvalidate: () => void;
+  onLaborModalNeeded: (ctx: LaborModalCtx) => void;
+  onAfterWorkStartPunch?: () => void;
 };
 
 function formatDateKeySlash(dateKey: string): string {
@@ -105,7 +113,15 @@ function mainMemberTimesForWorkRecord(
   return mainMemberWorkTimesFromPhotos(photos);
 }
 
-export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Props) {
+export function SiteWorkRecordList({
+  siteId,
+  site,
+  siteName,
+  revision,
+  onInvalidate,
+  onLaborModalNeeded,
+  onAfterWorkStartPunch,
+}: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [laborConfirm, setLaborConfirm] = useState<{
@@ -453,6 +469,18 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
                         </p>
                       )}
                     </section>
+
+                    <SiteWorkRecordPunchBlock
+                      siteId={siteId}
+                      siteName={siteName}
+                      workKind={workKind}
+                      dateKey={dateKey}
+                      revision={revision}
+                      onStorageChange={onInvalidate}
+                      onLaborModalNeeded={onLaborModalNeeded}
+                      onAfterWorkStartPunch={onAfterWorkStartPunch}
+                      embedded
+                    />
 
                     <section className={accStyles.block} aria-label="写真一覧">
                       <h3 className={accStyles.blockTitle}>写真</h3>

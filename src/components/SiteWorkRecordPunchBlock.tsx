@@ -8,14 +8,12 @@ import {
   loadDailyLaborMap,
   saveDailyLaborRecord,
 } from "../lib/siteDailyLaborStorage";
-import {
-  workSessionTotalManDaysFromRecord,
-} from "../lib/manDayCalculations";
+import { workSessionTotalManDaysFromRecord } from "../lib/manDayCalculations";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { notifyWorkEndFcm, notifyWorkStartFcm } from "../lib/fcmNotifyApi";
 import styles from "./SiteJoyoWorkSection.module.css";
 
-type LaborModalCtx = {
+export type LaborModalCtx = {
   workKind: WorkKind;
   dateKey: string;
   entryIso: string | null;
@@ -24,15 +22,15 @@ type LaborModalCtx = {
 
 type Props = {
   siteId: string;
-  /** 通知文面用（マスターの現場名） */
   siteName: string;
   workKind: WorkKind;
+  dateKey: string;
   revision: number;
-  todayDateKey: string;
   onStorageChange?: () => void;
   onLaborModalNeeded: (ctx: LaborModalCtx) => void;
-  /** 作業開始打刻が保存された直後（注意モーダル用） */
   onAfterWorkStartPunch?: () => void;
+  /** アコーディオン内では true（上マージンを抑える） */
+  embedded?: boolean;
 };
 
 function formatAt(iso: string): string {
@@ -64,15 +62,16 @@ function openLaborModalFromRecord(
   });
 }
 
-export function SiteWorkTimeSection({
+export function SiteWorkRecordPunchBlock({
   siteId,
   siteName,
   workKind,
+  dateKey,
   revision,
-  todayDateKey,
   onStorageChange,
   onLaborModalNeeded,
   onAfterWorkStartPunch,
+  embedded,
 }: Props) {
   const [confirmKind, setConfirmKind] = useState<"start" | "end" | null>(null);
   const { phase: confirmPhase, run: runConfirm, reset: resetConfirmPhase } =
@@ -82,8 +81,8 @@ export function SiteWorkTimeSection({
   const prevConfirmOpenRef = useRef(false);
 
   const labor = useMemo(
-    () => loadDailyLaborMap(siteId, workKind)[todayDateKey],
-    [siteId, workKind, todayDateKey, revision]
+    () => loadDailyLaborMap(siteId, workKind)[dateKey],
+    [siteId, workKind, dateKey, revision]
   );
 
   function persist(next: SiteDailyLaborRecord) {
@@ -121,7 +120,12 @@ export function SiteWorkTimeSection({
     const nm = siteName.trim() || "現場";
     notifyWorkEndFcm(nm, workKind);
     openLaborModalFromRecord(
-      { ...labor, workEndIso: endIso, workManDaysPerPerson: perPerson, dateKey: labor.dateKey },
+      {
+        ...labor,
+        workEndIso: endIso,
+        workManDaysPerPerson: perPerson,
+        dateKey: labor.dateKey,
+      },
       workKind,
       onLaborModalNeeded
     );
@@ -144,15 +148,25 @@ export function SiteWorkTimeSection({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [confirmKind, confirmPhase]);
 
+  const sectionClass = embedded
+    ? `${styles.section} ${styles.sectionEmbedded}`
+    : styles.section;
+
   if (!labor) {
     return (
-      <section className={styles.section} aria-labelledby="work-time-heading">
+      <section
+        className={sectionClass}
+        aria-labelledby={`work-punch-heading-${dateKey}-${workKind}`}
+      >
         <div className={styles.sectionHead}>
-          <h2 id="work-time-heading" className={styles.sectionTitle}>
-            作業の打刻（{workKind}）
-          </h2>
+          <h3
+            id={`work-punch-heading-${dateKey}-${workKind}`}
+            className={styles.sectionTitle}
+          >
+            作業の打刻
+          </h3>
           <p className={styles.empty}>
-            本日の作業記録がありません。「＋作業内容を登録する」から登録してください。
+            この日の作業記録がありません。「作業内容を登録する」から登録してください。
           </p>
         </div>
       </section>
@@ -166,12 +180,21 @@ export function SiteWorkTimeSection({
   const needsLaborConfirm =
     Boolean(endIso) && labor.finalManDays === null;
 
+  const startLabel = startIso ? "開始済み" : "作業を開始する";
+  const endLabel = endIso ? "終了済み" : "作業を終了する";
+
   return (
-    <section className={styles.section} aria-labelledby="work-time-heading">
+    <section
+      className={sectionClass}
+      aria-labelledby={`work-punch-heading-${dateKey}-${workKind}`}
+    >
       <div className={styles.sectionHead}>
-        <h2 id="work-time-heading" className={styles.sectionTitle}>
-          作業の打刻（{workKind}）
-        </h2>
+        <h3
+          id={`work-punch-heading-${dateKey}-${workKind}`}
+          className={styles.sectionTitle}
+        >
+          作業の打刻
+        </h3>
         <p className={styles.lead}>
           作業開始・終了を打刻します。終了後に手伝い班の有無と最終人工を確定します。
         </p>
@@ -191,19 +214,19 @@ export function SiteWorkTimeSection({
       <div className={styles.actions}>
         <button
           type="button"
-          className={`${styles.btnStart}${canStart ? ` ${styles.btnStartPulse}` : ""}`}
+          className={`${styles.btnStart}${canStart ? ` ${styles.btnStartPulse}` : ""}${startIso ? ` ${styles.btnMuted}` : ""}`}
           disabled={!canStart}
           onClick={() => setConfirmKind("start")}
         >
-          作業を開始する
+          {startLabel}
         </button>
         <button
           type="button"
-          className={`${styles.btnEnd}${canEnd ? ` ${styles.btnEndPulse}` : ""}`}
+          className={`${styles.btnEnd}${canEnd ? ` ${styles.btnEndPulse}` : ""}${endIso ? ` ${styles.btnMuted}` : ""}`}
           disabled={!canEnd}
           onClick={() => setConfirmKind("end")}
         >
-          作業を終了する
+          {endLabel}
         </button>
       </div>
 
@@ -220,10 +243,13 @@ export function SiteWorkTimeSection({
             className={styles.modal}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="work-punch-confirm-title"
+            aria-labelledby={`work-punch-confirm-${dateKey}-${workKind}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="work-punch-confirm-title" className={styles.modalTitle}>
+            <h2
+              id={`work-punch-confirm-${dateKey}-${workKind}`}
+              className={styles.modalTitle}
+            >
               確認
             </h2>
             <p className={styles.modalBody}>
@@ -277,7 +303,9 @@ export function SiteWorkTimeSection({
           <button
             type="button"
             className={styles.btnEnd}
-            onClick={() => openLaborModalFromRecord(labor, workKind, onLaborModalNeeded)}
+            onClick={() =>
+              openLaborModalFromRecord(labor, workKind, onLaborModalNeeded)
+            }
           >
             手伝い班・最終人工の確定を続ける
           </button>

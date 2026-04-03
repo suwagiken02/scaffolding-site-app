@@ -4,6 +4,18 @@
   border-top: 1px solid var(--border);
 }
 
+/** アコーディオン内に埋め込むとき */
+.sectionEmbedded {
+  margin-top: 0;
+  padding-top: 1rem;
+  margin-bottom: 0;
+  border-top: 1px solid var(--border);
+}
+
+.sectionEmbedded .sectionTitle {
+  font-size: 1.05rem;
+}
+
 .sectionHead {
   margin-bottom: 1rem;
 }
@@ -94,6 +106,10 @@
 .btnEnd:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.btnMuted:disabled {
+  opacity: 0.82;
 }
 
 .btnStartPulse:not(:disabled) {
