@@ -540,7 +540,7 @@ export function SiteEditorForm({
 
         <div className={formStyles.field}>
           <label className={formStyles.label} htmlFor="site-editor-company-kind">
-            8. 区分（KOUSEI / 自社（白） / 自社（緑））
+            8. 区分（KOUSEI / 自社）
           </label>
           <select
             id="site-editor-company-kind"
@@ -552,8 +552,15 @@ export function SiteEditorForm({
             aria-label="区分"
           >
             <option value="KOUSEI">KOUSEI</option>
-            <option value="自社">自社（白）</option>
-            <option value="自社_green">自社（緑）</option>
+            <option
+              value="自社"
+              style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
+            >
+              自社
+            </option>
+            <option value="自社_green" style={{ color: "#15803d" }}>
+              自社
+            </option>
           </select>
         </div>
 
