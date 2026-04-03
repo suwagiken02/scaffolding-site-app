@@ -43,15 +43,15 @@ export function Layout() {
               decoding="async"
             />
           </Link>
-          <nav className={styles.nav} aria-label="„?°„?§„?≥„??„??„?≤„?º„?∑„?ß„?≥">
+          <nav className={styles.nav} aria-label="??????????">
             <Link to="/" className={styles.navLink}>
-              ÁèæÂ†¥
+              ??
             </Link>
             <Link to="/staff" className={styles.navLink}>
-              Á§æÂ?°„??„?§„??„ÅE„?∏
+              ???????
             </Link>
             <Link to="/contractor/view" className={styles.navLink}>
-              Âç?Â??Ê•≠Ë?ÅEÅE„?§„??„ÅE„?∏
+              ?????????
             </Link>
             <div className={styles.navDropdown} ref={adminRef}>
               <button
@@ -63,9 +63,9 @@ export function Layout() {
                 id="nav-admin-trigger"
                 onClick={() => setAdminOpen((v) => !v)}
               >
-                ÁÆ°ÁêÅE
+                ??
                 <span className={styles.navDropdownChevron} aria-hidden>
-                  {adminOpen ? "‚?≤" : "‚?º"}
+                  {adminOpen ? "?" : "?"}
                 </span>
               </button>
               {adminOpen && (
@@ -82,7 +82,7 @@ export function Layout() {
                       role="menuitem"
                       onClick={() => setAdminOpen(false)}
                     >
-                      KOUSEIÁÆ°ÁêÅE
+                      KOUSEI??
                     </Link>
                   </li>
                   <li role="none">
@@ -92,7 +92,7 @@ export function Layout() {
                       role="menuitem"
                       onClick={() => setAdminOpen(false)}
                     >
-                      ‰º?Ê??Á?≥Ë´ÅE
+                      ????
                     </Link>
                   </li>
                   <li role="none">
@@ -102,7 +102,7 @@ export function Layout() {
                       role="menuitem"
                       onClick={() => setAdminOpen(false)}
                     >
-                      „?ø„?§„?†„?´„?º„?ÅE
+                      ??????
                     </Link>
                   </li>
                   <li role="none">
@@ -112,7 +112,7 @@ export function Layout() {
                       role="menuitem"
                       onClick={() => setAdminOpen(false)}
                     >
-                      Áµ¶‰∏?ÊÅEÁ¥∞
+                      ????
                     </Link>
                   </li>
                   <li role="none">
@@ -122,7 +122,7 @@ export function Layout() {
                       role="menuitem"
                       onClick={() => setAdminOpen(false)}
                     >
-                      ÂêçÁ∞øÁÆ°ÁêÅE
+                      ????
                     </Link>
                   </li>
                   <li role="none">
@@ -132,7 +132,7 @@ export function Layout() {
                       role="menuitem"
                       onClick={() => setAdminOpen(false)}
                     >
-                      „??„?π„?ø„?ºË®≠ÂÆÅE
+                      ??????
                     </Link>
                   </li>
                 </ul>
