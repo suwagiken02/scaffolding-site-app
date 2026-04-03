@@ -4,7 +4,6 @@ import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import { type SitePhoto, sitePhotoDisplaySrc } from "../types/sitePhoto";
-import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   loadPhotosForSiteWorkDate,
   mainMemberWorkTimesFromPhotos,
@@ -95,9 +94,8 @@ function mainMemberTimesForWorkRecord(
 }
 
 export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Props) {
-  const today = useMemo(() => todayLocalDateKey(), []);
   const [filter, setFilter] = useState<Filter>("all");
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set([today]));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [laborConfirm, setLaborConfirm] = useState<{
     workKind: WorkKind;
     record: SiteDailyLaborRecord;
@@ -127,11 +125,6 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
     if (filter === "all") return rows;
     return rows.filter((r) => r.workKind === filter);
   }, [rows, filter]);
-
-  useEffect(() => {
-    // 今日の記録は常にデフォルト展開（記録作成/保存直後にも効く）
-    setExpanded((prev) => new Set([...prev, todayLocalDateKey()]));
-  }, [revision]);
 
   useEffect(() => {
     function onFocusSiteWorkRecord(e: Event) {
@@ -215,7 +208,7 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
         <ul className={accStyles.accList}>
           {filtered.map(({ workKind, dateKey }) => {
             const key = rowKey(workKind, dateKey);
-            const isOpen = expanded.has(dateKey); // 今日は日付基準で開く
+            const isOpen = expanded.has(dateKey);
             const labor = loadDailyLaborMap(siteId, workKind)[dateKey];
             const photos = loadPhotosForSiteWorkDate(siteId, workKind, dateKey);
             const { entryIso: mainEntryIso, endIso: mainEndIso } =
