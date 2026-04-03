@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Site } from "../types/site";
 import type { WorkKind } from "../types/workKind";
 import { WORK_KINDS } from "../types/workKind";
+import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   loadDailyLaborMap,
   saveDailyLaborRecord,
@@ -17,7 +18,6 @@ import styles from "./SiteWorkStartModal.module.css";
 
 type Props = {
   site: Site;
-  todayDateKey: string;
   initialWorkKind: WorkKind;
   onClose: () => void;
   onStarted: (nextWorkKind: WorkKind) => void;
@@ -32,7 +32,6 @@ function toNumberOrNaN(raw: string): number {
 
 export function SiteWorkStartModal({
   site,
-  todayDateKey,
   initialWorkKind,
   onClose,
   onStarted,
@@ -77,11 +76,14 @@ export function SiteWorkStartModal({
   );
   const [error, setError] = useState<string | null>(null);
   const [completedKind, setCompletedKind] = useState<WorkKind | null>(null);
+  const [workDateKey, setWorkDateKey] = useState(() => todayLocalDateKey());
 
-  const hasTodayRecordForSelectedKind = useMemo(() => {
+  const todayKeyMax = todayLocalDateKey();
+
+  const hasRecordForSelectedDateAndKind = useMemo(() => {
     const laborByDate = loadDailyLaborMap(site.id, workKind);
-    return Boolean(laborByDate[todayDateKey]);
-  }, [site.id, todayDateKey, workKind]);
+    return Boolean(laborByDate[workDateKey]);
+  }, [site.id, workKind, workDateKey]);
 
   const startDisabled = useMemo(() => {
     const hasMembers =
@@ -98,7 +100,7 @@ export function SiteWorkStartModal({
     return (
       !(employmentKind === "社員" ? hasMembers : hasCompany && hasPeople) ||
       !hasValidVehicle ||
-      hasTodayRecordForSelectedKind
+      hasRecordForSelectedDateAndKind
     );
   }, [
     vehicleCount,
@@ -109,7 +111,7 @@ export function SiteWorkStartModal({
     contractorSelectId,
     contractors,
     contractorPeopleRaw,
-    hasTodayRecordForSelectedKind,
+    hasRecordForSelectedDateAndKind,
   ]);
 
   function toggle(setter: (next: Set<string>) => void, set: Set<string>, name: string) {
@@ -151,14 +153,26 @@ export function SiteWorkStartModal({
       setError("車両台数は 1 以上の整数で指定してください。");
       return;
     }
-    if (hasTodayRecordForSelectedKind) {
-      setError("この作業種別の本日分記録は既に作成されています。");
+    const saveDateKey = workDateKey.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(saveDateKey)) {
+      setError("作業日を正しく選択してください。");
+      return;
+    }
+    const today = todayLocalDateKey();
+    if (saveDateKey > today) {
+      setError("作業日に未来の日付は指定できません。");
+      return;
+    }
+    if (hasRecordForSelectedDateAndKind) {
+      setError(
+        "この作業種別・この作業日の記録は既に作成されています。"
+      );
       return;
     }
 
     const record: SiteDailyLaborRecord = {
       createdAt: new Date().toISOString(),
-      dateKey: todayDateKey,
+      dateKey: saveDateKey,
       finalManDays: null,
       employmentKind,
       contractorCompanyName,
@@ -236,6 +250,29 @@ export function SiteWorkStartModal({
 
         <div className={styles.modalScroll}>
           <div className={styles.form}>
+          <div className={styles.field}>
+            <label className={styles.dateFieldLabel} htmlFor="work-start-date">
+              <span className={styles.label}>作業日</span>
+              <input
+                id="work-start-date"
+                className={styles.dateInput}
+                type="date"
+                value={workDateKey}
+                max={todayKeyMax}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const t = todayLocalDateKey();
+                  if (!v) {
+                    setWorkDateKey(t);
+                    return;
+                  }
+                  setWorkDateKey(v > t ? t : v);
+                }}
+                aria-label="作業日"
+              />
+            </label>
+          </div>
+
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>作業種別</legend>
             <div className={styles.radioRow}>
@@ -415,9 +452,9 @@ export function SiteWorkStartModal({
             </p>
           )}
 
-          {hasTodayRecordForSelectedKind && (
+          {hasRecordForSelectedDateAndKind && (
             <p className={styles.note}>
-              この作業種別の本日分記録は既に作成されています。別の作業種別を選ぶか、作業記録一覧をご確認ください。
+              この作業種別・この作業日の記録は既に作成されています。別の作業種別・日付を選ぶか、作業記録一覧をご確認ください。
             </p>
           )}
           </div>

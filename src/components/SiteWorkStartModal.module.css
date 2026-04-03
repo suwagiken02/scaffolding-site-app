@@ -118,6 +118,35 @@
   font-weight: 800;
 }
 
+.dateFieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 800;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.dateInput {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 0.55rem 0.75rem;
+  min-height: 44px;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
 .label {
   color: var(--text-muted);
 }

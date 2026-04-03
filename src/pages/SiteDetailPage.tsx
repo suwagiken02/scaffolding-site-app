@@ -517,7 +517,6 @@ export function SiteDetailPage() {
         {workStartOpen && (
           <SiteWorkStartModal
             site={safeSite}
-            todayDateKey={todayKey}
             initialWorkKind={workKind}
             onClose={() => setWorkStartOpen(false)}
             onStarted={(next) => {
