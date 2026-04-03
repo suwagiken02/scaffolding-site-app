@@ -1,6 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ActionProgressContent } from "./ActionProgressButton";
+import actionProgressStyles from "./ActionProgressButton.module.css";
+import { useAsyncActionFeedback } from "../hooks/useAsyncActionFeedback";
 import type { Site, CompanyKind, SiteMemo } from "../types/site";
 import type { MasterItem } from "../types/masterItem";
 import {
@@ -50,6 +53,8 @@ function staffName(list: StaffMaster[], id: string): string {
 type Props = {
   initialSite: Site | null;
   onSubmit: (site: Site) => void;
+  /** 成功表示（緑・2秒）のあとに呼ぶ処理（例: 画面遷移） */
+  onSubmitComplete?: (site: Site) => void;
   cancelHref: string;
   pageTitle: string;
   lead?: string;
@@ -61,6 +66,7 @@ type Props = {
 export function SiteEditorForm({
   initialSite,
   onSubmit,
+  onSubmitComplete,
   cancelHref,
   pageTitle,
   lead,
@@ -97,6 +103,15 @@ export function SiteEditorForm({
   const [ignoreSiteListWarning, setIgnoreSiteListWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [siteMemos, setSiteMemos] = useState<SiteMemo[]>([]);
+
+  const pendingSubmitCompleteRef = useRef<Site | null>(null);
+  const { phase: submitPhase, run: runSubmit } = useAsyncActionFeedback({
+    onAfterSuccessReset: () => {
+      const s = pendingSubmitCompleteRef.current;
+      pendingSubmitCompleteRef.current = null;
+      if (s) onSubmitComplete?.(s);
+    },
+  });
 
   useEffect(() => {
     if (!initialSite) {
@@ -256,6 +271,7 @@ export function SiteEditorForm({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitPhase !== "idle") return;
     setError(null);
 
     const c = loadClientMasters();
@@ -314,7 +330,11 @@ export function SiteEditorForm({
       ...(alwaysShowOnMap ? { alwaysShowOnMap: true } : {}),
     };
 
-    onSubmit(site);
+    void runSubmit(async () => {
+      await new Promise<void>((r) => queueMicrotask(r));
+      onSubmit(site);
+      pendingSubmitCompleteRef.current = onSubmitComplete ? site : null;
+    });
   }
 
   return (
@@ -663,8 +683,21 @@ export function SiteEditorForm({
         )}
 
         <div className={formStyles.actions}>
-          <button type="submit" className={formStyles.submit}>
-            {submitLabel}
+          <button
+            type="submit"
+            className={`${formStyles.submit} ${actionProgressStyles.host} ${submitPhase === "success" ? actionProgressStyles.hostSuccess : ""}`}
+            style={{
+              pointerEvents: submitPhase !== "idle" ? "none" : undefined,
+            }}
+            aria-busy={submitPhase !== "idle"}
+            aria-disabled={submitPhase !== "idle"}
+          >
+            <span className={actionProgressStyles.content}>
+              <ActionProgressContent
+                phase={submitPhase}
+                idleLabel={submitLabel}
+              />
+            </span>
           </button>
           <Link to={cancelHref} className={formStyles.cancel}>
             キャンセル

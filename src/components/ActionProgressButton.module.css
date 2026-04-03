@@ -1,0 +1,48 @@
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 1.1em;
+  line-height: 1.2;
+}
+
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  box-sizing: border-box;
+}
+
+.hostSuccess .spinner {
+  display: none;
+}
+
+/** 完了時は緑（親の背景を上書き） */
+.hostSuccess {
+  background: #10b981 !important;
+  color: #fff !important;
+}
+
+.hostSuccess:hover:not(:disabled) {
+  background: #059669 !important;
+  filter: none;
+}

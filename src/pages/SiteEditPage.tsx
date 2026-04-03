@@ -20,6 +20,9 @@ export function SiteEditPage() {
 
   function handleSubmit(updated: Site) {
     updateSite(updated);
+  }
+
+  function handleSubmitComplete(updated: Site) {
     navigate(`/sites/${updated.id}`);
   }
 
@@ -44,6 +47,7 @@ export function SiteEditPage() {
     <SiteEditorForm
       initialSite={site}
       onSubmit={handleSubmit}
+      onSubmitComplete={handleSubmitComplete}
       cancelHref={`/sites/${site.id}`}
       pageTitle="現場の編集"
       lead="内容を変更して保存すると、現場ページに反映されます。"

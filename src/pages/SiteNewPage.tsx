@@ -8,6 +8,9 @@ export function SiteNewPage() {
 
   function handleSubmit(site: Site) {
     addSite(site);
+  }
+
+  function handleSubmitComplete(site: Site) {
     navigate(`/sites/${site.id}`, { replace: true });
   }
 
@@ -15,6 +18,7 @@ export function SiteNewPage() {
     <SiteEditorForm
       initialSite={null}
       onSubmit={handleSubmit}
+      onSubmitComplete={handleSubmitComplete}
       cancelHref="/"
       pageTitle="現場の新規登録"
       lead="入力後に登録すると、その現場専用のページが作成されます。"

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActionProgressContent } from "../components/ActionProgressButton";
+import actionProgressStyles from "../components/ActionProgressButton.module.css";
+import { useAsyncActionFeedback } from "../hooks/useAsyncActionFeedback";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import { loadStaffMasters } from "../lib/staffMasterStorage";
 import { staffIsAttendanceEligible } from "../types/staffMaster";
@@ -169,6 +172,18 @@ export function AttendancePage() {
   const deleteConfirmRef = useRef<string | null>(null);
   const deletePinOpenRef = useRef(false);
   const punchBusyRef = useRef(false);
+  const pendingPunchDoneMessageRef = useRef<string | null>(null);
+  const { phase: punchPhase, run: runPunch, reset: resetPunchPhase } =
+    useAsyncActionFeedback({
+      onAfterSuccessReset: () => {
+        punchBusyRef.current = false;
+        const msg = pendingPunchDoneMessageRef.current;
+        pendingPunchDoneMessageRef.current = null;
+        setMeeting(null);
+        if (msg) setDoneMessage(msg);
+      },
+    });
+  const prevMeetingOpenRef = useRef(false);
   confirmRef.current = confirm;
   meetingRef.current = meeting;
   doneMessageRef.current = doneMessage;
@@ -267,13 +282,21 @@ export function AttendancePage() {
   }, [confirm]);
 
   useEffect(() => {
+    const open = meeting !== null;
+    if (open && !prevMeetingOpenRef.current) {
+      resetPunchPhase();
+    }
+    prevMeetingOpenRef.current = open;
+  }, [meeting, resetPunchPhase]);
+
+  useEffect(() => {
     if (!meeting) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setMeeting(null);
+      if (e.key === "Escape" && punchPhase === "idle") setMeeting(null);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [meeting]);
+  }, [meeting, punchPhase]);
 
   useEffect(() => {
     if (!deleteConfirm) return;
@@ -724,7 +747,10 @@ export function AttendancePage() {
         <div
           className={styles.modalBackdrop}
           role="presentation"
-          onClick={() => setMeeting(null)}
+          onClick={() => {
+            if (punchPhase !== "idle") return;
+            setMeeting(null);
+          }}
         >
           <div
             className={styles.modal}
@@ -807,13 +833,19 @@ export function AttendancePage() {
               <button
                 type="button"
                 className={styles.modalBack}
+                disabled={punchPhase !== "idle"}
                 onClick={() => setMeeting(null)}
               >
                 戻る
               </button>
               <button
                 type="button"
-                className={styles.modalYes}
+                className={`${styles.modalYes} ${actionProgressStyles.host} ${punchPhase === "success" ? actionProgressStyles.hostSuccess : ""}`}
+                style={{
+                  pointerEvents: punchPhase !== "idle" ? "none" : undefined,
+                }}
+                aria-busy={punchPhase !== "idle"}
+                aria-disabled={punchPhase !== "idle"}
                 onClick={() => {
                   const chosen =
                     meeting.selected ?? normalizeHHmmOrNull(meeting.otherRaw);
@@ -825,8 +857,7 @@ export function AttendancePage() {
                   }
                   const nowIso = new Date().toISOString();
                   const personName = meeting.personName;
-                  setMeeting(null);
-                  void (async () => {
+                  void runPunch(async () => {
                     punchBusyRef.current = true;
                     try {
                       const dateKey = todayKey;
@@ -837,20 +868,25 @@ export function AttendancePage() {
                         chosen
                       );
                       const t = formatTimeJa(nowIso);
-                      if (res.kind === "in") setDoneMessage(`出勤：${t}`);
-                      else if (res.kind === "out") setDoneMessage(`退勤：${t}`);
-                      else setDoneMessage(`本日は打刻済みです`);
+                      let msg: string;
+                      if (res.kind === "in") msg = `出勤：${t}`;
+                      else if (res.kind === "out") msg = `退勤：${t}`;
+                      else msg = `本日は打刻済みです`;
+                      pendingPunchDoneMessageRef.current = msg;
                     } catch (e) {
+                      punchBusyRef.current = false;
+                      pendingPunchDoneMessageRef.current = null;
                       window.alert(
                         e instanceof Error ? e.message : "打刻の保存に失敗しました"
                       );
-                    } finally {
-                      punchBusyRef.current = false;
+                      throw e;
                     }
-                  })();
+                  });
                 }}
               >
-                打刻する
+                <span className={actionProgressStyles.content}>
+                  <ActionProgressContent phase={punchPhase} idleLabel="打刻する" />
+                </span>
               </button>
             </div>
           </div>

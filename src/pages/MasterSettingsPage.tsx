@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ActionProgressButton } from "../components/ActionProgressButton";
 import type { MasterItem } from "../types/masterItem";
 import type { NotificationRecipient } from "../types/notificationRecipient";
 import {
@@ -115,51 +116,20 @@ function TabSaveFooter({
   storageKeys: string[];
   onBeforePersist?: () => void | Promise<void>;
 }) {
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
-  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
-    };
-  }, []);
-
-  async function handleClick() {
-    if (saving) return;
-    setSaving(true);
-    try {
-      await Promise.resolve(onBeforePersist?.());
-      await new Promise((r) => setTimeout(r, 80));
-      for (const k of storageKeys) {
-        persistLocalStorageKeyToServer(k);
-      }
-      setDone(true);
-      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
-      doneTimerRef.current = setTimeout(() => {
-        setDone(false);
-        doneTimerRef.current = null;
-      }, 2000);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className={styles.tabSaveFooter}>
-      {done && (
-        <span className={styles.tabSaveDone} role="status" aria-live="polite">
-          保存しました ✓
-        </span>
-      )}
-      <button
+      <ActionProgressButton
         type="button"
         className={styles.tabSaveBtn}
-        disabled={saving}
-        onClick={() => void handleClick()}
-      >
-        {saving ? "保存中…" : "保存"}
-      </button>
+        idleLabel="保存"
+        onAction={async () => {
+          await Promise.resolve(onBeforePersist?.());
+          await new Promise((r) => setTimeout(r, 80));
+          for (const k of storageKeys) {
+            persistLocalStorageKeyToServer(k);
+          }
+        }}
+      />
     </div>
   );
 }

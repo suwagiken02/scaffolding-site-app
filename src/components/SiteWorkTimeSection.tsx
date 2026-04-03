@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActionProgressContent } from "./ActionProgressButton";
+import actionProgressStyles from "./ActionProgressButton.module.css";
+import { useAsyncActionFeedback } from "../hooks/useAsyncActionFeedback";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import {
@@ -72,6 +75,11 @@ export function SiteWorkTimeSection({
   onAfterWorkStartPunch,
 }: Props) {
   const [confirmKind, setConfirmKind] = useState<"start" | "end" | null>(null);
+  const { phase: confirmPhase, run: runConfirm, reset: resetConfirmPhase } =
+    useAsyncActionFeedback({
+      onAfterSuccessReset: () => setConfirmKind(null),
+    });
+  const prevConfirmOpenRef = useRef(false);
 
   const labor = useMemo(
     () => loadDailyLaborMap(siteId, workKind)[todayDateKey],
@@ -120,13 +128,21 @@ export function SiteWorkTimeSection({
   }
 
   useEffect(() => {
+    const open = confirmKind !== null;
+    if (open && !prevConfirmOpenRef.current) {
+      resetConfirmPhase();
+    }
+    prevConfirmOpenRef.current = open;
+  }, [confirmKind, resetConfirmPhase]);
+
+  useEffect(() => {
     if (!confirmKind) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setConfirmKind(null);
+      if (e.key === "Escape" && confirmPhase === "idle") setConfirmKind(null);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [confirmKind]);
+  }, [confirmKind, confirmPhase]);
 
   if (!labor) {
     return (
@@ -195,7 +211,10 @@ export function SiteWorkTimeSection({
         <div
           className={styles.modalBackdrop}
           role="presentation"
-          onClick={() => setConfirmKind(null)}
+          onClick={() => {
+            if (confirmPhase !== "idle") return;
+            setConfirmKind(null);
+          }}
         >
           <div
             className={styles.modal}
@@ -216,20 +235,37 @@ export function SiteWorkTimeSection({
               <button
                 type="button"
                 className={styles.modalCancel}
+                disabled={confirmPhase !== "idle"}
                 onClick={() => setConfirmKind(null)}
               >
                 キャンセル
               </button>
               <button
                 type="button"
-                className={styles.modalConfirm}
-                onClick={() => {
-                  if (confirmKind === "start") performStart();
-                  else performEnd();
-                  setConfirmKind(null);
+                className={`${styles.modalConfirm} ${actionProgressStyles.host} ${confirmPhase === "success" ? actionProgressStyles.hostSuccess : ""}`}
+                style={{
+                  pointerEvents: confirmPhase !== "idle" ? "none" : undefined,
                 }}
+                aria-busy={confirmPhase !== "idle"}
+                aria-disabled={confirmPhase !== "idle"}
+                onClick={() =>
+                  void runConfirm(async () => {
+                    await new Promise<void>((r) => queueMicrotask(r));
+                    if (confirmKind === "start") performStart();
+                    else performEnd();
+                  })
+                }
               >
-                はい
+                <span className={actionProgressStyles.content}>
+                  <ActionProgressContent
+                    phase={confirmPhase}
+                    idleLabel={
+                      confirmKind === "start"
+                        ? "作業を開始する"
+                        : "作業を終了する"
+                    }
+                  />
+                </span>
               </button>
             </div>
           </div>
