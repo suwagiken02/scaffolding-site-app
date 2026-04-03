@@ -59,6 +59,34 @@ export type StaffInsuranceProfile = {
   employment: string;
 };
 
+/** 技術評価のグレード（選択肢） */
+export const STAFF_TECH_RATING_OPTIONS = [
+  "G",
+  "G+",
+  "F",
+  "F+",
+  "E",
+  "E+",
+  "D",
+  "D+",
+  "C",
+  "C+",
+  "B",
+  "B+",
+  "A",
+  "A+",
+  "S",
+  "S+",
+  "SS",
+  "SS+",
+  "SSS",
+  "SSS+",
+  "SSSS",
+  "SSSS+",
+] as const;
+
+export type StaffTechRating = (typeof STAFF_TECH_RATING_OPTIONS)[number];
+
 export type StaffMaster = {
   id: string;
   /** 表示名 */
@@ -97,4 +125,11 @@ export type StaffMaster = {
   paidLeaveUsages: StaffPaidLeaveUsage[];
   /** 誕生日休暇の使用記録 */
   birthdayLeaveUsages: StaffBirthdayLeaveUsage[];
+
+  /** 技術評価 */
+  techRating?: StaffTechRating;
+  /** 内面評価・今期（0〜50） */
+  innerScoreCurrent?: number;
+  /** 内面評価・前期（0〜50・参照用・編集可） */
+  innerScorePrev?: number;
 };

@@ -34,9 +34,11 @@ import {
 } from "../lib/contractorMasterStorage";
 import {
   STAFF_JOB_ROLE_OPTIONS,
+  STAFF_TECH_RATING_OPTIONS,
   staffCanReceiveAdminNotify,
   type StaffJobRole,
   type StaffMaster,
+  type StaffTechRating,
 } from "../types/staffMaster";
 import {
   addStaffMaster,
@@ -467,6 +469,126 @@ function StaffPanel({ onRefresh }: { onRefresh: () => void }) {
                       aria-label="個人コード"
                     />
                   </label>
+                </div>
+                <div className={styles.staffEvalRow}>
+                  <label className={styles.field}>
+                    <span className={styles.label}>技術評価</span>
+                    <select
+                      className={styles.input}
+                      value={r.techRating ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setRow({
+                          ...r,
+                          techRating: v ? (v as StaffTechRating) : undefined,
+                        });
+                      }}
+                      aria-label={`${r.name}の技術評価`}
+                    >
+                      <option value="">—</option>
+                      {STAFF_TECH_RATING_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className={styles.staffEvalInner}>
+                    <span className={styles.label}>内面・今期（0〜50）</span>
+                    <div className={styles.staffEvalInnerControl}>
+                      <input
+                        type="range"
+                        className={styles.staffEvalSlider}
+                        min={0}
+                        max={50}
+                        step={1}
+                        value={r.innerScoreCurrent ?? 0}
+                        onChange={(e) =>
+                          setRow({
+                            ...r,
+                            innerScoreCurrent: Number(e.target.value),
+                          })
+                        }
+                        aria-label={`${r.name}の内面評価・今期`}
+                      />
+                      <input
+                        className={`${styles.input} ${styles.staffEvalNum}`}
+                        type="number"
+                        min={0}
+                        max={50}
+                        step={1}
+                        value={
+                          r.innerScoreCurrent === undefined
+                            ? ""
+                            : r.innerScoreCurrent
+                        }
+                        onChange={(e) => {
+                          const t = e.target.value;
+                          if (t === "") {
+                            setRow({ ...r, innerScoreCurrent: undefined });
+                            return;
+                          }
+                          const n = Number(t);
+                          if (!Number.isFinite(n)) return;
+                          setRow({
+                            ...r,
+                            innerScoreCurrent: Math.max(
+                              0,
+                              Math.min(50, Math.round(n))
+                            ),
+                          });
+                        }}
+                        aria-label={`${r.name}の内面評価・今期（数値）`}
+                      />
+                    </div>
+                  </div>
+                  <div className={styles.staffEvalInner}>
+                    <span className={styles.label}>内面・前期（0〜50）</span>
+                    <div className={styles.staffEvalInnerControl}>
+                      <input
+                        type="range"
+                        className={styles.staffEvalSlider}
+                        min={0}
+                        max={50}
+                        step={1}
+                        value={r.innerScorePrev ?? 0}
+                        onChange={(e) =>
+                          setRow({
+                            ...r,
+                            innerScorePrev: Number(e.target.value),
+                          })
+                        }
+                        aria-label={`${r.name}の内面評価・前期`}
+                      />
+                      <input
+                        className={`${styles.input} ${styles.staffEvalNum}`}
+                        type="number"
+                        min={0}
+                        max={50}
+                        step={1}
+                        value={
+                          r.innerScorePrev === undefined ? "" : r.innerScorePrev
+                        }
+                        onChange={(e) => {
+                          const t = e.target.value;
+                          if (t === "") {
+                            setRow({ ...r, innerScorePrev: undefined });
+                            return;
+                          }
+                          const n = Number(t);
+                          if (!Number.isFinite(n)) return;
+                          setRow({
+                            ...r,
+                            innerScorePrev: Math.max(
+                              0,
+                              Math.min(50, Math.round(n))
+                            ),
+                          });
+                        }}
+                        aria-label={`${r.name}の内面評価・前期（数値）`}
+                      />
+                    </div>
+                  </div>
                 </div>
                 {staffCanReceiveAdminNotify(r.role) && (
                   <div className={styles.staffAdminNotify}>

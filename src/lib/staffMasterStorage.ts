@@ -1,11 +1,13 @@
 import {
   staffCanReceiveAdminNotify,
+  STAFF_TECH_RATING_OPTIONS,
   type StaffBirthdayLeaveUsage,
   type StaffEmergencyContact,
   type StaffInsuranceProfile,
   type StaffJobRole,
   type StaffMaster,
   type StaffPaidLeaveUsage,
+  type StaffTechRating,
 } from "../types/staffMaster";
 import { persistLocalStorageKeyToServer } from "./persistStorageApi";
 
@@ -115,6 +117,26 @@ function normalizePaidLeaveUsages(x: unknown): StaffPaidLeaveUsage[] {
   return out;
 }
 
+function normalizeTechRating(raw: unknown): StaffTechRating | undefined {
+  if (typeof raw !== "string") return undefined;
+  const t = raw.trim();
+  if (!t) return undefined;
+  return (STAFF_TECH_RATING_OPTIONS as readonly string[]).includes(t)
+    ? (t as StaffTechRating)
+    : undefined;
+}
+
+/** 0〜50。無効・未設定は undefined */
+function normalizeInnerScore(raw: unknown): number | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  const c = Math.round(n);
+  if (c < 0) return 0;
+  if (c > 50) return 50;
+  return c;
+}
+
 function normalizeBirthdayLeaveUsages(x: unknown): StaffBirthdayLeaveUsage[] {
   if (!Array.isArray(x)) return [];
   const out: StaffBirthdayLeaveUsage[] = [];
@@ -145,6 +167,9 @@ function normalizeRow(x: unknown): StaffMaster | null {
     o.fcmToken.trim().length > 0
       ? o.fcmToken.trim()
       : undefined;
+  const techRating = normalizeTechRating(o.techRating);
+  const innerScoreCurrent = normalizeInnerScore(o.innerScoreCurrent);
+  const innerScorePrev = normalizeInnerScore(o.innerScorePrev);
   return {
     id,
     name,
@@ -166,6 +191,9 @@ function normalizeRow(x: unknown): StaffMaster | null {
     qualifications: normalizeQualifications(o.qualifications),
     paidLeaveUsages: normalizePaidLeaveUsages(o.paidLeaveUsages),
     birthdayLeaveUsages: normalizeBirthdayLeaveUsages(o.birthdayLeaveUsages),
+    ...(techRating !== undefined ? { techRating } : {}),
+    ...(innerScoreCurrent !== undefined ? { innerScoreCurrent } : {}),
+    ...(innerScorePrev !== undefined ? { innerScorePrev } : {}),
   };
 }
 
@@ -180,6 +208,9 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
     input.fcmToken.trim().length > 0
       ? input.fcmToken.trim()
       : undefined;
+  const techRating = normalizeTechRating(input.techRating);
+  const innerScoreCurrent = normalizeInnerScore(input.innerScoreCurrent);
+  const innerScorePrev = normalizeInnerScore(input.innerScorePrev);
   return {
     id: input.id.trim(),
     name: input.name.trim(),
@@ -201,6 +232,9 @@ function normalizeStaffMasterComplete(input: StaffMaster): StaffMaster {
     qualifications: normalizeQualifications(input.qualifications),
     paidLeaveUsages: normalizePaidLeaveUsages(input.paidLeaveUsages),
     birthdayLeaveUsages: normalizeBirthdayLeaveUsages(input.birthdayLeaveUsages),
+    ...(techRating !== undefined ? { techRating } : {}),
+    ...(innerScoreCurrent !== undefined ? { innerScoreCurrent } : {}),
+    ...(innerScorePrev !== undefined ? { innerScorePrev } : {}),
   };
 }
 

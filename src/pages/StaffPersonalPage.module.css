@@ -34,6 +34,53 @@
   gap: 0.85rem 1.25rem;
 }
 
+.evaluationBlock {
+  margin-top: 0.25rem;
+}
+
+.evaluationGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.85rem 1.25rem;
+  align-items: end;
+}
+
+.innerScoresWrap {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.75rem;
+  align-items: flex-end;
+}
+
+.innerScoreField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 14rem;
+  min-width: min(100%, 12rem);
+  max-width: 22rem;
+}
+
+.innerScoreControl {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.innerScoreSlider {
+  flex: 1;
+  min-width: 5rem;
+  max-width: 14rem;
+  height: 1.5rem;
+  accent-color: var(--accent);
+}
+
+.innerScoreNum {
+  width: 4.25rem;
+  flex-shrink: 0;
+}
+
 .field {
   display: flex;
   flex-direction: column;

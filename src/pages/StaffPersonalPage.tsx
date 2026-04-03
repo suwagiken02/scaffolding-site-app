@@ -4,8 +4,10 @@ import type { LeaveRequest } from "../types/leaveRequest";
 import type { PayslipRecord } from "../types/payslip";
 import {
   staffPaidLeaveHoursPerDay,
+  STAFF_TECH_RATING_OPTIONS,
   type StaffMaster,
   type StaffPaidLeaveUsage,
+  type StaffTechRating,
 } from "../types/staffMaster";
 import { fetchPayslipsForStaff } from "../lib/payslipsApi";
 import { createLeaveRequest, fetchLeaveRequests } from "../lib/leaveRequestsApi";
@@ -817,6 +819,138 @@ export function StaffPersonalPage() {
               onChange={(e) => setDraft({ ...draft, hireDate: e.target.value })}
             />
           </label>
+        </div>
+
+        <h3 className={styles.sectionTitle} style={{ marginTop: "1.25rem", fontSize: "1rem" }}>
+          評価
+        </h3>
+        <div className={styles.evaluationBlock}>
+          <div className={styles.evaluationGrid}>
+            <label className={styles.field}>
+              <span className={styles.label}>技術評価</span>
+              <select
+                className={styles.input}
+                value={draft.techRating ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraft({
+                    ...draft,
+                    techRating: v ? (v as StaffTechRating) : undefined,
+                  });
+                }}
+                aria-label="技術評価"
+              >
+                <option value="">選択してください</option>
+                {STAFF_TECH_RATING_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className={styles.innerScoresWrap}>
+              <div className={styles.innerScoreField}>
+                <span className={styles.label}>内面評価（今期・0〜50）</span>
+                <div className={styles.innerScoreControl}>
+                  <input
+                    type="range"
+                    className={styles.innerScoreSlider}
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={draft.innerScoreCurrent ?? 0}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        innerScoreCurrent: Number(e.target.value),
+                      })
+                    }
+                    aria-label="内面評価・今期（スライダー）"
+                  />
+                  <input
+                    type="number"
+                    className={`${styles.input} ${styles.innerScoreNum}`}
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={
+                      draft.innerScoreCurrent === undefined
+                        ? ""
+                        : draft.innerScoreCurrent
+                    }
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      if (t === "") {
+                        setDraft({ ...draft, innerScoreCurrent: undefined });
+                        return;
+                      }
+                      const n = Number(t);
+                      if (!Number.isFinite(n)) return;
+                      setDraft({
+                        ...draft,
+                        innerScoreCurrent: Math.max(
+                          0,
+                          Math.min(50, Math.round(n))
+                        ),
+                      });
+                    }}
+                    aria-label="内面評価・今期（数値）"
+                  />
+                </div>
+              </div>
+              <div className={styles.innerScoreField}>
+                <span className={styles.label}>
+                  内面評価（前期・0〜50・参照・編集可）
+                </span>
+                <div className={styles.innerScoreControl}>
+                  <input
+                    type="range"
+                    className={styles.innerScoreSlider}
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={draft.innerScorePrev ?? 0}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        innerScorePrev: Number(e.target.value),
+                      })
+                    }
+                    aria-label="内面評価・前期（スライダー）"
+                  />
+                  <input
+                    type="number"
+                    className={`${styles.input} ${styles.innerScoreNum}`}
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={
+                      draft.innerScorePrev === undefined
+                        ? ""
+                        : draft.innerScorePrev
+                    }
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      if (t === "") {
+                        setDraft({ ...draft, innerScorePrev: undefined });
+                        return;
+                      }
+                      const n = Number(t);
+                      if (!Number.isFinite(n)) return;
+                      setDraft({
+                        ...draft,
+                        innerScorePrev: Math.max(
+                          0,
+                          Math.min(50, Math.round(n))
+                        ),
+                      });
+                    }}
+                    aria-label="内面評価・前期（数値）"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <h3 className={styles.sectionTitle} style={{ marginTop: "1.25rem", fontSize: "1rem" }}>
