@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WorkKind } from "../types/workKind";
 import type { SiteDailyLaborRecord } from "../types/siteDailyLabor";
 import {
@@ -71,6 +71,8 @@ export function SiteWorkTimeSection({
   onLaborModalNeeded,
   onAfterWorkStartPunch,
 }: Props) {
+  const [confirmKind, setConfirmKind] = useState<"start" | "end" | null>(null);
+
   const labor = useMemo(
     () => loadDailyLaborMap(siteId, workKind)[todayDateKey],
     [siteId, workKind, todayDateKey, revision]
@@ -81,7 +83,7 @@ export function SiteWorkTimeSection({
     onStorageChange?.();
   }
 
-  function onStart() {
+  function performStart() {
     if (!labor) return;
     if (getWorkStartIso(labor)) return;
     persist({
@@ -96,7 +98,7 @@ export function SiteWorkTimeSection({
     onAfterWorkStartPunch?.();
   }
 
-  function onEnd() {
+  function performEnd() {
     if (!labor) return;
     const start = getWorkStartIso(labor);
     if (!start || getWorkEndIso(labor)) return;
@@ -116,6 +118,15 @@ export function SiteWorkTimeSection({
       onLaborModalNeeded
     );
   }
+
+  useEffect(() => {
+    if (!confirmKind) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setConfirmKind(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [confirmKind]);
 
   if (!labor) {
     return (
@@ -166,7 +177,7 @@ export function SiteWorkTimeSection({
           type="button"
           className={`${styles.btnStart}${canStart ? ` ${styles.btnStartPulse}` : ""}`}
           disabled={!canStart}
-          onClick={onStart}
+          onClick={() => setConfirmKind("start")}
         >
           作業を開始する
         </button>
@@ -174,11 +185,56 @@ export function SiteWorkTimeSection({
           type="button"
           className={`${styles.btnEnd}${canEnd ? ` ${styles.btnEndPulse}` : ""}`}
           disabled={!canEnd}
-          onClick={onEnd}
+          onClick={() => setConfirmKind("end")}
         >
           作業を終了する
         </button>
       </div>
+
+      {confirmKind && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setConfirmKind(null)}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="work-punch-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="work-punch-confirm-title" className={styles.modalTitle}>
+              確認
+            </h2>
+            <p className={styles.modalBody}>
+              {confirmKind === "start"
+                ? "作業を開始します。よろしいですか？"
+                : "作業を終了します。よろしいですか？"}
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalCancel}
+                onClick={() => setConfirmKind(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={styles.modalConfirm}
+                onClick={() => {
+                  if (confirmKind === "start") performStart();
+                  else performEnd();
+                  setConfirmKind(null);
+                }}
+              >
+                はい
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {needsLaborConfirm && (
         <p className={styles.lead}>
