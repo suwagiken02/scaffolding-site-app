@@ -714,11 +714,22 @@ function normalizeKouseiBillingRowFromBody(o) {
     typeof o.peopleCount === "number" && Number.isFinite(o.peopleCount)
       ? o.peopleCount
       : NaN;
-  let amount = null;
-  if (o.amount !== null && o.amount !== undefined) {
-    const n = typeof o.amount === "number" ? o.amount : Number(o.amount);
-    amount = Number.isFinite(n) ? n : null;
+  function nn(v) {
+    if (v === null || v === undefined) return null;
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? Math.round(n) : null;
   }
+  const contractSource =
+    o.contractAmount !== null && o.contractAmount !== undefined
+      ? o.contractAmount
+      : o.amount !== null && o.amount !== undefined
+        ? o.amount
+        : null;
+  const contractAmount = nn(contractSource);
+  const amount70 = nn(o.amount70);
+  const amount60 = nn(o.amount60);
+  const amount40 = nn(o.amount40);
+  const monthlyPayment = nn(o.monthlyPayment);
   const memo = typeof o.memo === "string" ? o.memo : "";
   const checked = o.checked === true;
   if (!siteId || !dateKey || !workKind) {
@@ -734,10 +745,46 @@ function normalizeKouseiBillingRowFromBody(o) {
     workKind,
     dateKey,
     peopleCount,
-    amount,
+    contractAmount,
+    amount70,
+    amount60,
+    amount40,
+    monthlyPayment,
     memo,
     checked,
   };
+}
+
+function effectiveKouseiAmount70FromRow(row) {
+  const c = row.contractAmount;
+  if (c === null || c === undefined) return null;
+  const cn = typeof c === "number" ? c : Number(c);
+  if (!Number.isFinite(cn)) return null;
+  if (row.amount70 !== null && row.amount70 !== undefined) {
+    const n = typeof row.amount70 === "number" ? row.amount70 : Number(row.amount70);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  return Math.round(cn * 0.7);
+}
+
+function effectiveKouseiAmount60FromRow(row) {
+  const e70 = effectiveKouseiAmount70FromRow(row);
+  if (e70 === null) return null;
+  if (row.amount60 !== null && row.amount60 !== undefined) {
+    const n = typeof row.amount60 === "number" ? row.amount60 : Number(row.amount60);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  return Math.round(e70 * 0.6);
+}
+
+function effectiveKouseiAmount40FromRow(row) {
+  const e70 = effectiveKouseiAmount70FromRow(row);
+  if (e70 === null) return null;
+  if (row.amount40 !== null && row.amount40 !== undefined) {
+    const n = typeof row.amount40 === "number" ? row.amount40 : Number(row.amount40);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  return Math.round(e70 * 0.4);
 }
 
 async function readLeaveRequestsFromDisk() {
@@ -1499,11 +1546,38 @@ app.put("/api/kousei-billing/:id", async (req, res) => {
     const statusIn = body.status;
     if (statusIn === "confirmed") {
       for (const row of rows) {
-        const a = row.amount;
-        if (a === null || a === undefined || !Number.isFinite(Number(a)) || Number(a) < 0) {
+        const c = row.contractAmount;
+        const m = row.monthlyPayment;
+        if (
+          c === null ||
+          c === undefined ||
+          !Number.isFinite(Number(c)) ||
+          Number(c) < 0 ||
+          m === null ||
+          m === undefined ||
+          !Number.isFinite(Number(m)) ||
+          Number(m) < 0
+        ) {
           res.status(400).json({
             ok: false,
-            error: "すべての行に金額を入力してから確認済みにしてください。",
+            error: "すべての行に契約金額・月支払額を入力してから確認済みにしてください。",
+          });
+          return;
+        }
+        const e70 = effectiveKouseiAmount70FromRow(row);
+        const e60 = effectiveKouseiAmount60FromRow(row);
+        const e40 = effectiveKouseiAmount40FromRow(row);
+        if (
+          e70 === null ||
+          !Number.isFinite(e70) ||
+          e60 === null ||
+          !Number.isFinite(e60) ||
+          e40 === null ||
+          !Number.isFinite(e40)
+        ) {
+          res.status(400).json({
+            ok: false,
+            error: "金額の計算が完了していない行があります。契約金額を確認してください。",
           });
           return;
         }

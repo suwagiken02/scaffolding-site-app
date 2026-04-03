@@ -1,5 +1,6 @@
 import {
   FormEvent,
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -13,12 +14,15 @@ import type { CompanyKind } from "../types/site";
 import { todayLocalDateKey } from "../lib/dateUtils";
 import {
   fetchKouseiBillingRecords,
+  migrateKouseiBillingRow,
   postKouseiBillingSend,
   putKouseiBillingUpdate,
   kouseiBillingRowKey,
   type KouseiBillingRecord,
   type KouseiBillingRow,
 } from "../lib/kouseiBillingStorage";
+import { formatYenOrDash } from "../lib/kouseiBillingDerived";
+import { KouseiBillingAmountFields } from "../components/KouseiBillingAmountFields";
 import styles from "./ContractorAdminPage.module.css";
 
 function toMonthValue(dateKey: string): string {
@@ -79,7 +83,11 @@ function buildBillingRowsForMonth(month: string, todayKey: string): KouseiBillin
           workKind: k,
           dateKey: r.dateKey,
           peopleCount: computePeopleCount(r),
-          amount: null,
+          contractAmount: null,
+          amount70: null,
+          amount60: null,
+          amount40: null,
+          monthlyPayment: null,
           memo: "",
           checked: defaultChecked(kind),
         });
@@ -116,10 +124,17 @@ function mergeLatestAmountMemo(
     const k = kouseiBillingRowKey(row);
     const prev = map.get(k);
     if (!prev) return row;
+    const p = migrateKouseiBillingRow(
+      prev as KouseiBillingRow & { amount?: number | null }
+    );
     return {
       ...row,
-      amount: prev.amount,
-      memo: prev.memo,
+      contractAmount: p.contractAmount,
+      amount70: p.amount70,
+      amount60: p.amount60,
+      amount40: p.amount40,
+      monthlyPayment: p.monthlyPayment,
+      memo: p.memo,
     };
   });
 }
@@ -138,9 +153,15 @@ export function KouseiAdminPage() {
   const [savingPut, setSavingPut] = useState(false);
 
   const [draftRows, setDraftRows] = useState<KouseiBillingRow[]>([]);
+  const [editingRowKey, setEditingRowKey] = useState<string | null>(null);
+  const contractInputRef = useRef<HTMLInputElement | null>(null);
 
-  const amountInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const isDesktop = useIsDesktopMin768();
+
+  useEffect(() => {
+    if (!editingRowKey) return;
+    contractInputRef.current?.focus();
+  }, [editingRowKey]);
 
   const loadBillingRecords = useCallback(async () => {
     try {
@@ -180,7 +201,17 @@ export function KouseiAdminPage() {
 
   function updateRow(
     rowKey: string,
-    patch: Partial<Pick<KouseiBillingRow, "amount" | "memo">>
+    patch: Partial<
+      Pick<
+        KouseiBillingRow,
+        | "contractAmount"
+        | "amount70"
+        | "amount60"
+        | "amount40"
+        | "monthlyPayment"
+        | "memo"
+      >
+    >
   ) {
     setDraftRows((prev) =>
       prev.map((row) =>
@@ -198,8 +229,8 @@ export function KouseiAdminPage() {
     );
   }
 
-  function focusAmountInput(rowKey: string) {
-    amountInputRefs.current[rowKey]?.focus();
+  function toggleEditRow(rowKey: string) {
+    setEditingRowKey((k) => (k === rowKey ? null : rowKey));
   }
 
   async function handleSavePut() {
@@ -221,7 +252,11 @@ export function KouseiAdminPage() {
         if (!d) return row;
         return {
           ...row,
-          amount: d.amount,
+          contractAmount: d.contractAmount,
+          amount70: d.amount70,
+          amount60: d.amount60,
+          amount40: d.amount40,
+          monthlyPayment: d.monthlyPayment,
           memo: d.memo,
           checked: d.checked,
         };
@@ -385,7 +420,7 @@ export function KouseiAdminPage() {
                   <th>元請け名</th>
                   <th>作業種別</th>
                   <th>人数</th>
-                  <th>金額</th>
+                  <th>契約／月払</th>
                   <th>メモ</th>
                   <th>編集</th>
                 </tr>
@@ -393,67 +428,66 @@ export function KouseiAdminPage() {
               <tbody>
                 {draftRows.map((r) => {
                   const rk = kouseiBillingRowKey(r);
+                  const editing = editingRowKey === rk;
                   return (
-                    <tr key={rk}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={r.checked}
-                          onChange={(e) =>
-                            toggleChecked(r, e.target.checked)
-                          }
-                          aria-label="送信に含める"
-                        />
-                      </td>
-                      <td>{r.dateKey}</td>
-                      <td>{r.siteName}</td>
-                      <td>{r.clientName || "—"}</td>
-                      <td>{r.workKind}</td>
-                      <td>{r.peopleCount}</td>
-                      <td>
-                        <input
-                          ref={(el) => {
-                            amountInputRefs.current[rk] = el;
-                          }}
-                          className={styles.amountInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={
-                            r.amount === null || r.amount === undefined
-                              ? ""
-                              : String(r.amount)
-                          }
-                          onChange={(e) => {
-                            const v = e.target.value.trim();
-                            updateRow(rk, {
-                              amount: v === "" ? null : Number(v),
-                            });
-                          }}
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className={styles.cellMemo}>
-                        <input
-                          className={styles.input}
-                          type="text"
-                          value={r.memo}
-                          onChange={(e) =>
-                            updateRow(rk, { memo: e.target.value })
-                          }
-                          placeholder="メモ"
-                        />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          onClick={() => focusAmountInput(rk)}
-                        >
-                          編集
-                        </button>
-                      </td>
-                    </tr>
+                    <Fragment key={rk}>
+                      <tr>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={r.checked}
+                            onChange={(e) =>
+                              toggleChecked(r, e.target.checked)
+                            }
+                            aria-label="送信に含める"
+                          />
+                        </td>
+                        <td>{r.dateKey}</td>
+                        <td>{r.siteName}</td>
+                        <td>{r.clientName || "—"}</td>
+                        <td>{r.workKind}</td>
+                        <td>{r.peopleCount}</td>
+                        <td>
+                          <div className={styles.kouseiBillingSummary}>
+                            <div>契約 {formatYenOrDash(r.contractAmount)}</div>
+                            <div>月払 {formatYenOrDash(r.monthlyPayment)}</div>
+                          </div>
+                        </td>
+                        <td className={styles.cellMemo}>
+                          <input
+                            className={styles.input}
+                            type="text"
+                            value={r.memo}
+                            onChange={(e) =>
+                              updateRow(rk, { memo: e.target.value })
+                            }
+                            placeholder="メモ"
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            onClick={() => toggleEditRow(rk)}
+                          >
+                            {editing ? "閉じる" : "編集"}
+                          </button>
+                        </td>
+                      </tr>
+                      {editing && (
+                        <tr className={styles.kouseiBillingEditRow}>
+                          <td colSpan={9}>
+                            <div className={styles.kouseiBillingEditPanel}>
+                              <KouseiBillingAmountFields
+                                row={r}
+                                contractInputRef={contractInputRef}
+                                onPatch={(p) => updateRow(rk, p)}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -463,6 +497,7 @@ export function KouseiAdminPage() {
           <div>
             {draftRows.map((r) => {
               const rk = kouseiBillingRowKey(r);
+              const editing = editingRowKey === rk;
               return (
                 <div key={rk} className={styles.kouseiAdminCard}>
                   <div className={styles.kouseiAdminCardHead}>
@@ -500,29 +535,12 @@ export function KouseiAdminPage() {
                       <span className={styles.label}>人数</span>
                       {r.peopleCount}
                     </div>
-                    <div>
-                      <span className={styles.label}>金額（円）</span>
-                      <input
-                        ref={(el) => {
-                          amountInputRefs.current[rk] = el;
-                        }}
-                        className={styles.amountInput}
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={
-                          r.amount === null || r.amount === undefined
-                            ? ""
-                            : String(r.amount)
-                        }
-                        onChange={(e) => {
-                          const v = e.target.value.trim();
-                          updateRow(rk, {
-                            amount: v === "" ? null : Number(v),
-                          });
-                        }}
-                        placeholder="0"
-                      />
+                    <div className={styles.kouseiAdminCardFull}>
+                      <span className={styles.label}>契約／月払</span>
+                      <div className={styles.kouseiBillingSummary}>
+                        <div>契約 {formatYenOrDash(r.contractAmount)}</div>
+                        <div>月払 {formatYenOrDash(r.monthlyPayment)}</div>
+                      </div>
                     </div>
                     <div>
                       <span className={styles.label}>メモ</span>
@@ -536,14 +554,25 @@ export function KouseiAdminPage() {
                         placeholder="メモ"
                       />
                     </div>
+                    {editing && (
+                      <div className={styles.kouseiAdminCardFull}>
+                        <div className={styles.kouseiBillingEditPanel}>
+                          <KouseiBillingAmountFields
+                            row={r}
+                            contractInputRef={contractInputRef}
+                            onPatch={(p) => updateRow(rk, p)}
+                          />
+                        </div>
+                      </div>
+                    )}
                     <div className={styles.kouseiAdminCardFull}>
                       <button
                         type="button"
                         className={styles.btnSecondary}
                         style={{ width: "100%" }}
-                        onClick={() => focusAmountInput(rk)}
+                        onClick={() => toggleEditRow(rk)}
                       >
-                        金額欄にフォーカス
+                        {editing ? "金額フォームを閉じる" : "金額を編集"}
                       </button>
                     </div>
                   </div>

@@ -243,7 +243,7 @@
 }
 
 .kouseiAdminTable {
-  min-width: 920px;
+  min-width: 1080px;
 }
 
 .kouseiAdminTable th,
@@ -337,6 +337,90 @@
   align-items: flex-end;
   gap: 0.75rem 1rem;
   margin-top: 0.5rem;
+}
+
+.kouseiBillingSummary {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.kouseiBillingEditRow td {
+  vertical-align: top;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.kouseiBillingEditPanel {
+  padding: 0.65rem 0.25rem 0.35rem;
+}
+
+.kouseiBillingFormGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem 1rem;
+}
+
+.kouseiBillingFormGridCompact {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .kouseiBillingFormGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .kouseiBillingFormGridCompact {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .kouseiBillingFormGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .kouseiBillingFormGridCompact {
+    grid-template-columns: repeat(5, minmax(5.5rem, 1fr));
+  }
+}
+
+.kouseiBillingFormGrid .field {
+  min-width: 0;
+}
+
+.kouseiBillingFormGrid .amountInput {
+  width: 100%;
+  min-width: 0;
+}
+
+.kouseiBillingFormGrid .amountInput::placeholder {
+  color: var(--text-muted);
+  opacity: 0.95;
+}
+
+.kouseiBillingHint {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.kouseiBillingKouseiTable {
+  min-width: 880px;
+}
+
+.kouseiBillingKouseiTable th,
+.kouseiBillingKouseiTable td {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.kouseiBillingCellAmount {
+  min-width: min(100%, 22rem);
 }
 
 

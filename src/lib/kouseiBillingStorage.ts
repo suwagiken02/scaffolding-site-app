@@ -9,10 +9,53 @@ export type KouseiBillingRow = {
   workKind: string;
   dateKey: string;
   peopleCount: number;
-  amount: number | null;
+  /** 契約金額（手動） */
+  contractAmount: number | null;
+  /** 請70%（契約×70%、null 時は自動） */
+  amount70: number | null;
+  /** 架金額60%（請70%×60%、null 時は自動） */
+  amount60: number | null;
+  /** 払金額40%（請70%×40%、null 時は自動） */
+  amount40: number | null;
+  /** 月支払額（手動のみ） */
+  monthlyPayment: number | null;
   memo: string;
   checked: boolean;
 };
+
+/** 旧 `amount` フィールドのみの行を新形式へ */
+export function migrateKouseiBillingRow(
+  row: KouseiBillingRow & { amount?: number | null }
+): KouseiBillingRow {
+  const legacy = row.amount;
+  const contractAmount =
+    row.contractAmount !== null && row.contractAmount !== undefined
+      ? row.contractAmount
+      : legacy !== null && legacy !== undefined
+        ? typeof legacy === "number"
+          ? legacy
+          : Number(legacy)
+        : null;
+  const ca =
+    contractAmount !== null && Number.isFinite(Number(contractAmount))
+      ? Math.round(Number(contractAmount))
+      : null;
+  return {
+    siteId: row.siteId,
+    siteName: row.siteName,
+    clientName: row.clientName,
+    workKind: row.workKind,
+    dateKey: row.dateKey,
+    peopleCount: row.peopleCount,
+    contractAmount: ca,
+    amount70: row.amount70 ?? null,
+    amount60: row.amount60 ?? null,
+    amount40: row.amount40 ?? null,
+    monthlyPayment: row.monthlyPayment ?? null,
+    memo: typeof row.memo === "string" ? row.memo : "",
+    checked: row.checked === true,
+  };
+}
 
 export type KouseiBillingRecord = {
   id: string;
@@ -46,7 +89,10 @@ export async function fetchKouseiBillingRecords(): Promise<KouseiBillingRecord[]
   if (!res.ok || !data.ok || !Array.isArray(data.records)) {
     throw new Error(data.error ?? "請求データの取得に失敗しました");
   }
-  return data.records;
+  return data.records.map((rec) => ({
+    ...rec,
+    rows: rec.rows.map((r) => migrateKouseiBillingRow(r as KouseiBillingRow & { amount?: number | null })),
+  }));
 }
 
 export async function postKouseiBillingSend(body: {
@@ -68,7 +114,13 @@ export async function postKouseiBillingSend(body: {
   if (!res.ok || !data.ok || !data.record) {
     throw new Error(data.error ?? "確定送信に失敗しました");
   }
-  return data.record;
+  const rec = data.record;
+  return {
+    ...rec,
+    rows: rec.rows.map((r) =>
+      migrateKouseiBillingRow(r as KouseiBillingRow & { amount?: number | null })
+    ),
+  };
 }
 
 export async function putKouseiBillingUpdate(
@@ -94,5 +146,11 @@ export async function putKouseiBillingUpdate(
   if (!res.ok || !data.ok || !data.record) {
     throw new Error(data.error ?? "更新に失敗しました");
   }
-  return data.record;
+  const rec = data.record;
+  return {
+    ...rec,
+    rows: rec.rows.map((r) =>
+      migrateKouseiBillingRow(r as KouseiBillingRow & { amount?: number | null })
+    ),
+  };
 }

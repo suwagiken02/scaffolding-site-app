@@ -9,10 +9,18 @@ import { loadKouseiAmount, saveKouseiAmount } from "../lib/kouseiAmountStorage";
 import {
   fetchKouseiBillingRecords,
   kouseiBillingRowKey,
+  migrateKouseiBillingRow,
   putKouseiBillingUpdate,
   type KouseiBillingRecord,
   type KouseiBillingRow,
 } from "../lib/kouseiBillingStorage";
+import {
+  effectiveAmount40,
+  effectiveAmount60,
+  effectiveAmount70,
+  formatYenOrDash,
+} from "../lib/kouseiBillingDerived";
+import { KouseiBillingAmountFields } from "../components/KouseiBillingAmountFields";
 import { sendEmailApi } from "../lib/sendEmailApi";
 import { getSiteById, loadSites, normalizeEntranceDateKeys } from "../lib/siteStorage";
 import type { Site } from "../types/site";
@@ -130,7 +138,11 @@ export function KouseiPage() {
     setLocalRowsById((prev) => {
       const next = { ...prev };
       for (const r of billingRecords) {
-        next[r.id] = r.rows.map((row) => ({ ...row }));
+        next[r.id] = r.rows.map((row) =>
+          migrateKouseiBillingRow(
+            row as KouseiBillingRow & { amount?: number | null }
+          )
+        );
       }
       return next;
     });
@@ -176,7 +188,17 @@ export function KouseiPage() {
   function updateBillingRow(
     recordId: string,
     rowKey: string,
-    patch: Partial<Pick<KouseiBillingRow, "amount" | "memo">>
+    patch: Partial<
+      Pick<
+        KouseiBillingRow,
+        | "contractAmount"
+        | "amount70"
+        | "amount60"
+        | "amount40"
+        | "monthlyPayment"
+        | "memo"
+      >
+    >
   ) {
     setLocalRowsById((prev) => {
       const rows = prev[recordId];
@@ -193,12 +215,28 @@ export function KouseiPage() {
   function billingRowsAllAmountsFilled(rows: KouseiBillingRow[]): boolean {
     if (rows.length === 0) return false;
     return rows.every((r) => {
-      const a = r.amount;
+      const c = r.contractAmount;
+      const m = r.monthlyPayment;
+      if (
+        c === null ||
+        !Number.isFinite(c) ||
+        c < 0 ||
+        m === null ||
+        !Number.isFinite(m) ||
+        m < 0
+      ) {
+        return false;
+      }
+      const e70 = effectiveAmount70(r);
+      const e60 = effectiveAmount60(r);
+      const e40 = effectiveAmount40(r);
       return (
-        a !== null &&
-        a !== undefined &&
-        Number.isFinite(Number(a)) &&
-        Number(a) >= 0
+        e70 !== null &&
+        Number.isFinite(e70) &&
+        e60 !== null &&
+        Number.isFinite(e60) &&
+        e40 !== null &&
+        Number.isFinite(e40)
       );
     });
   }
@@ -211,11 +249,14 @@ export function KouseiPage() {
     if (!to) return;
     const [y, mm] = month.split("-");
     const lines = rows.map((r) => {
-      const amt =
-        r.amount === null || r.amount === undefined
-          ? "未入力"
-          : `${Number(r.amount).toLocaleString()}円`;
-      return `${r.siteName} / ${amt} / ${(r.memo ?? "").trim() || "—"}`;
+      const parts = [
+        `契約:${formatYenOrDash(r.contractAmount)}`,
+        `請70%:${formatYenOrDash(effectiveAmount70(r))}`,
+        `架60%:${formatYenOrDash(effectiveAmount60(r))}`,
+        `払40%:${formatYenOrDash(effectiveAmount40(r))}`,
+        `月払:${formatYenOrDash(r.monthlyPayment)}`,
+      ];
+      return `${r.siteName} / ${parts.join(" ")} / ${(r.memo ?? "").trim() || "—"}`;
     });
     await sendEmailApi({
       to: [to],
@@ -591,79 +632,87 @@ export function KouseiPage() {
                         </>
                       )}
                     </div>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>日付</th>
-                          <th>現場名</th>
-                          <th>元請け名</th>
-                          <th>作業種別</th>
-                          <th>人数</th>
-                          <th>金額（円）</th>
-                          <th>メモ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r) => {
-                          const rk = kouseiBillingRowKey(r);
-                          const amtStr =
-                            r.amount === null || r.amount === undefined
-                              ? ""
-                              : String(r.amount);
-                          return (
-                            <tr key={rk}>
-                              <td>{r.dateKey}</td>
-                              <td>{r.siteName}</td>
-                              <td>{r.clientName || "—"}</td>
-                              <td>{r.workKind}</td>
-                              <td>{r.peopleCount}</td>
-                              <td>
-                                {readOnly ? (
-                                  amtStr !== ""
-                                    ? `${Number(amtStr).toLocaleString()}円`
-                                    : "—"
-                                ) : (
-                                  <input
-                                    className={styles.amountInput}
-                                    type="number"
-                                    min={0}
-                                    step={1}
-                                    value={amtStr}
-                                    onChange={(e) => {
-                                      const v = e.target.value.trim();
-                                      updateBillingRow(rec.id, rk, {
-                                        amount:
-                                          v === ""
-                                            ? null
-                                            : Number(v),
-                                      });
-                                    }}
-                                    placeholder="0"
-                                  />
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  r.memo || "—"
-                                ) : (
-                                  <input
-                                    className={styles.input}
-                                    type="text"
-                                    value={r.memo}
-                                    onChange={(e) =>
-                                      updateBillingRow(rec.id, rk, {
-                                        memo: e.target.value,
-                                      })
-                                    }
-                                    placeholder="メモ"
-                                  />
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <div className={styles.kouseiAdminTableWrap}>
+                      <table
+                        className={`${styles.table} ${styles.kouseiBillingKouseiTable}`}
+                      >
+                        <thead>
+                          <tr>
+                            <th>日付</th>
+                            <th>現場名</th>
+                            <th>元請け名</th>
+                            <th>作業種別</th>
+                            <th>人数</th>
+                            <th>金額（5項目）</th>
+                            <th>メモ</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r) => {
+                            const rk = kouseiBillingRowKey(r);
+                            return (
+                              <tr key={rk}>
+                                <td>{r.dateKey}</td>
+                                <td>{r.siteName}</td>
+                                <td>{r.clientName || "—"}</td>
+                                <td>{r.workKind}</td>
+                                <td>{r.peopleCount}</td>
+                                <td className={styles.kouseiBillingCellAmount}>
+                                  {readOnly ? (
+                                    <div className={styles.kouseiBillingSummary}>
+                                      <div>
+                                        契約 {formatYenOrDash(r.contractAmount)}
+                                      </div>
+                                      <div>
+                                        請70%{" "}
+                                        {formatYenOrDash(effectiveAmount70(r))}
+                                      </div>
+                                      <div>
+                                        架60%{" "}
+                                        {formatYenOrDash(effectiveAmount60(r))}
+                                      </div>
+                                      <div>
+                                        払40%{" "}
+                                        {formatYenOrDash(effectiveAmount40(r))}
+                                      </div>
+                                      <div>
+                                        月払{" "}
+                                        {formatYenOrDash(r.monthlyPayment)}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <KouseiBillingAmountFields
+                                      compact
+                                      row={r}
+                                      onPatch={(p) =>
+                                        updateBillingRow(rec.id, rk, p)
+                                      }
+                                    />
+                                  )}
+                                </td>
+                                <td>
+                                  {readOnly ? (
+                                    r.memo || "—"
+                                  ) : (
+                                    <input
+                                      className={styles.input}
+                                      type="text"
+                                      value={r.memo}
+                                      onChange={(e) =>
+                                        updateBillingRow(rec.id, rk, {
+                                          memo: e.target.value,
+                                        })
+                                      }
+                                      placeholder="メモ"
+                                    />
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 );
               })}
