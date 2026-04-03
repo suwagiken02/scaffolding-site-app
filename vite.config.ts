@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin, type ResolvedConfig } from "vite";
@@ -69,7 +69,9 @@ if (firebaseConfig.apiKey) {
     closeBundle() {
       const env = loadEnv(mode, process.cwd(), "");
       const body = buildServiceWorkerSource(env);
-      const outPath = resolve(resolvedConfig.build.outDir, "firebase-messaging-sw.js");
+      const outDir = resolvedConfig.build.outDir;
+      mkdirSync(outDir, { recursive: true });
+      const outPath = resolve(outDir, "firebase-messaging-sw.js");
       writeFileSync(outPath, body, "utf8");
     },
   };
