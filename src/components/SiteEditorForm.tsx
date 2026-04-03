@@ -538,31 +538,62 @@ export function SiteEditorForm({
           </select>
         </div>
 
-        <div className={formStyles.field}>
-          <label className={formStyles.label} htmlFor="site-editor-company-kind">
-            8. 区分（KOUSEI / 自社）
-          </label>
-          <select
-            id="site-editor-company-kind"
-            className={styles.select}
-            value={companyKind}
-            onChange={(e) =>
-              setCompanyKind(e.target.value as CompanyKind)
-            }
+        <fieldset
+          className={`${formStyles.field} ${styles.companyKindFieldset}`}
+        >
+          <legend className={formStyles.label}>8. 区分（KOUSEI / 自社）</legend>
+          <div
+            className={styles.companyKindGroup}
+            role="radiogroup"
             aria-label="区分"
           >
-            <option value="KOUSEI">KOUSEI</option>
-            <option
-              value="自社"
-              style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
+            <label
+              className={`${styles.companyKindBtn} ${styles.companyKindKousei} ${
+                companyKind === "KOUSEI" ? styles.companyKindBtnSelected : ""
+              }`}
             >
-              自社
-            </option>
-            <option value="自社_green" style={{ color: "#15803d" }}>
-              自社
-            </option>
-          </select>
-        </div>
+              <input
+                type="radio"
+                name="site-editor-company-kind"
+                value="KOUSEI"
+                checked={companyKind === "KOUSEI"}
+                onChange={() => setCompanyKind("KOUSEI")}
+                className={styles.companyKindInput}
+              />
+              <span>KOUSEI</span>
+            </label>
+            <label
+              className={`${styles.companyKindBtn} ${styles.companyKindJishaWhite} ${
+                companyKind === "自社" ? styles.companyKindBtnSelected : ""
+              }`}
+            >
+              <input
+                type="radio"
+                name="site-editor-company-kind"
+                value="自社"
+                checked={companyKind === "自社"}
+                onChange={() => setCompanyKind("自社")}
+                className={styles.companyKindInput}
+              />
+              <span>自社</span>
+            </label>
+            <label
+              className={`${styles.companyKindBtn} ${styles.companyKindJishaGreen} ${
+                companyKind === "自社_green" ? styles.companyKindBtnSelected : ""
+              }`}
+            >
+              <input
+                type="radio"
+                name="site-editor-company-kind"
+                value="自社_green"
+                checked={companyKind === "自社_green"}
+                onChange={() => setCompanyKind("自社_green")}
+                className={styles.companyKindInput}
+              />
+              <span>自社</span>
+            </label>
+          </div>
+        </fieldset>
 
         <div className={formStyles.field}>
           <span className={formStyles.label}>メモ</span>

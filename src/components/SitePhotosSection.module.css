@@ -93,6 +93,18 @@
   cursor: not-allowed;
 }
 
+.inlinePhotoAdd {
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.inlinePhotoAdd .error {
+  margin: 0;
+}
+
 .error {
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;

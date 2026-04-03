@@ -331,6 +331,52 @@
   border-radius: var(--radius);
 }
 
+.siteActionBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.75rem;
+  align-items: stretch;
+  margin: 0 0 1rem;
+}
+
+.siteActionPrimary {
+  flex: 1 1 12rem;
+  appearance: none;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 1.08rem;
+  padding: 0.85rem 1.2rem;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+}
+
+.siteActionPrimary:hover {
+  filter: brightness(1.05);
+}
+
+.siteActionSecondary {
+  flex: 1 1 8rem;
+  appearance: none;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.siteActionSecondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .startWorkWrap {
   display: flex;
   flex-wrap: wrap;

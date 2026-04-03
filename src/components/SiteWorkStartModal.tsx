@@ -76,6 +76,7 @@ export function SiteWorkStartModal({
     Math.max(1, site.vehicleLabels.length)
   );
   const [error, setError] = useState<string | null>(null);
+  const [completedKind, setCompletedKind] = useState<WorkKind | null>(null);
 
   const hasTodayRecordForSelectedKind = useMemo(() => {
     const laborByDate = loadDailyLaborMap(site.id, workKind);
@@ -181,7 +182,14 @@ export function SiteWorkStartModal({
     };
 
     saveDailyLaborRecord(site.id, workKind, record);
-    onStarted(workKind);
+    setCompletedKind(workKind);
+  }
+
+  function onAcknowledgeRegistration() {
+    if (!completedKind) return;
+    const k = completedKind;
+    setCompletedKind(null);
+    onStarted(k);
     onClose();
   }
 
@@ -189,15 +197,39 @@ export function SiteWorkStartModal({
     <div
       className={styles.modalBackdrop}
       role="presentation"
-      onClick={onClose}
+      onClick={completedKind ? undefined : onClose}
     >
       <div
         className={styles.modal}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="work-start-title"
+        aria-labelledby={
+          completedKind ? "work-start-ack-title" : "work-start-title"
+        }
         onClick={(e) => e.stopPropagation()}
       >
+        {completedKind ? (
+          <>
+            <h2 id="work-start-ack-title" className={styles.modalTitle}>
+              登録完了
+            </h2>
+            <p className={styles.ackText}>
+              作業内容を登録しました。現場に到着したら必ず「作業を開始する」ボタンを押してください！
+            </p>
+            <div className={styles.modalFooter}>
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.confirmBtn}
+                  onClick={onAcknowledgeRegistration}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <h2 id="work-start-title" className={styles.modalTitle}>
           作業を追加する
         </h2>
@@ -406,6 +438,8 @@ export function SiteWorkStartModal({
             </button>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

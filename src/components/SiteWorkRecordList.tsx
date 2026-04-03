@@ -21,6 +21,7 @@ import {
 } from "../lib/siteWorkRecordFocus";
 import { getWorkEndIso, getWorkStartIso } from "../lib/workSessionTimes";
 import { PhotoCategoryBadge } from "./PhotoCategoryBadge";
+import { SiteWorkPhotoAddButton } from "./SiteWorkPhotoAddButton";
 import photoStyles from "./SitePhotosSection.module.css";
 import accStyles from "./SiteWorkDateAccordions.module.css";
 import styles from "./SiteWorkRecordList.module.css";
@@ -372,6 +373,13 @@ export function SiteWorkRecordList({ siteId, site, revision, onInvalidate }: Pro
 
                     <section className={accStyles.block} aria-label="写真一覧">
                       <h3 className={accStyles.blockTitle}>写真</h3>
+                      <SiteWorkPhotoAddButton
+                        siteId={siteId}
+                        site={site}
+                        workKind={workKind}
+                        dateKey={dateKey}
+                        onStorageChange={onInvalidate}
+                      />
                       {photos.length === 0 ? (
                         <p className={accStyles.muted}>この日の写真はありません。</p>
                       ) : (

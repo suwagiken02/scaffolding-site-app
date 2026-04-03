@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SiteDocument } from "../types/siteDocument";
 import {
   deleteSiteDocumentFromR2,
@@ -14,6 +21,8 @@ type Props = {
   siteId: string;
   revision: number;
   onStorageChange?: () => void;
+  /** 親の「書類を追加する」ボタンからファイル選択を開く */
+  registerAddTrigger?: (fn: () => void) => void;
 };
 
 function newDocId(): string {
@@ -40,6 +49,7 @@ export function SiteDocumentsSection({
   siteId,
   revision,
   onStorageChange,
+  registerAddTrigger,
 }: Props) {
   const headingId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +129,10 @@ export function SiteDocumentsSection({
     if (uploading) return;
     fileInputRef.current?.click();
   }, [uploading]);
+
+  useLayoutEffect(() => {
+    registerAddTrigger?.(onAddClick);
+  }, [registerAddTrigger, onAddClick]);
 
   const onDelete = useCallback(
     async (doc: SiteDocument) => {

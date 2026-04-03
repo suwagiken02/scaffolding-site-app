@@ -250,3 +250,88 @@
 .checkboxRow input {
   accent-color: var(--accent);
 }
+
+/* 区分：カスタムラジオ（Android でも色が安定） */
+.companyKindFieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.companyKindGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.75rem;
+  margin-top: 0.45rem;
+}
+
+.companyKindInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.companyKindBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.companyKindBtn:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.companyKindBtnSelected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.companyKindKousei {
+  background: #111827;
+  color: #ffffff;
+}
+
+.companyKindKousei:hover {
+  filter: brightness(1.08);
+}
+
+.companyKindJishaWhite {
+  background: #1f2937;
+  color: #ffffff;
+}
+
+.companyKindJishaWhite:hover {
+  filter: brightness(1.08);
+}
+
+.companyKindJishaGreen {
+  background: var(--surface);
+  color: #15803d;
+  border-color: rgba(21, 128, 61, 0.35);
+}
+
+.companyKindJishaGreen:hover {
+  background: var(--surface-hover);
+  border-color: rgba(21, 128, 61, 0.55);
+}

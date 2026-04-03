@@ -28,6 +28,8 @@ type Props = {
   todayDateKey: string;
   onStorageChange?: () => void;
   onLaborModalNeeded: (ctx: LaborModalCtx) => void;
+  /** 作業開始打刻が保存された直後（注意モーダル用） */
+  onAfterWorkStartPunch?: () => void;
 };
 
 function formatAt(iso: string): string {
@@ -67,6 +69,7 @@ export function SiteWorkTimeSection({
   todayDateKey,
   onStorageChange,
   onLaborModalNeeded,
+  onAfterWorkStartPunch,
 }: Props) {
   const labor = useMemo(
     () => loadDailyLaborMap(siteId, workKind)[todayDateKey],
@@ -90,6 +93,7 @@ export function SiteWorkTimeSection({
     });
     const nm = siteName.trim() || "現場";
     notifyWorkStartFcm(nm, workKind);
+    onAfterWorkStartPunch?.();
   }
 
   function onEnd() {
@@ -160,7 +164,7 @@ export function SiteWorkTimeSection({
       <div className={styles.actions}>
         <button
           type="button"
-          className={styles.btnStart}
+          className={`${styles.btnStart}${canStart ? ` ${styles.btnStartPulse}` : ""}`}
           disabled={!canStart}
           onClick={onStart}
         >
@@ -168,7 +172,7 @@ export function SiteWorkTimeSection({
         </button>
         <button
           type="button"
-          className={styles.btnEnd}
+          className={`${styles.btnEnd}${canEnd ? ` ${styles.btnEndPulse}` : ""}`}
           disabled={!canEnd}
           onClick={onEnd}
         >

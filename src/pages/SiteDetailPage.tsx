@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   companyKindLabel,
@@ -19,7 +18,6 @@ import { todayLocalDateKey } from "../lib/dateUtils";
 import { WORK_KINDS, type WorkKind } from "../types/workKind";
 import { LaborSummaryBar } from "../components/LaborSummaryBar";
 import { HelpTeamLaborModal } from "../components/HelpTeamLaborModal";
-import { SitePhotosSection } from "../components/SitePhotosSection";
 import { SiteWorkTimeSection } from "../components/SiteWorkTimeSection";
 import { SiteWorkStartModal } from "../components/SiteWorkStartModal";
 import { SiteNotificationRecipientsPanel } from "../components/SiteNotificationRecipientsPanel";
@@ -88,9 +86,7 @@ export function SiteDetailPage() {
   const [workStartOpen, setWorkStartOpen] = useState(false);
   const [workStartMessage, setWorkStartMessage] = useState<string | null>(null);
   const [todayUploadKind, setTodayUploadKind] = useState<WorkKind>("組み");
-  const [photoAddMessage, setPhotoAddMessage] = useState<string | null>(null);
-  const [photoTargetOpen, setPhotoTargetOpen] = useState(false);
-  const [photoTargetKind, setPhotoTargetKind] = useState<WorkKind>("組み");
+  const [workPunchStartAckOpen, setWorkPunchStartAckOpen] = useState(false);
   const [helpLaborModal, setHelpLaborModal] = useState<{
     workKind: WorkKind;
     dateKey: string;
@@ -114,11 +110,9 @@ export function SiteDetailPage() {
   const [memoDraft, setMemoDraft] = useState("");
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [editingMemoText, setEditingMemoText] = useState("");
-  const photoAddTriggerRef = useRef<(() => void) | null>(null);
-  /** 作業選択モーダル確定後の再実行ではゲートを通さずファイル選択を開く */
-  const photoGateBypassRef = useRef(false);
-  const registerPhotoAddTrigger = useCallback((fn: () => void) => {
-    photoAddTriggerRef.current = fn;
+  const documentAddTriggerRef = useRef<(() => void) | null>(null);
+  const registerDocumentAddTrigger = useCallback((fn: () => void) => {
+    documentAddTriggerRef.current = fn;
   }, []);
   const basicInfoSectionRef = useRef<HTMLElement | null>(null);
 
@@ -340,11 +334,6 @@ export function SiteDetailPage() {
     [safeSite.entranceDateKeys]
   );
 
-  const hasTodayWorkRecordAny = useMemo(() => {
-    if (!safeSite.id) return false;
-    return WORK_KINDS.some((k) => Boolean(loadDailyLaborMap(safeSite.id, k)[todayKey]));
-  }, [safeSite.id, todayKey, fileRevision]);
-
   const todayWorkKind = useMemo<WorkKind | null>(() => {
     if (!safeSite.id) return null;
     for (const k of WORK_KINDS) {
@@ -371,52 +360,6 @@ export function SiteDetailPage() {
     if (todayWorkKinds.includes(todayUploadKind)) return;
     setTodayUploadKind(todayWorkKinds[0]);
   }, [todayWorkKinds, todayUploadKind]);
-
-  useEffect(() => {
-    if (!photoTargetOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setPhotoTargetOpen(false);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [photoTargetOpen]);
-
-  const beforeAddPhotos = useCallback(() => {
-    setPhotoAddMessage(null);
-    if (photoGateBypassRef.current) {
-      photoGateBypassRef.current = false;
-      return true;
-    }
-    if (todayWorkKinds.length === 0) {
-      // 人工未登録でも今日の日付へ写真を追加できる（作業種別は workKind）
-      return true;
-    }
-    if (todayWorkKinds.length === 1) {
-      setTodayUploadKind(todayWorkKinds[0]);
-      return true;
-    }
-    let latest: WorkKind | null = null;
-    let latestMs = -Infinity;
-    for (const k of todayWorkKinds) {
-      const rec = loadDailyLaborMap(safeSite.id, k)[todayKey];
-      const ms =
-        rec && typeof rec.createdAt === "string" ? Date.parse(rec.createdAt) : NaN;
-      if (Number.isFinite(ms) && ms > latestMs) {
-        latestMs = ms;
-        latest = k;
-      }
-    }
-    const initial =
-      latest ??
-      (todayWorkKinds.includes(todayUploadKind)
-        ? todayUploadKind
-        : todayWorkKinds[0]);
-    setPhotoTargetKind(initial);
-    setPhotoTargetOpen(true);
-    return false;
-  }, [todayWorkKinds, todayUploadKind, safeSite.id, todayKey]);
 
   const resolvedTraffic = useMemo(() => {
     const address = safeSite.address.trim();
@@ -497,12 +440,6 @@ export function SiteDetailPage() {
         <p className={styles.headerClient}>
           {safeSite.clientName?.trim() || "—"}
         </p>
-        <SiteDocumentsSection
-          siteId={safeSite.id}
-          revision={fileRevision}
-          onStorageChange={bumpFile}
-        />
-        <SiteProcessSummaryPhotos siteId={safeSite.id} revision={fileRevision} />
       </header>
 
       {safeSite.externalUnconfirmed === true && (
@@ -531,10 +468,20 @@ export function SiteDetailPage() {
         </div>
       )}
 
-      <div className={styles.basicInfoJumpBar}>
+      <div className={styles.siteActionBar} role="group" aria-label="現場の主な操作">
         <button
           type="button"
-          className={styles.basicInfoJumpBtn}
+          className={styles.siteActionPrimary}
+          onClick={() => {
+            setWorkStartMessage(null);
+            setWorkStartOpen(true);
+          }}
+        >
+          作業内容を登録する
+        </button>
+        <button
+          type="button"
+          className={styles.siteActionSecondary}
           onClick={() =>
             basicInfoSectionRef.current?.scrollIntoView({
               behavior: "smooth",
@@ -544,27 +491,29 @@ export function SiteDetailPage() {
         >
           基本情報
         </button>
+        <button
+          type="button"
+          className={styles.siteActionSecondary}
+          onClick={() => documentAddTriggerRef.current?.()}
+        >
+          書類を追加する
+        </button>
       </div>
 
-      <section aria-label="作業記録一覧">
-        <div className={styles.startWorkWrap}>
-          <button
-            type="button"
-            className={styles.startWorkBtn}
-            onClick={() => {
-              setWorkStartMessage(null);
-              setWorkStartOpen(true);
-            }}
-          >
-            ＋作業内容を登録する
-          </button>
-          {workStartMessage && (
-            <p className={styles.workStartMessage} role="status">
-              {workStartMessage}
-            </p>
-          )}
-        </div>
+      {workStartMessage && (
+        <p className={styles.workStartMessage} role="status">
+          {workStartMessage}
+        </p>
+      )}
 
+      <SiteDocumentsSection
+        siteId={safeSite.id}
+        revision={fileRevision}
+        onStorageChange={bumpFile}
+        registerAddTrigger={registerDocumentAddTrigger}
+      />
+
+      <section aria-label="作業の打刻・記録">
         {workStartOpen && (
           <SiteWorkStartModal
             site={safeSite}
@@ -577,6 +526,38 @@ export function SiteDetailPage() {
               setTodayUploadKind(next);
             }}
           />
+        )}
+
+        {workPunchStartAckOpen && (
+          <div
+            className={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setWorkPunchStartAckOpen(false)}
+          >
+            <div
+              className={styles.modal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="punch-start-ack-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="punch-start-ack-title" className={styles.modalTitle}>
+                作業開始
+              </h2>
+              <p className={styles.modalBody}>
+                作業を開始しました。作業が終わったら必ず「作業を終了する」ボタンを押してください！
+              </p>
+              <div className={styles.modalActions}>
+                <button
+                  type="button"
+                  className={styles.modalConfirm}
+                  onClick={() => setWorkPunchStartAckOpen(false)}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {todayWorkKinds.length > 1 && (
@@ -610,16 +591,7 @@ export function SiteDetailPage() {
           todayDateKey={todayKey}
           onStorageChange={bumpFile}
           onLaborModalNeeded={(ctx) => setHelpLaborModal(ctx)}
-        />
-
-        <SitePhotosSection
-          siteId={safeSite.id}
-          site={safeSite}
-          workKind={photoSectionWorkKind}
-          todayDateKey={todayKey}
-          onStorageChange={bumpFile}
-          beforeAddPhotos={beforeAddPhotos}
-          registerAddPhotosTrigger={registerPhotoAddTrigger}
+          onAfterWorkStartPunch={() => setWorkPunchStartAckOpen(true)}
         />
 
         {helpLaborModal && (
@@ -635,162 +607,12 @@ export function SiteDetailPage() {
           />
         )}
 
-        {photoAddMessage && (
-          <p className={styles.workStartMessage} role="status">
-            {photoAddMessage}
-          </p>
-        )}
-
-        {photoTargetOpen && (
-          <div
-            className={styles.modalBackdrop}
-            role="presentation"
-            onClick={() => {
-              setPhotoTargetOpen(false);
-            }}
-          >
-            <div
-              className={styles.modal}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="photo-target-title"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 id="photo-target-title" className={styles.modalTitle}>
-                どの作業に追加しますか？
-              </h2>
-              <div className={styles.modalBody}>
-                {todayWorkKinds.map((k) => (
-                  <label key={k} className={styles.radioLabel}>
-                    <input
-                      type="radio"
-                      name="photo-target-kind"
-                      checked={photoTargetKind === k}
-                      onChange={() => setPhotoTargetKind(k)}
-                    />
-                    {k}（{todayKey.replaceAll("-", "/")}）
-                  </label>
-                ))}
-              </div>
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={styles.modalCancel}
-                  onClick={() => {
-                    setPhotoTargetOpen(false);
-                  }}
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="button"
-                  className={styles.modalConfirm}
-                  onClick={() => {
-                    // 先に作業種別を確定させないと、SitePhotosSection の workKind が古いままアップロードされる
-                    flushSync(() => {
-                      setTodayUploadKind(photoTargetKind);
-                    });
-                    photoGateBypassRef.current = true;
-                    setPhotoTargetOpen(false);
-                    // 再実行時は beforeAddPhotos がモーダルを開き直さないようバイパスする
-                    photoAddTriggerRef.current?.();
-                  }}
-                >
-                  この作業に追加する
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <SiteWorkRecordList
           siteId={safeSite.id}
           site={safeSite}
           revision={fileRevision}
           onInvalidate={bumpFile}
         />
-      </section>
-
-      <section aria-label="人工・交通費">
-        <h2 className={styles.pageSectionTitle}>人工・交通費</h2>
-        <LaborSummaryBar siteId={safeSite.id} revision={fileRevision} />
-
-        <section className={styles.trafficSummary} aria-label="交通費">
-          <h3 className={styles.sectionTitle}>交通費</h3>
-          {!resolvedTraffic ? (
-            <p className={styles.trafficHint}>交通費マスターに未登録です</p>
-          ) : (
-            (() => {
-              const perCar = resolvedTraffic.totalYen;
-              const sumFor = (kind: WorkKind) => {
-                const map = loadDailyLaborMap(safeSite.id, kind);
-                let total = 0;
-                for (const r of Object.values(map)) {
-                  const vc =
-                    typeof r.vehicleCount === "number" ? r.vehicleCount : 0;
-                  if (Number.isFinite(vc) && vc > 0) total += vc * perCar;
-                }
-                return total;
-              };
-              const kumi = sumFor("組み");
-              const harai = sumFor("払い");
-              const sonota = sumFor("その他");
-              const joyo = sumFor("常用作業");
-              const grand = kumi + harai + sonota + joyo;
-              return (
-                <div className={styles.trafficGrid}>
-                  <div className={styles.trafficItem}>
-                    <span className={styles.trafficLabel}>組みの交通費合計</span>
-                    <span className={styles.trafficAmount}>
-                      {formatYen(kumi)}
-                    </span>
-                  </div>
-                  <div className={styles.trafficItem}>
-                    <span className={styles.trafficLabel}>払いの交通費合計</span>
-                    <span className={styles.trafficAmount}>
-                      {formatYen(harai)}
-                    </span>
-                  </div>
-                  <div className={styles.trafficItem}>
-                    <span className={styles.trafficLabel}>その他の交通費合計</span>
-                    <span className={styles.trafficAmount}>
-                      {formatYen(sonota)}
-                    </span>
-                  </div>
-                  <div className={styles.trafficItem}>
-                    <span className={styles.trafficLabel}>常用作業の交通費合計</span>
-                    <span className={styles.trafficAmount}>
-                      {formatYen(joyo)}
-                    </span>
-                  </div>
-                  <div className={`${styles.trafficItem} ${styles.trafficTotal}`}>
-                    <span className={styles.trafficLabel}>総交通費</span>
-                    <span className={styles.trafficAmount}>
-                      {formatYen(grand)}
-                    </span>
-                  </div>
-                  <p className={styles.trafficNote}>
-                    1台あたり{formatYen(perCar)} × 日ごとの車両台数で計算します。
-                  </p>
-                </div>
-              );
-            })()
-          )}
-        </section>
-
-        <section className={styles.trafficSection} aria-label="交通費（1台あたり）">
-          <h3 className={styles.sectionTitle}>交通費</h3>
-          {resolvedTraffic ? (
-            <p className={styles.trafficValue}>
-              1台あたり：
-              <strong>{formatYen(resolvedTraffic.totalYen)}</strong>（ガソリン代
-              {formatYen(resolvedTraffic.setting.gasYen)}＋ETC
-              {formatYen(resolvedTraffic.setting.etcYen)}）
-            </p>
-          ) : (
-            <p className={styles.trafficHint}>交通費マスターに未登録です</p>
-          )}
-        </section>
       </section>
 
       <section
@@ -1049,6 +871,90 @@ export function SiteDetailPage() {
           <SiteNotificationRecipientsPanel siteId={safeSite.id} />
         </div>
       </section>
+
+      <section aria-label="人工・交通費">
+        <h2 className={styles.pageSectionTitle}>人工・交通費</h2>
+        <LaborSummaryBar siteId={safeSite.id} revision={fileRevision} />
+
+        <section className={styles.trafficSummary} aria-label="交通費">
+          <h3 className={styles.sectionTitle}>交通費</h3>
+          {!resolvedTraffic ? (
+            <p className={styles.trafficHint}>交通費マスターに未登録です</p>
+          ) : (
+            (() => {
+              const perCar = resolvedTraffic.totalYen;
+              const sumFor = (kind: WorkKind) => {
+                const map = loadDailyLaborMap(safeSite.id, kind);
+                let total = 0;
+                for (const r of Object.values(map)) {
+                  const vc =
+                    typeof r.vehicleCount === "number" ? r.vehicleCount : 0;
+                  if (Number.isFinite(vc) && vc > 0) total += vc * perCar;
+                }
+                return total;
+              };
+              const kumi = sumFor("組み");
+              const harai = sumFor("払い");
+              const sonota = sumFor("その他");
+              const joyo = sumFor("常用作業");
+              const grand = kumi + harai + sonota + joyo;
+              return (
+                <div className={styles.trafficGrid}>
+                  <div className={styles.trafficItem}>
+                    <span className={styles.trafficLabel}>組みの交通費合計</span>
+                    <span className={styles.trafficAmount}>
+                      {formatYen(kumi)}
+                    </span>
+                  </div>
+                  <div className={styles.trafficItem}>
+                    <span className={styles.trafficLabel}>払いの交通費合計</span>
+                    <span className={styles.trafficAmount}>
+                      {formatYen(harai)}
+                    </span>
+                  </div>
+                  <div className={styles.trafficItem}>
+                    <span className={styles.trafficLabel}>その他の交通費合計</span>
+                    <span className={styles.trafficAmount}>
+                      {formatYen(sonota)}
+                    </span>
+                  </div>
+                  <div className={styles.trafficItem}>
+                    <span className={styles.trafficLabel}>常用作業の交通費合計</span>
+                    <span className={styles.trafficAmount}>
+                      {formatYen(joyo)}
+                    </span>
+                  </div>
+                  <div className={`${styles.trafficItem} ${styles.trafficTotal}`}>
+                    <span className={styles.trafficLabel}>総交通費</span>
+                    <span className={styles.trafficAmount}>
+                      {formatYen(grand)}
+                    </span>
+                  </div>
+                  <p className={styles.trafficNote}>
+                    1台あたり{formatYen(perCar)} × 日ごとの車両台数で計算します。
+                  </p>
+                </div>
+              );
+            })()
+          )}
+        </section>
+
+        <section className={styles.trafficSection} aria-label="交通費（1台あたり）">
+          <h3 className={styles.sectionTitle}>交通費</h3>
+          {resolvedTraffic ? (
+            <p className={styles.trafficValue}>
+              1台あたり：
+              <strong>{formatYen(resolvedTraffic.totalYen)}</strong>（ガソリン代
+              {formatYen(resolvedTraffic.setting.gasYen)}＋ETC
+              {formatYen(resolvedTraffic.setting.etcYen)}）
+            </p>
+          ) : (
+            <p className={styles.trafficHint}>交通費マスターに未登録です</p>
+          )}
+        </section>
+      </section>
+
+      <SiteProcessSummaryPhotos siteId={safeSite.id} revision={fileRevision} />
 
       <div className={styles.scaffoldRemovalBar}>
         {safeSite.scaffoldingRemovalCompletedAt?.trim() ? (
